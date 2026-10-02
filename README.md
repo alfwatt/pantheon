@@ -31,7 +31,9 @@ Consume the library with `-Iinclude build/libpantheon.a` and a single
       (positional cuneiform rendering in UTF-8)
 
 #### Egyptian
-- egyptian numerals
+- [x] [egyptian numerals](https://en.wikipedia.org/wiki/Egyptian_numerals)
+       (hieroglyphic rendering in UTF-8: the seven power-of-ten signs,
+       0..9,999,999 with the scribe's blank for zero)
 
 #### Chinese
 - chinese numerals

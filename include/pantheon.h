@@ -5,7 +5,8 @@
  *  no heap allocation, small by-value types, straight-line code.
  *
  *  This revision: Babylonian sexagesimal (base-60) arithmetic and
- *  cuneiform numerals.  See README.md for the roadmap.
+ *  cuneiform numerals; Egyptian hieroglyphic numerals.  See README.md
+ *  for the roadmap.
  */
 #ifndef PANTHEON_H
 #define PANTHEON_H
@@ -234,6 +235,90 @@ pn_status pn_babylonian_render(pn_sex60 v, char *buf, size_t buflen);
  * than 5 U or 9 DISH signs in a group, or more than
  * PN_SEX60_MAX_PLACES places).  On error *out is untouched. */
 pn_status pn_babylonian_parse(const char *buf, size_t buflen, pn_sex60 *out);
+
+/* ------------------------------------------------------------------------
+ * Egyptian hieroglyphic numerals (UTF-8 rendering).
+ *
+ * The Egyptian system (c. 3000 BCE onward) was decimal but ADDITIVE: a
+ * distinct hieroglyph for each power of ten, repeated as many times as
+ * the digit demands — no positional notation at all.  See
+ * https://en.wikipedia.org/wiki/Egyptian_numerals .  The seven signs,
+ * per the Unicode Standard names list (all in the Egyptian Hieroglyphs
+ * block U+13000..U+1342F, all 4 bytes of UTF-8):
+ *
+ *   U+133E4  EGYPTIAN HIEROGLYPH Z001   𓏤  single stroke,      value 1
+ *   U+13386  EGYPTIAN HIEROGLYPH V020   𓎆  cattle hobble,        value 10
+ *   U+13362  EGYPTIAN HIEROGLYPH V001   𓍢  coil of rope,         value 100
+ *   U+131BC  EGYPTIAN HIEROGLYPH M012   𓆼  lotus,                value 1 000
+ *   U+130AD  EGYPTIAN HIEROGLYPH D050   𓂭  bent finger,          value 10 000
+ *   U+13190  EGYPTIAN HIEROGLYPH I008   𓆐  tadpole,              value 100 000
+ *   U+13068  EGYPTIAN HIEROGLYPH C011   𓁨  Heh (god, arms raised), value 1 000 000
+ *
+ * There is NO sign above the Heh and NO zero: the scribe simply left a
+ * blank where our 0 sits, and a lone blank on an accounting ostracon
+ * meant "nothing owed".  So the renderable domain is the scribe's full
+ * set, 0..PN_EGYPTIAN_MAX_VALUE — every sign at most nine times — and
+ * zero renders as the empty string.  Values beyond the Heh (10 000 000
+ * would need ten Heh signs, 10^8 a hundred) are pn_err_range, not
+ * because Egypt could not count them but because this rendering insists
+ * each sign be written out, and a nine-million-sign tablet fits no
+ * caller's buffer.
+ *
+ * Canonical form: signs grouped in DESCENDING powers of ten, one
+ * contiguous run per sign, with no separators — unlike cuneiform, the
+ * distinct signs are self-delimiting and there is no gap to preserve.
+ * 4622 (the Karnak carving) is thus four lotus + six coils + two
+ * hobbles + two strokes, largest first, as any scribe would carve it.
+ * ---------------------------------------------------------------------- */
+
+#define PN_EGYPTIAN_STROKE     0x133E4u  /* 𓏤 single stroke   = 1          */
+#define PN_EGYPTIAN_HOBBLE     0x13386u  /* 𓎆 cattle hobble   = 10         */
+#define PN_EGYPTIAN_COIL       0x13362u  /* 𓍢 coil of rope    = 100        */
+#define PN_EGYPTIAN_LOTUS      0x131BCu  /* 𓆼 lotus           = 1 000      */
+#define PN_EGYPTIAN_FINGER     0x130ADu  /* 𓂭 bent finger     = 10 000     */
+#define PN_EGYPTIAN_TADPOLE    0x13190u  /* 𓆐 tadpole         = 100 000    */
+#define PN_EGYPTIAN_HEH        0x13068u  /* 𓁨 Heh god         = 1 000 000  */
+#define PN_EGYPTIAN_MAX_VALUE  9999999ull /* nine of each sign: the scribe's full set */
+
+/* Exact number of bytes (excluding the NUL) pn_egyptian_render will
+ * write: four per sign drawn, i.e. 4 * (sum of decimal digits) for
+ * n <= PN_EGYPTIAN_MAX_VALUE.  Pure and total — it never fails; for
+ * n > PN_EGYPTIAN_MAX_VALUE its answer is simply meaningless, since
+ * render rejects such values with pn_err_range.  render_size(0) == 0:
+ * the scribe's blank. */
+size_t pn_egyptian_render_size(uint64_t n);
+
+/* Render n in hieroglyphic numerals into buf as UTF-8, NUL-terminated:
+ * for each decimal digit d at 10^k, d copies of that power's sign, runs
+ * written in descending powers (10^6 first) with no separators.  n == 0
+ * renders the empty string — the faithful blank.  Needs exactly
+ * pn_egyptian_render_size(n) bytes + NUL; a smaller buffer gives
+ * pn_err_buffer and leaves buf untouched.
+ *
+ * Errors: pn_err_null, pn_err_range (n > PN_EGYPTIAN_MAX_VALUE),
+ * pn_err_buffer.  On error buf is untouched. */
+pn_status pn_egyptian_render(uint64_t n, char *buf, size_t buflen);
+
+/* Parse a rendered hieroglyphic string — the inverse of
+ * pn_egyptian_render.  buf holds exactly buflen bytes of UTF-8 made of
+ * the seven signs only, grouped in canonical form: one contiguous run
+ * per sign, runs strictly descending in power, each run 1..9 copies.
+ * The value is the sum of every sign's worth, so the round-trip law is
+ * exact:
+ *
+ *      pn_egyptian_parse(buf, strlen(buf), &n) after a successful
+ *      pn_egyptian_render(n, buf, ...) recovers n.
+ *
+ * An empty buffer (buflen == 0) parses as 0 — the blank reads back as
+ * the nothing it was.  Any other byte, a run out of descending order or
+ * the same sign written in two runs, is malformed; no sign was ever
+ * written bottom-up on a temple wall.
+ *
+ * Errors: pn_err_null, pn_err_syntax (any other byte, a cut-off sign,
+ * ascending or split runs), pn_err_range (a run of ten or more copies
+ * of one sign — ten strokes are written as one hobble, so that string
+ * is not a canonical number).  On error *out is untouched. */
+pn_status pn_egyptian_parse(const char *buf, size_t buflen, uint64_t *out);
 
 #ifdef __cplusplus
 }
