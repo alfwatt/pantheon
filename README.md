@@ -36,7 +36,12 @@ Consume the library with `-Iinclude build/libpantheon.a` and a single
        0..9,999,999 with the scribe's blank for zero)
 
 #### Chinese
-- chinese numerals
+- [x] [chinese numerals](https://en.wikipedia.org/wiki/Chinese_numerals)
+        (formal hanzi reading in UTF-8: digits with their 千/百/十/万
+        multipliers, 0..99,999,999, one blank over each skipped digit)
+- [x] [counting rods](https://en.wikipedia.org/wiki/Counting_rods)
+        (positional rods in UTF-8: the two alternating Unicode digit
+        sets, 0..10^19−1 with the blank column for zero)
 
 #### Indian
 - vedic numerals

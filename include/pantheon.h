@@ -5,7 +5,8 @@
  *  no heap allocation, small by-value types, straight-line code.
  *
  *  This revision: Babylonian sexagesimal (base-60) arithmetic and
- *  cuneiform numerals; Egyptian hieroglyphic numerals.  See README.md
+ *  cuneiform numerals; Egyptian hieroglyphic numerals; Chinese hanzi
+	*  numerals and counting rods.  See README.md
  *  for the roadmap.
  */
 #ifndef PANTHEON_H
@@ -319,6 +320,178 @@ pn_status pn_egyptian_render(uint64_t n, char *buf, size_t buflen);
  * of one sign — ten strokes are written as one hobble, so that string
  * is not a canonical number).  On error *out is untouched. */
 pn_status pn_egyptian_parse(const char *buf, size_t buflen, uint64_t *out);
+
+/* ------------------------------------------------------------------------
+	*  Chinese hanzi numerals (UTF-8 rendering).
+	*
+	*  Chinese numerals are decimal, but they write no bare place-value
+	*  digits: the number is two sections around 万, value = A * 10^4 + B,
+	*  and each section spells its nonzero digits high to low as
+	*  (digit + 千/百/十), the section's units digit bare and last:
+	*
+	*      四千六百二十二          = 4622      (Wikipedia's worked example)
+	*      九千九百九十九万
+	*      九千九百九十九            = 99 999 999  (the maximum)
+	*
+	*  The signs, per the Unicode Standard names list (all in the CJK
+	*  Unified Ideographs block, all 3 bytes of UTF-8):
+	*
+	*    U+4E00 一 = 1      U+4E8C 二 = 2      U+4E09 三 = 3
+	*    U+56DB 四 = 4      U+4E94 五 = 5      U+516D 六 = 6
+	*    U+4E03 七 = 7      U+516B 八 = 8      U+4E5D 九 = 9
+	*    U+5341 十 = 10     U+767E 百 = 100    U+5343 千 = 1000
+	*    U+4E07 万 = 10 000
+	*
+	*  Zero follows the Egyptian blank: a skipped digit is simply not
+	*  written, and the skip is acknowledged by exactly one U+0020 space
+	*  between the surrounding terms — 1005 is 一千 五 and 1050 is
+	*  一千 五十, where later China would write 一千零五 and 一千零五十.
+	*  The space never carries value, because each digit's place is
+	*  already pinned by its multiplier (a bare digit is always its
+	*  section's units digit), so the round trip stays exact — unlike
+	*  the load-bearing gap of the counting rods below.
+	*
+	*  Canonical form is the full formal reading; colloquial elisions are
+	*  not canonical: 14 is 一十四, never the spoken 十四.  亿 (10^8) and
+	*  traditional 萬 are outside this rendering — the domain stops at
+	*  万, the same ruling as Egypt's missing sign above the Heh — so
+	*  PN_HANZI_MAX_VALUE is 99 999 999, 九千九百九十九万九千九百九十九.
+	* ---------------------------------------------------------------------- */
+
+#define PN_HANZI_MAX_VALUE 99999999ull /* nine 九 in every place of both sections */
+
+/*  Exact number of bytes (excluding the NUL) pn_hanzi_render will
+	*  write for a well-formed n: three per sign drawn — every digit, every
+	*  multiplier used, and the 万 — plus one for each blank space
+	*  acknowledging a skipped digit.  Pure and total — it never fails; for
+	*  n > PN_HANZI_MAX_VALUE its answer is simply meaningless, since
+	*  render rejects such values with pn_err_range.  render_size(0) == 0:
+	*  the blank. */
+size_t pn_hanzi_render_size(uint64_t n);
+
+/*  Render n in hanzi numerals into buf as UTF-8, NUL-terminated: write
+	*  n = A * 10^4 + B; when A is nonzero, its section high to low (digit +
+	*  千/百/十 terms, a bare digit last for the section's units place),
+	*  then 万, then B's nonzero terms likewise; a skip of one or more
+	*  places between consecutive terms is marked by exactly one space.
+	*  n == 0 renders the empty string — the blank.  Needs exactly
+	*  pn_hanzi_render_size(n) bytes + NUL; a smaller buffer gives
+	*  pn_err_buffer and leaves buf untouched.
+	*
+	*  Errors: pn_err_null, pn_err_range (n > PN_HANZI_MAX_VALUE),
+	*  pn_err_buffer.  On error buf is untouched. */
+pn_status pn_hanzi_render(uint64_t n, char *buf, size_t buflen);
+
+/*  Parse a rendered hanzi string — the inverse of pn_hanzi_render.
+	*  Strict canonical form: digits 一..九, each followed by its
+	*  multiplier (千/百/十) except a bare units digit last in its section;
+	*  multipliers strictly descending within a section; at most one 万,
+	*  immediately after A's last term and never before any B term:
+	*
+	*      四千六百二十二  ->  4622
+	*      一千 五       ->  1005   (the blank: 百 and 十 skipped)
+	*      四万一千      ->  41000   (no space: 万 and 千 adjacent)
+	*
+	*  Round-trip law, exact: parsing buf after a successful render
+	*  recovers n.  An empty buffer (buflen == 0) parses as 0 — the blank
+	*  reads back as the nothing it was.  The grammar cannot express a
+	*  value past PN_HANZI_MAX_VALUE, so overflow needs no check; the
+	*  colloquial 十四, a stray 零 or 〇, a space where adjacent terms
+	*  meet (四百 三十一), a missing blank across a skip (五千万五),
+	*  repeated or ascending multipliers, a digit after a section's bare
+	*  digit, a second 万, or 万 after a multiplier are all
+	*  pn_err_syntax.
+	*
+	*  Errors: pn_err_null, pn_err_syntax (any other byte, a cut-off sign,
+	*  leading/trailing/double spaces, or the canonical violations above).
+	*  On error *out is untouched. */
+pn_status pn_hanzi_parse(const char *buf, size_t buflen, uint64_t *out);
+
+/* ------------------------------------------------------------------------
+	*  Counting rod numerals (UTF-8 rendering).
+	*
+	*  Rod numerals (算筹, in use c. 400 BCE onward in China, Japan,
+	*  Korea and Vietnam) are true positional decimal: one bundle of
+	*  rods per column, the columns alternating between two forms of the
+	*  digits so that a lone rod can never be confused with its rotated
+	*  twin.  The Unicode block encodes both forms (Supplementary
+	*  Multilingual Plane, all 4 bytes of UTF-8):
+	*
+	*    U+1D360..U+1D368  COUNTING ROD UNIT DIGIT ONE..NINE
+	*                      𝍠 𝍡 𝍢 𝍣 𝍤 𝍥 𝍦 𝍧 𝍨
+	*    U+1D369..U+1D371  COUNTING ROD TENS DIGIT ONE..NINE
+	*                      𝍩 𝍪 𝍫 𝍬 𝍭 𝍮 𝍯 𝍰 𝍱
+	*
+	*  The units column takes the unit set, the tens column the tens set,
+	*  the hundreds the unit set again, and so on — the Song-dynasty
+	*  orientation, which is also what the Unicode names assume.
+	*
+	*  The rods had NO zero — an empty column was literally left empty,
+	*  and the reader counted columns to know each place — so the blank
+	*  is rendered as space here, the cuneiform gap generalised to base
+	*  ten: every place boundary contributes exactly one space, and a
+	*  blank place contributes one of its own.  A well-formed string
+	*  therefore holds exactly (places − 1) spaces, which is what makes
+	*  the faithful blank round-trip:
+	*
+	*         𝍪 𝍢       = 23        (adjacent places: one joiner)
+	*         𝍠  𝍠      = 101       (the blank tens place: joiner plus one)
+	*         𝍠            = 100       (𝍠 plus two blanks, not the lone 1)
+	*
+	*  A column's form must match the parity of its place: writing 11 as
+	*  𝍠 𝍠 instead of 𝍩 𝍠 is the rod equivalent of a DISH before
+	*  a U, and pn_rods_parse rejects it.  There is no sign of negative
+	*  values (the red/black rods of later Japanese counting are outside
+	*  this rendering), and modern transcriptions' 〇 U+3007 is not
+	*  written — a zero is a blank, as on the counting board.
+	* ---------------------------------------------------------------------- */
+
+#define PN_ROD_UNIT_DIGIT_ONE 0x1D360u /* …through U+1D368 (digit d: +d-1)  */
+#define PN_ROD_TENS_DIGIT_ONE  0x1D369u /* …through U+1D371 (digit d: +d-1) */
+#define PN_ROD_MAX_PLACES 19           /* 10^19 − 1 still fits uint64_t     */
+	#define PN_ROD_MAX_VALUE 9999999999999999999ull /* 10^19 − 1: nineteen nines   */
+
+/*  Exact number of bytes (excluding the NUL) pn_rods_render will write
+	*  for a well-formed n: four per rod drawn, plus one space per place
+	*  boundary — i.e. 4*(count of nonzero digits) + (count of digits − 1).
+	*  Pure and total — it never fails; for n > PN_ROD_MAX_VALUE its answer
+	*  is simply meaningless, since render rejects such values with
+	*  pn_err_range.  render_size(0) == 0: the empty board. */
+size_t pn_rods_render_size(uint64_t n);
+
+/*  Render n in rod numerals into buf as UTF-8, NUL-terminated: one rod
+	*  glyph per nonzero digit (unit set at even places, tens set at odd),
+	*  most significant first; every place boundary from the top place
+	*  down to the units writes exactly one space — joiner between
+	*  adjacent columns, blank for empty ones (trailing blanks included).
+	*  n == 0 renders the empty string.  Needs exactly
+	*  pn_rods_render_size(n) bytes + NUL; a smaller buffer gives
+	*  pn_err_buffer and leaves buf untouched.
+	*
+	*  Errors: pn_err_null, pn_err_range (n > PN_ROD_MAX_VALUE),
+	*  pn_err_buffer.  On error buf is untouched. */
+pn_status pn_rods_render(uint64_t n, char *buf, size_t buflen);
+
+/*  Parse a rendered rod string — the inverse of pn_rods_render.  The
+	*  string is exactly the two rod sets and spaces, in canonical
+	*  spacing: it never starts with a space, holds at least one glyph,
+	*  and the total count of spaces is one less than the number of
+	*  places the value needs — the parser sets places = spaces + 1,
+	*  reads the leftmost glyph at place places − 1, and each run of r
+	*  spaces advances the place by r:
+	*
+	*         𝍪 𝍢       ->    23
+	*         𝍠  𝍠      ->    101      (the blank tens column)
+	*         𝍩             ->    10       (the blank units column)
+	*
+	*  Round-trip law, exact: parsing buf after a successful render
+	*  recovers n.  An empty buffer (buflen == 0) parses as 0.  Errors:
+	*  pn_err_null, pn_err_syntax (leading space, all spaces, two glyphs
+	*  with no space between, a glyph whose set contradicts its place's
+	*  parity, any other byte, a sign cut off short), pn_err_range (more
+	*  than PN_ROD_MAX_PLACES places: spaces + 1 > 19).  On error *out is
+	*  untouched. */
+pn_status pn_rods_parse(const char *buf, size_t buflen, uint64_t *out);
 
 #ifdef __cplusplus
 }
