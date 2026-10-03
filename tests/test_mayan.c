@@ -127,7 +127,10 @@ int main(void)
 	CHECK_ST(pn_mayan_render(v, NULL, 64), pn_err_null);
 
 	memset(buf, 'x', 8);
-	v.places[2] = 20;     /* {1,0,0,0} with a place past nineteen */
+	v.places[2] = 20;     /* {1,0,20,0}: a place past nineteen */
+	v.n_places = 4;
+	v.radix = 4;
+	v.neg = false;
 	CHECK_ST(pn_mayan_render(v, buf, sizeof buf), pn_err_domain);
 	CHECK(memcmp(buf, "xxxx", 4) == 0);    /* untouched */
 
@@ -175,8 +178,9 @@ int main(void)
 			back.places[0] == 0);
 
 	/* leading shells are kept, not rejected (a value may carry them,
-		the way pn_vigesimal_parse keeps the 0 of "0;5" literal) */
-	CHECK_ST(pn_mayan_parse(SHELL " " DOT " " THREE, 12, &back), pn_ok);
+		the way pn_vigesimal_parse keeps the 0 of "0;5" literal); three
+		whole signs of four bytes each make the exact count 14 */
+	CHECK_ST(pn_mayan_parse(SHELL " " DOT " " THREE, 14, &back), pn_ok);
 	CHECK(back.n_places == 3 && back.radix == 3 &&
 			back.places[0] == 0 && back.places[1] == 1 &&
 			back.places[2] == 3);
