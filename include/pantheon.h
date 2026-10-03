@@ -685,6 +685,82 @@ pn_status pn_brahmi_render(uint64_t n, char *buf, size_t buflen);
   *  Errors: pn_err_null, pn_err_syntax. */
 pn_status pn_brahmi_parse(const char *buf, size_t buflen, uint64_t *out);
 
+/* ------------------------------------------------------------------------
+ *  Mayan bar-and-dot numerals over pn_vigesimal — the renderer.
+ *
+ *  The Maya had what no other ancient place-value script here can
+ *  claim, and what Unicode's cuneiform block pointedly lacks: a real
+ *  zero.  Dots for units, bars for fives, a shell for nought, and the
+ *  block composites them into one sign per place 0..19:
+ *
+ *  U+1D2E0..U+1D2E4   MAYAN NUMERAL ZERO..FOUR      shell, dots   = 0..4
+ *  U+1D2E5..U+1D2E9   MAYAN NUMERAL FIVE..NINE      bars + dots   = 5..9
+ *  U+1D2EA..U+1D2EE   MAYAN NUMERAL TEN..FOURTEEN   two bars      = 10..14
+ *  U+1D2EF..U+1D2F3   MAYAN NUMERAL FIFTEEN..NINETEEN three bars  = 15..19
+ *
+ *  (Unicode block Mayan Numerals, U+1D2E0..U+1D2F3; Unicode 10.0, 2017
+ *  after proposal L2/16-264, Jameson Quinn.  All twenty are SMP: four
+ *  bytes of UTF-8 each under the stem F0 9D 8B.)
+ *
+ *  The codex stacks places vertically, least significant at the
+ *  bottom; we transcribe the stack top-down made left-to-right —
+ *  most significant place first, one space per place boundary, exactly
+ *  the linearisation the rod columns get:
+ *
+\t *      𝋡 𝋣   ->   23     (three dots under one dot: 1x20 + 3)
+\t *      𝋡 𝋭   ->   33     (dot above three dots atop two bars)
+\t *      𝋡 𝋡 𝋩   ->   429     (dot dot nine: 1x400 + 1x20 + 9)
+\t *      𝋡 𝋢 𝋠 𝋠   ->   8800     (the shells hold rows three and four)
+\t *      𝋠   ->   0     (the shell itself: no blank needed)
+ *
+ *  Each place carries exactly ONE precomposed sign, so a zero place
+ *  writes its shell instead of the Babylonian's two-space gap: the
+ *  string is self-counting, no context tells a reader where the rows
+ *  are.  pn_mayan_render draws every place that well_formed allows,
+ *  including fractional ones (no radix point is carved; the '-' is an
+ *  anachronism, as in the cuneiform renderer above), and pn_mayan_parse
+ *  answers period style: radix == n_places.
+ *
+ *  References: https://en.wikipedia.org/wiki/Maya_numerals ,
+ *  https://en.wikipedia.org/wiki/Vigesimal
+ * ------------------------------------------------------------------------ */
+
+#define PN_MAYAN_DIGIT_ZERO 0x1D2E0u /* SHELL …through U+1D2F3 (digit d: +d) */
+
+/*  Bytes needed to render v as bar-and-dot Maya numerals, NOT counting
+ *  the terminating NUL: one sign per place and one space per place
+ *  boundary, plus a '-' when neg.  Pure and total — it never fails; on
+ *  a malformed v its answer is simply meaningless, since render rejects
+ *  such values with pn_err_domain. */
+size_t pn_mayan_render_size(pn_vigesimal v);
+
+/*  Render v as Maya bar-and-dot numerals into buf as UTF-8,
+ *  NUL-terminated.  One sign per place; zero places write the shell,
+ *  not a gap.  Errors: pn_err_null, pn_err_domain (malformed v:
+ *  n_places == 0 or > PN_VIGESIMAL_MAX_PLACES, a place > 19,
+ *  radix > n_places), pn_err_buffer (buflen <= render_size(v)).  On
+ *  error buf is untouched. */
+pn_status pn_mayan_render(pn_vigesimal v, char *buf, size_t buflen);
+
+/*  Parse a rendered bar-and-dot string — the inverse of
+ *  pn_mayan_render.  buf holds exactly buflen bytes of UTF-8 using
+ *  '-', the twenty signs, and separating single spaces; the grammar is
+ *  '-? (sign ' ')* sign', strict: a leading, trailing or doubled space,
+ *  two signs touching in one row, any foreign byte (the block's void
+ *  past U+1D2F3 included — U+1D2F4..1D2FF are unassigned and never
+ *  parse), and a sign cut off mid-UTF-8 are pn_err_syntax; more than
+ *  PN_VIGESIMAL_MAX_PLACES places is pn_err_range, the page overrun,
+ *  not bad grammar (the ruling the scribe's fifteenth row gets).  An
+ *  empty buffer (buflen == 0) is syntax, not zero: the shell is zero's
+ *  one true spelling, the way an empty tablet is not a number.
+ *  Round-trip law: parsing buf after a successful render recovers v's
+ *  places exactly (parsed radix == n_places: period style — the carved
+ *  stack carries no point the reader could place back).
+ *
+ *  Errors: pn_err_null, pn_err_syntax, pn_err_range.  On error *out is
+ *  untouched. */
+pn_status pn_mayan_parse(const char *buf, size_t buflen, pn_vigesimal *out);
+
 #ifdef __cplusplus
 }
 #endif
