@@ -24,43 +24,39 @@ Consume the library with `-Iinclude build/libpantheon.a` and a single
 
 #### Babylonian
 - [x] [sexagesimal](https://en.wikipedia.org/wiki/Sexagesimal) conversion
-      (parse/format scholarly transcriptions, convert to and from
-      `uint64_t` and `double`)
+- parse/format scholarly transcriptions, convert to and from `uint64_t` and `double`
 - [x] [babylonian numerals](https://en.wikipedia.org/wiki/Babylonian_numerals)
-      (positional cuneiform rendering in UTF-8)
+- positional cuneiform rendering in UTF-8
 
 #### Egyptian
 - [x] [egyptian numerals](https://en.wikipedia.org/wiki/Egyptian_numerals)
-       (hieroglyphic rendering in UTF-8: the seven power-of-ten signs,
-       0..9,999,999 with the scribe's blank for zero)
+- hieroglyphic rendering in UTF-8: the seven power-of-ten signs, 0..9,999,999 with the scribe's blank for zero
 
 #### Chinese
 - [x] [chinese numerals](https://en.wikipedia.org/wiki/Chinese_numerals)
-        (formal hanzi reading in UTF-8: digits with their 千/百/十/万
-        multipliers, 0..99,999,999, one blank over each skipped digit)
-- [x] [counting rods](https://en.wikipedia.org/wiki/Counting_rods)
-        (positional rods in UTF-8: the two alternating Unicode digit
-        sets, 0..10^19−1 with the blank column for zero)
+- formal hanzi reading in UTF-8: digits with their 千/百/十/万 multipliers, 0..99,999,999, one blank over each skipped digit
+- [x] [Counting rods](https://en.wikipedia.org/wiki/Counting_rods)
+- positional rods in UTF-8: the two alternating Unicode digit sets, 0..10^19−1 with the blank column for zero
 
 #### Indian
 - [x] [brahmi numerals](https://en.wikipedia.org/wiki/Brahmi_numerals)
-         (non-positional decimal rendering in UTF-8: a dedicated sign
-        for every unit 1..9 and ten 10..90, hundreds and thousands
-        ligatured with U+1107F, 0..9,999 with the blank for zero)
-- vedic numerals
+-      non-positional decimal rendering in UTF-8: a dedicated sign for every unit 1..9 and ten 10..90, hundreds and thousand
 
 #### Mayan
+- [ ] [Maya Numerals](https://en.wikipedia.org/wiki/Maya_numerals
 - Vigesimal conversion
 - Mayan numerals
+
+#### Inca
+- [ ] [Inca mathematics](https://en.wikipedia.org/wiki/Inca_mathematics 
+- [Quipu notation](https://en.wikipedia.org/wiki/Quipu)
+
 ### Mathematics
 
 #### Greek
-
 - Pythagoras
     - [pythagorean theorem](https://en.wikipedia.org/wiki/Pythagorean_theorem)
-
 - Euclid
     - [Elements](https://en.wikipedia.org/wiki/Euclid%27s_Elements)
         - Geometry
-
 - Archimedes
