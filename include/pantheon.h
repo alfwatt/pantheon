@@ -6,7 +6,7 @@
  *
  *  This revision: Babylonian sexagesimal (base-60) arithmetic and
  *  cuneiform numerals; Egyptian hieroglyphic numerals; Chinese hanzi
-	*  numerals and counting rods.  See README.md
+	*  numerals and counting rods; Indian Brahmi numerals.  See README.md
  *  for the roadmap.
  */
 #ifndef PANTHEON_H
@@ -492,6 +492,102 @@ pn_status pn_rods_render(uint64_t n, char *buf, size_t buflen);
 	*  than PN_ROD_MAX_PLACES places: spaces + 1 > 19).  On error *out is
 	*  untouched. */
 pn_status pn_rods_parse(const char *buf, size_t buflen, uint64_t *out);
+
+/* ------------------------------------------------------------------------
+  *  Indian Brahmi numerals (UTF-8 rendering).
+  *
+  *  Brahmi numerals (attested from the 3rd century BCE, on Ashoka's edicts
+  *  and the coins of the Western Satraps) are the direct graphic ancestors
+  *  of the modern Hindu-Arabic digits — but conceptually a different
+  *  system: a non-positional decimal notation with NO zero.  See
+  *  https://en.wikipedia.org/wiki/Brahmi_numerals .  The twenty signs, per
+  *  the Unicode Standard names list (all in the Brahmi block
+  *  U+11000..U+1107F, all 4 bytes of UTF-8):
+  *
+  *    U+11052..U+1105A  BRAHMI NUMBER ONE..NINE      𑁒 𑁓 𑁔 𑁕 𑁖 𑁗 𑁘 𑁙 𑁚
+  *    U+1105B..U+11063  BRAHMI NUMBER TEN..NINETY    𑁛 𑁜 𑁝 𑁞 𑁟 𑁠 𑁡 𑁢 𑁣
+  *    U+11064           BRAHMI NUMBER ONE HUNDRED    𑁤
+  *    U+11065           BRAHMI NUMBER ONE THOUSAND   𑁥
+  *
+  *  Unlike Egypt, no digit is written by repetition: every unit 1..9 and
+  *  every ten 10..90 has its own dedicated sign, so 47 needs two signs,
+  *  not eleven.  There is NO sign above the thousand (the Jain infinities
+  *  counted in words, not signs) and NO zero — a lone blank is the
+  *  nothing owed — so the renderable domain is 0..PN_BRAHMI_MAX_VALUE
+  *  and zero renders as the empty string, the scribe's blank again.
+  *
+  *  Hundreds and thousands are MULTIPLICATIVE, per Unicode 14.x: a digit
+  *  2..9 ligatured with the power sign — the power first, then the
+  *  U+1107F BRAHMI NUMBER JOINER, then the multiplier — so 400 is
+  *  <𑁤 𑁿 𑁕> (100 JOINER 4) rendered as one stacked ligature, while an
+  *  additive component stays unligated: 104 is <𑁤 𑁕> (100 4).  The joiner
+  *  marks that semantic distinction, so it is never dropped, never
+  *  doubled, and legal only between number signs — 1 × 100 is written
+  *  with the bare power sign, as 𑁥𑁥 is no number any more than 𓏤..𓏤 ten
+  *  strokes were.
+  *
+  *  Canonical form: up to four terms descending — thousands, hundreds,
+  *  tens, ones — each at most once, with no separators; a signs table
+  *  and the four slots make every string self-delimiting:
+  *
+  *    𑁤𑁿𑁓𑁟𑁗  = 256   (the Sasaram edict: 200 ligature + fifty + six)
+  *    𑁤𑁟𑁔         = 153   (the Damasena coin: 100-50-3)
+  *    𑁥𑁿𑁚𑁤𑁿𑁚𑁣𑁚 = 9999  (the full set; 𑁚 appears three times, in three
+  *                          slots — slots, not sign identity, rule)
+  * ---------------------------------------------------------------------- */
+
+#define PN_BRAHMI_NUMBER_ONE       0x11052u /* 𑁒 …through U+1105A NINE  = 1..9 */
+#define PN_BRAHMI_NUMBER_TEN         0x1105Bu /* 𑁛 …through U+11063 NINETY = 10..90 */
+#define PN_BRAHMI_NUMBER_HUNDRED     0x11064u /* 𑁤 one hundred                 */
+#define PN_BRAHMI_NUMBER_THOUSAND    0x11065u /* 𑁥 one thousand                */
+#define PN_BRAHMI_NUMBER_JOINER      0x1107Fu /* 𑁿 ligature join, numbers only */
+#define PN_BRAHMI_MAX_VALUE          9999u    /* four filled slots: no sign above 𑁥 */
+
+/*  Exact number of bytes (excluding the NUL) pn_brahmi_render will
+  *  write for a well-formed n: four per sign drawn, joiner included —
+  *  a thousands or hundreds term costs four bytes with its digit 1
+  *  (bare power sign) and twelve with its digit 2..9 (power, joiner,
+  *  multiplier), a tens or ones term four bytes when present.  Pure and
+  *  total — it never fails; for n > PN_BRAHMI_MAX_VALUE its answer is
+  *  simply meaningless, since render rejects such values with
+  *  pn_err_range.  render_size(0) == 0: the blank. */
+size_t pn_brahmi_render_size(uint64_t n);
+
+/*  Render n in Brahmi numerals into buf as UTF-8, NUL-terminated: the
+  *  terms descending thousands, hundreds, tens, ones; each nonzero digit
+  *  its dedicated sign (1..9, or TEN..NINETY for the tens digit), and a
+  *  hundreds or thousands digit d written ligatured: d == 1 the bare
+  *  power sign, d == 2..9 the power sign, then U+1107F, then NUMBER_d.
+  *  n == 0 renders the empty string — the blank.  Needs exactly
+  *  pn_brahmi_render_size(n) bytes + NUL; a smaller buffer gives
+  *  pn_err_buffer and leaves buf untouched.
+  *
+  *  Errors: pn_err_null, pn_err_range (n > PN_BRAHMI_MAX_VALUE),
+  *  pn_err_buffer.  On error buf is untouched. */
+pn_status pn_brahmi_render(uint64_t n, char *buf, size_t buflen);
+
+/*  Parse a rendered Brahmi string — the inverse of pn_brahmi_render.
+  *  Strict canonical form: the twenty number signs and the joiner, in
+  *  at most four descending terms — thousands, hundreds, tens, ones —
+  *  each term at most once, no separators:
+  *
+  *      𑁤𑁿𑁓𑁟𑁗  ->  256     (𑁤 𑁿 𑁓 = 200 ligatured, 𑁟 = 50, 𑁗 = 6)
+  *      𑁤𑁕              ->  104     (additive component: 100 then 4)
+  *      𑁥𑁒              ->  1001    (thousand then a bare one)
+  *
+  *  Round-trip law, exact: parsing buf after a successful render
+  *  recovers n.  An empty buffer (buflen == 0) parses as 0 — the blank
+  *  reads back as the nothing it was.  The grammar admits no value past
+  *  PN_BRAHMI_MAX_VALUE, so overflow needs no check.  Violations are
+  *  pn_err_syntax the way 𓏤.. bottom-up was: a second term of one
+  *  slot, an ascending term, a joiner doubled or leading or trailing or
+  *  joining anything but a multiplier after its power sign, a ligatured
+  *  multiplier of 1 (𑁥𑁿𑁒 — write 𑁥 bare), a ligature left unligated
+  *  (𑁤𑁕𑁕 would read 100+4+4: no slot allows the second 𑁕), any other
+  *  byte, a sign cut off short.  On error *out is untouched.
+  *
+  *  Errors: pn_err_null, pn_err_syntax. */
+pn_status pn_brahmi_parse(const char *buf, size_t buflen, uint64_t *out);
 
 #ifdef __cplusplus
 }
