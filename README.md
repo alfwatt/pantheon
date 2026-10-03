@@ -43,9 +43,10 @@ Consume the library with `-Iinclude build/libpantheon.a` and a single
 -      non-positional decimal rendering in UTF-8: a dedicated sign for every unit 1..9 and ten 10..90, hundreds and thousand
 
 #### Mayan
-- [ ] [Maya Numerals](https://en.wikipedia.org/wiki/Maya_numerals
-- Vigesimal conversion
-- Mayan numerals
+- [x] vigesimal conversion
+-       the pn_sex60 core rebased in base twenty: transcription, format, uint64 and double utils
+- [x] [Maya numerals](https://en.wikipedia.org/wiki/Maya_numerals)
+-       bar-and-dot places in UTF-8 from block U+1D2E0..U+1D2F3, the shell for zero drawn as a sign
 
 #### Inca
 - [ ] [Inca mathematics](https://en.wikipedia.org/wiki/Inca_mathematics 
