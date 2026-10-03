@@ -238,6 +238,102 @@ pn_status pn_babylonian_render(pn_sex60 v, char *buf, size_t buflen);
 pn_status pn_babylonian_parse(const char *buf, size_t buflen, pn_sex60 *out);
 
 /* ------------------------------------------------------------------------
+ *  Vigesimal — the base-20 core value: places, radix, conversions.
+ *
+ *  The pn_vigesimal counterpart of pn_sex60: a fixed-size array of
+ *  bytes inside a ~20-byte struct passed by value — no allocations,
+ *  safe for real-time and embedded callers.
+ *
+ *      value = (-1)^neg * sum_i  places[i] * 20^(radix - 1 - i)
+ *
+ *  places[i] runs 0..19, most significant first.  In period style,
+ *  use radix == n_places.  The radix position and the sign are MODERN
+ *  niceties, added so this type is a number and not a riddle: no
+ *  book of the codices wrote a radix point, and the Dresden Codex
+ *  carries no negative numbers.
+ *
+ *  double is offered only as a conversion utility, never the canonical
+ *  form: 0;5 in this notation is 1/4 and exact, but 0;1 is 1/20 and
+ *  has no finite binary expansion (20 = 4 x 5 keeps a factor five),
+ *  and 20^13 = 8.192e16 already exceeds 2^53 — one whole row later
+ *  than sexagesimal's 60^8, because base twenty is half a square.
+ *  ---------------------------------------------------------------------- */
+
+#define PN_VIGESIMAL_MAX_PLACES 16    /* 20^16 ~ 6.6e20: plenty; keeps the struct tiny */
+
+typedef struct pn_vigesimal {
+	uint8_t places[PN_VIGESIMAL_MAX_PLACES]; /* each 0..19, most significant first */
+	uint8_t n_places;                     /* number of significant places, 1..16 */
+	uint8_t radix;                        /* places left of the radix point
+	                                         (a modern addition — the Maya
+	                                         wrote none); 0 means purely fractional */
+	bool    neg;                          /* modern nicety; the codices
+	                                         carry no sign */
+} pn_vigesimal;
+
+/* --- vigesimal strings (modern scholarly transcription) -----------------
+ *
+ *  The same reading convention as the sexagesimal transcriptions above:
+ *  comma- or colon-separated decimal places, at most one ';' marking
+ *  the radix point.  No Maya scribe wrote any of it.
+ *
+ *      "1,2,0,0"   -> places {1,2,0,0}, radix 4   (period-style = 8800)
+ *      "1;12,9"    -> same places, radix 1        (= 1 + 12/20 + 9/400)
+ *      "0;5"       -> places {0,5}, radix 1       (= 1/4; parse takes the 0 literally)
+ *
+ *  Strict: no whitespace, no empty places, no trailing separator.  An
+ *  unbroken "399" is NOT decimal 399 — it is read three digits deep and
+ *  rejected as out of range (a longer run is range too).  Enter ordinary
+ *  integers with pn_vigesimal_from_u64 instead.
+ *
+ *  Errors: pn_err_null, pn_err_syntax (grammar), pn_err_range (a place
+ *  > 19, more than 2 digits per place, or more than
+ *  PN_VIGESIMAL_MAX_PLACES places).  On error *out is untouched. */
+pn_status pn_vigesimal_parse(const char *text, pn_vigesimal *out);
+
+#define PN_VIGESIMAL_FORMAT_MAX_LEN (1 + 3 * PN_VIGESIMAL_MAX_PLACES + 1) /* '-' + places+seps + NUL */
+
+/*  Format v with sep (',' or ':'; the radix boundary writes ';' when the
+ *  radix is interior).  Output is NUL-terminated and at most
+ *  PN_VIGESIMAL_FORMAT_MAX_LEN bytes; a smaller buffer gives
+ *  pn_err_buffer.
+ *
+ *  Errors: pn_err_null, pn_err_syntax (bad sep), pn_err_domain
+ *  (malformed v: n_places == 0 or > max, a place > 19, radix >
+ *  n_places), pn_err_buffer.  On error buf is untouched. */
+pn_status pn_vigesimal_format(pn_vigesimal v, char sep, char *buf, size_t buflen);
+
+/*  Exactly how sexagesimal's from_u64 works, rebased: peel 20s off the
+ *  bottom, reverse.  0 becomes one place of 0.
+ *
+ *  Errors: pn_err_null, pn_err_range (unreachable: UINT64_MAX takes 15
+ *  places). */
+pn_status pn_vigesimal_from_u64(uint64_t n, pn_vigesimal *out);
+
+/*  Reassemble with Horner's scheme.
+ *
+ *  Errors: pn_err_null, pn_err_domain (malformed v, or radix !=
+ *  n_places: not an integer), pn_err_range (the value does not fit a
+ *  uint64_t — 16 maxed places = 20^16 − 1 would not). */
+pn_status pn_vigesimal_to_u64(pn_vigesimal v, uint64_t *out);
+
+/*  Integer part by Horner in exact uint64_t while it fits, then one
+ *  correctly-rounded division F / 20^k while k <= 14 — results are
+ *  exact whenever a double can hold them at all.  (A 15-place purely
+ *  fractional v falls to the iterated division loop; harmless.)
+ *
+ *  Errors: pn_err_null, pn_err_domain (malformed v). */
+pn_status pn_vigesimal_to_double(pn_vigesimal v, double *out);
+
+/*  Round half-away-from-zero at the frac_places-th vigesimal place
+ *  (each 0..19), like pn_sex60_from_double: trailing kept places are
+ *  zeros, 0.98 at one place rounds onto a whole 1, NaN/inf rejected.
+ *
+ *  Errors: pn_err_null, pn_err_domain (NaN, inf, frac_places >
+ *  PN_VIGESIMAL_MAX_PLACES), pn_err_range (carried past 16 places). */
+pn_status pn_vigesimal_from_double(double x, uint8_t frac_places, pn_vigesimal *out);
+
+/* ------------------------------------------------------------------------
  * Egyptian hieroglyphic numerals (UTF-8 rendering).
  *
  * The Egyptian system (c. 3000 BCE onward) was decimal but ADDITIVE: a
