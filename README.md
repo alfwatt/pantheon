@@ -50,7 +50,8 @@ Consume the library with `-Iinclude build/libpantheon.a` and a single
 
 #### Inca
 - [ ] [Inca mathematics](https://en.wikipedia.org/wiki/Inca_mathematics 
-- [Quipu notation](https://en.wikipedia.org/wiki/Quipu)
+- [x] [Quipu notation](https://en.wikipedia.org/wiki/Quipu)
+-       positional decimal knots in UTF-8: simple knots (bullets) above the units line, the figure-eight and long-knot turns at it, zero the absence of a knot, 0..10^19-1
 
 ### Mathematics
 
