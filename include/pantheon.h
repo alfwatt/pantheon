@@ -761,6 +761,98 @@ pn_status pn_mayan_render(pn_vigesimal v, char *buf, size_t buflen);
  *  untouched. */
 pn_status pn_mayan_parse(const char *buf, size_t buflen, pn_vigesimal *out);
 
+/* ------------------------------------------------------------------------
+ *  Inca quipu — positional decimal knot notation, transcribed in UTF-8.
+ *
+ *  The quipucamayuq tied numbers onto pendant cords hanging from a
+ *  main cord: base ten by POSITION along the cord, the units line
+ *  nearest the free end and each higher place marching up toward the
+ *  main cord (L. Leland Locke established the place value in 1912;
+ *  Ascher & Ascher read the archives).  Our transcription lays the
+ *  pendant down, most significant place first — the linearisation the
+ *  counting-board rods get in rods.c:
+ *
+ *  Unicode encodes NO quipu signs — there is no knot block to borrow,
+ *  unlike the cuneiform wedges of babylonian.c — so the cord is
+ *  transcribed with two generic glyphs:
+ *
+ *  U+2022 •  BULLET     one simple knot          (Locke's s): d of
+ *                                   them mark digit d in every line
+ *                                   above the units
+ *  U+221E ∞  INFINITY   the figure-eight knot (Locke's E) at the
+ *                                   units line, and d of them in a row
+ *                                   the long knot of d turns (d L)
+ *
+ *  Both are BMP: three bytes of UTF-8 each, stems E2 80 A2 and
+ *  E2 88 9E.  In Locke's own shorthand, the article's worked cords:
+ *
+ *        ••••••• ••• ∞      ->      731      (7s, 3s, E)
+ *        ••••••••  ∞∞∞∞      ->      804      (8s, X, 4L: the blank tens keeps two boundaries)
+ *        • •••• ••••••••• ∞∞∞      ->      1493      (1s, 4s, 9s, 3L)
+ *        •       ->      10      (one knot over the blank units)
+ *        ∞      ->      1      (figure-eight: units never say bullet)
+ *              ->      0      (the empty cord: no knot tied)
+ *
+ *  The Inca zero was the ABSENCE of a knot in the right position — the
+ *  truest blank in this library, kept literally: one space per place
+ *  boundary and a blank place writes no sign of its own, so a
+ *  well-formed cord holds exactly (places − 1) spaces and the parser
+ *  reads places = spaces + 1 off the cord unaided.  The figure-eight
+ *  is the reader's anchor — it lives at the units line and nowhere
+ *  else, as good as the distinctive units knot on the real cord — so
+ *  ∞ above the units line is no cord, and a lone simple knot is no
+ *  number (the tens digit of 10 hangs over the blank units with its
+ *  boundary space kept).
+ *
+ *  One cord, one number: color, ply, S/Z twist, subsidiary cords and
+ *  the chroniclers' multi-number pendants are not the number system,
+ *  and no transcription pretends at them.
+ *
+ *  References: https://en.wikipedia.org/wiki/Quipu ,
+ *  Locke, The Ancient Quipu or Peruvian Knot Record (1912);
+ *  Ascher & Ascher, Mathematics of the Incas: Code of the Quipu (1997).
+ * ------------------------------------------------------------------------ */
+
+#define PN_QUIPU_SIMPLE_KNOT     0x2022u   /*   BULLET  UTF-8: E2 80 A2         */
+#define PN_QUIPU_LONG_KNOT       0x221Eu   /* ∞ INFINITY UTF-8: E2 88 9E         */
+#define PN_QUIPU_MAX_PLACES      19        /* 10^19 − 1 still fits uint64_t     */
+#define PN_QUIPU_MAX_VALUE 9999999999999999999ull /* nineteen nines               */
+
+/*  Bytes needed to render n as a quipu cord, NOT counting the
+ *  terminating NUL.  Pure and total — it never fails; for n >
+ *  PN_QUIPU_MAX_VALUE its answer simply runs on and is meaningless,
+ *  since render rejects such n with pn_err_range. */
+size_t pn_quipu_render_size(uint64_t n);
+
+/*  Render n (0 .. PN_QUIPU_MAX_VALUE) as a quipu cord into buf as
+ *  UTF-8, NUL-terminated.  One column of knots per place: d bullets
+ *  above the units line, d infinities AT it (the long knot's turns,
+ *  the figure-eight its first); a blank place writes no knots but
+ *  keeps its boundary space, and 0 renders the empty cord — the Inca
+ *  zero is no knot tied.
+ *
+ *  Errors: pn_err_null, pn_err_range (n > PN_QUIPU_MAX_VALUE: a
+ *  twentieth line no pendant holds), pn_err_buffer (buflen <=
+ *  render_size(n)).  On error buf is untouched. */
+pn_status pn_quipu_render(uint64_t n, char *buf, size_t buflen);
+
+/*  Parse a rendered cord — the inverse of pn_quipu_render.  Strict
+ *  canonical form: places = spaces + 1, the leftmost column sitting at
+ *  place places − 1 and each space advancing one place; every column a
+ *  run of one to nine IDENTICAL knots — bullets in the lines above the
+ *  units, infinities at the units line alone (the figure-eight is
+ *  where the cord ends).  A lone bullet at the units line, ∞
+ *  anywhere above it, a mixed column, a leading or trailing space,
+ *  columns touching with no boundary, any foreign byte (the
+ *  chronicler's minus included), a knot cut off mid-UTF-8 — all
+ *  pn_err_syntax; ten identical knots in one column, or more than
+ *  PN_QUIPU_MAX_PLACES places, is more turns and more cord than a
+ *  digit and a uint64_t hold: pn_err_range, the ruling the scribe's
+ *  twentieth row gets.  An empty cord (buflen == 0) parses as 0 — the
+ *  blank reads back as the nothing no knot was.  On error *out is
+ *  untouched. */
+pn_status pn_quipu_parse(const char *buf, size_t buflen, uint64_t *out);
+
 #ifdef __cplusplus
 }
 #endif
