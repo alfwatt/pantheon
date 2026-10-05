@@ -869,48 +869,63 @@ pn_status pn_quipu_parse(const char *buf, size_t buflen, uint64_t *out);
  *  So every nonempty rendering carries exactly one ʹ at the end, and
  *  the parser demands it where the culture did.
  *
- *  A spelling is one descending SCALE RUN — at most one sign from the
+ *  A spelling is a descending SCALE RUN — at most one sign from the
  *  hundreds row ρ σ τ υ φ χ ψ ω ϡ, then the tens row ι κ λ μ ν ξ ο π
  *  ϟ, then the units row α β γ δ ε ϛ ζ η θ — nothing backward, no
  *  sign twice: 999 is never ροο and 150 is never νρ, for exactly the
- *  reason no scribe stacked nine 𓏥 coils.  Two runs share the cord
- *  under one low keraia — thousands first, then units, each run
- *  descending — and the split is unique, for a run that could stretch
- *  further in order could not legally leave one behind: 2019 splits
- *  β | ιθ (β is 2 thousands, ιθ is 19 units), and 200,000 is ͵σʹ alone
- *  (σ is 200 of thousands; χρ would be two hundreds-row signs, no
- *  run).  The article's table, worked through this transcription:
+ *  reason no scribe stacked nine 𓏥 coils.  A legal run is the ONLY
+ *  run spelling its value: the rows are worth 100/10/1, so a run is
+ *  decimal notation in letters and the descent is forced.
  *
- *   αʹ           ->  1
- *   ιθʹ          ->  19
- *   σνϛʹ         ->  256
- *   χϛʹ          ->  606
- *   ϡϟθʹ         ->  999
- *   ͵αʹ          ->  1000
- *   ͵βιθʹ        ->  2019
- *   ͵ϡϟθϡϟθʹ     ->  999999
+ *  Above 999 the cord is two runs under one low keraia — thousands
+ *  first, then units — and the culture let them butt together with
+ *  nothing between: ͵ιαʹ then reads BOTH 11000 (ια = 11 thousands)
+ *  and 10001 (ι = 10 thousands, α = 1 unit); an exhaustive sweep of
+ *  the domain counts 972 of those shared cords, so a number whose
+ *  thousands run AND units run are both live separates them with ONE
+ *  space (the stenographers' own gutter): 10001 renders ͵ι␣αʹ and
+ *  11000 renders ͵ιαʹ, and the space, like the quipu's, is part of
+ *  the canonical cord.  Whole thousands carry no space (nothing to
+ *  separate); numbers below 1000 carry no low keraia at all.  Two
+ *  runs may share a letter — 1001 is ͵α␣αʹ — the space, not
+ *  uniqueness of letters, is what tells the runs apart.  The
+ *  article's table, worked through this transcription:
  *
- *  (999999 = 999 thousands over 999 units; two runs under one low
- *  keraia — the culture wrote no millions in these signs.)
+ *    αʹ           ->    1
+ *    ιθʹ          ->    19
+ *    σνϛʹ         ->    256
+ *    χϛʹ          ->    606
+ *    ϡϟθʹ         ->    999
+ *    ͵αʹ          ->    1000
+ *    ͵α␣αʹ        ->    1001
+ *    ͵β␣ιθʹ       ->    2019
+ *    ͵ι␣αʹ        ->    10001
+ *    ͵ιαʹ         ->    11000
+ *    ͵ϡϟθ␣ϡϟθʹ    ->    999999
  *
- *  The majuscule of printed editions (͵ΒΙΘʹ for 2019) is typography,
+ *   (999999 = 999 thousands over 999 units — the culture wrote no
+ *  millions in these signs, and PN_GREEK_MAX_VALUE stops where the
+ *  alphabet does.)
+ *
+ *  The majuscule of printed editions (͵Β␣ΙΘʹ for 2019) is typography,
  *  not notation: this module renders and parses lowercase only, and
  *  capitals are pn_err_syntax, like every foreign letter — Roman I V
- *  X among them (the Roman numerals have their own block U+2160.. and
- *  their own module).
+ *  X among them (the Roman numerals keep their own block U+2160.. and
+ *  will get their own module).
  *
  *  One trap before normalising these cords: the trailing keraia
  *  U+0374 is NFC-UNSTABLE — NFD unfolds it to U+02B9 MODIFIER LETTER
- *  PRIME and NFC never brings it back.  The module writes the
- *  canonical CD B4 bytes and accepts nothing else: the prime, the
- *  tonos ΄ U+0384 and the dakia are near-miss impostors —
- *  pn_err_syntax, like the Mayan dot on a quipu cord.
+ *  PRIME and NFC never brings it back (every cord of this module,
+ *  1..999999, falls to that trap; the low keraia U+0375 is stable).
+ *  The module writes the canonical CD B4 bytes and accepts nothing
+ *  else: the prime, the tonos ΄ U+0384 and the dakia are near-miss
+ *  impostors — pn_err_syntax, like the Mayan dot on a quipu cord.
  *
- *  6/90/900 take the archaic ϛ ϟ ϡ (U+03DB, U+03DF, U+03E1, Coptic
- *  block, NFC-stable); 200 takes plain σ U+03C3 — the lunate ϲ of
- *  Byzantine hands and the final ς of living Greek are BOTH refused,
- *  the final sigma being a sandhi rule of the language, not a numeral
- *  sign.
+ *  6/90/900 take the archaic ϛ ϟ ϡ (U+03DB, U+03DF, U+03E1, Greek-and-
+ *  Coptic extensions, NFC-stable); 200 takes plain σ U+03C3 — the
+ *  lunate ϲ of Byzantine hands and the final ς of living Greek are
+ *  BOTH refused, the final sigma being a sandhi rule of the language,
+ *  not a numeral sign, and ϲ U+03F2 colliding with san.
  *
  *  Zero had no glyph (the culture counted what was there); like the
  *  Egyptian scribe's blank, the rods' empty column and the unstrung
@@ -921,36 +936,43 @@ pn_status pn_quipu_parse(const char *buf, size_t buflen, uint64_t *out);
  *  https://en.wikipedia.org/wiki/Keraia
  * ------------------------------------------------------------------------ */
 
-#define PN_GREEK_MAX_VALUE 999999ull /* the full low-keraia cord: 999 of
-                                        1000 over 999 — written millions
-                                        needed fresh marks that no
-                                        standard survived */
+#define PN_GREEK_MAX_VALUE 999999ull /* two full runs, 999 of 1000 over
+                                        999 — written millions needed
+                                        fresh marks no standard survived */
 
 /*  Exact number of bytes (excluding the NUL) pn_greek_render will
- *  write: TWO per sign — every sign here is a 2-byte BMP code point
- *  (Greek-and-Coptic rows), both keraia included.  n == 0 renders the
+ *  write: TWO per sign — every sign is a 2-byte BMP code point, both
+ *  keraia included — plus ONE for the run-separating space when both
+ *  runs are live (n >= 1000 with units above it).  n == 0 renders the
  *  empty cord. */
 size_t pn_greek_render_size(uint64_t n);
 
 /*  Render n (0 .. PN_GREEK_MAX_VALUE) as a Milesian numeral: the low
- *  keraia ͵ then the thousands run when n >= 1000, then the units
- *  run, then the trailing keraia ʹ — every row descending, no sign
- *  twice, NUL-terminated.  Needs pn_greek_render_size(n) + 1 bytes.
+ *  keraia ͵ then the thousands run when n >= 1000, then — when both
+ *  runs are live — the separating space, then the units run, then the
+ *  trailing keraia ʹ; every run descending, no sign twice within a
+ *  run, NUL-terminated.  Needs pn_greek_render_size(n) + 1 bytes.
  *  Errors: pn_err_null, pn_err_range (n > PN_GREEK_MAX_VALUE),
  *  pn_err_buffer.  On error buf is untouched. */
 pn_status pn_greek_render(uint64_t n, char *buf, size_t buflen);
 
-/*  Parse a rendered numeral — the exact inverse.  Strict canonical
- *  form: the cord ends in the trailing keraia (its canonical CD B4
- *  bytes; the NFC twin U+02B9 is a foreign byte), at most one low
- *  keraia leads it, and the signs between split into descending scale
- *  runs — hundreds-row signs first, then tens-row, then units-row,
- *  never backward, never the same sign twice.  A doubled sign, a
- *  backward pair (ι before β with no row change), more than one
- *  run-pair switch, capitals, the lunate ϲ, the final ς, the digamma
- *  ϝ, the tonos, a stray letter, or any cut-off 2-byte sequence is
- *  pn_err_syntax.  A low keraia with no thousands run under it (the
- *  sign alone before the units) and a lone trailing keraia are no
+/*  Parse a rendered numeral — the exact inverse, verified bijective
+ *  over the whole domain.  Strict canonical form: the cord ends in
+ *  the trailing keraia (its canonical CD B4 bytes; the NFC twin
+ *  U+02B9 is a foreign byte) and nowhere else; at most one low keraia
+ *  leads the cord and it may appear nowhere else; between them the
+ *  signs split on at most ONE space into two runs, each a legal
+ *  descending run — one sign per row, rows H > T > U, never backward,
+ *  no sign twice; the space is legal only between two live runs
+ *  (none touching either end, none doubled) and its left run counts
+ *  thousands, its right run units; a cord WITHOUT the space and
+ *  WITHOUT the low keraia is a bare units run below 1000; with the
+ *  low keraia and no space it is whole thousands.  All else is
+ *  pn_err_syntax: doubled sign within a run, backward pair (θ before
+ *  ι, α before ρ when no space or row-change separates them),
+ *  capitals, the lunate ϲ, the final ς, the digamma ϝ, the tonos,
+ *  U+02B9, Latin and Roman letters, any cut-off 2-byte sequence.  A
+ *  low keraia with no run under it and a lone trailing keraia are no
  *  number: pn_err_syntax.  No legal cord exceeds PN_GREEK_MAX_VALUE,
  *  so overflow needs no table; like the other blanks it honors,
  *  buflen == 0 parses as 0.  On error *out is untouched. */
