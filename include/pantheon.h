@@ -715,43 +715,43 @@ bool pn_egyptian_parse(const char *_Nullable buf, size_t buflen,
 	*  the blank. */
 size_t pn_hanzi_render_size(uint64_t n);
 
-/*  Render n in hanzi numerals into buf as UTF-8, NUL-terminated: write
-	*  n = A * 10^4 + B; when A is nonzero, its section high to low (digit +
-	*  千/百/十 terms, a bare digit last for the section's units place),
-	*  then 万, then B's nonzero terms likewise; a skip of one or more
-	*  places between consecutive terms is marked by exactly one space.
-	*  n == 0 renders the empty string — the blank.  Needs exactly
-	*  pn_hanzi_render_size(n) bytes + NUL; a smaller buffer gives
-	*  pn_err_buffer and leaves buf untouched.
-	*
-	*  Errors: pn_err_null, pn_err_range (n > PN_HANZI_MAX_VALUE),
-	*  pn_err_buffer.  On error buf is untouched. */
-pn_status pn_hanzi_render(uint64_t n, char *buf, size_t buflen);
+/// Write @param n (0 .. PN_HANZI_MAX_VALUE) as canonical hanzi into
+/// @param buf as UTF-8, ending with a NUL: two sections split at
+/// 万, each reading its live digits high to low with 千/百/十
+/// multipliers, the units digit bare and last.  A skipped digit
+/// writes nothing and earns exactly one blank space.    0 renders the
+/// empty string.
+/// @param n - the whole number to render
+/// @param buf - where the string lands, with room for the NUL
+/// @param buflen - bytes of room at buf
+/// @param error - where to hang the note on failure: PN_ERROR_NULL
+///     when buf is NULL, PN_ERROR_RANGE when n tops
+///     PN_HANZI_MAX_VALUE (no sign above 万 lives here),
+///     PN_ERROR_BUFFER when buflen does not beat
+///     pn_hanzi_render_size(n).  On any failure buf is left
+///     untouched.
+/// @returns true on success, false with a note in @param error.
+bool pn_hanzi_render(uint64_t n, char *_Nonnull buf, size_t buflen,
+                     pn_error *_Nullable *_Nullable error);
 
-/*  Parse a rendered hanzi string — the inverse of pn_hanzi_render.
-	*  Strict canonical form: digits 一..九, each followed by its
-	*  multiplier (千/百/十) except a bare units digit last in its section;
-	*  multipliers strictly descending within a section; at most one 万,
-	*  immediately after A's last term and never before any B term:
-	*
-	*      四千六百二十二  ->  4622
-	*      一千 五       ->  1005   (the blank: 百 and 十 skipped)
-	*      四万一千      ->  41000   (no space: 万 and 千 adjacent)
-	*
-	*  Round-trip law, exact: parsing buf after a successful render
-	*  recovers n.  An empty buffer (buflen == 0) parses as 0 — the blank
-	*  reads back as the nothing it was.  The grammar cannot express a
-	*  value past PN_HANZI_MAX_VALUE, so overflow needs no check; the
-	*  colloquial 十四, a stray 零 or 〇, a space where adjacent terms
-	*  meet (四百 三十一), a missing blank across a skip (五千万五),
-	*  repeated or ascending multipliers, a digit after a section's bare
-	*  digit, a second 万, or 万 after a multiplier are all
-	*  pn_err_syntax.
-	*
-	*  Errors: pn_err_null, pn_err_syntax (any other byte, a cut-off sign,
-	*  leading/trailing/double spaces, or the canonical violations above).
-	*  On error *out is untouched. */
-pn_status pn_hanzi_parse(const char *buf, size_t buflen, uint64_t *out);
+/// Read back a canonical hanzi string — the exact inverse of
+/// pn_hanzi_render.    Strict canonical form: terms of
+/// (digit [千|百|十]) or a bare digit, strictly descending in place
+/// within each section, at most one 万 right after the top
+/// section's last term, one space between terms if and only if they
+/// sit more than one place apart.  Foreign bytes, a cut-off sign,
+/// 十四 without its 一, an unearned space, or a missing blank all
+/// give PN_ERROR_SYNTAX.    An empty string (buflen == 0) reads back
+/// as 0.
+/// @param buf - the string to read
+/// @param buflen - bytes to read at buf
+/// @param out - where the number lands on success; untouched on any
+///     failure
+/// @param error - where to hang the note on failure.
+/// @returns true on success, false with a note in @param error.
+bool pn_hanzi_parse(const char *_Nullable buf, size_t buflen,
+                    uint64_t *_Nullable out,
+                    pn_error *_Nullable *_Nullable error);
 
 /* ------------------------------------------------------------------------
 	*  Counting rod numerals (UTF-8 rendering).
