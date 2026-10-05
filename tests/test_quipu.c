@@ -120,27 +120,27 @@ static void expect_render(uint64_t n, char *out)
 static void render_ok(uint64_t n, char *buf, size_t buflen)
 {
 	size_t need = pn_quipu_render_size(n);
-	CHECK_ST(pn_quipu_render(n, buf, need + 1), pn_ok);
+	CHECK_OK(pn_quipu_render(n, buf, need + 1, &err_), err_);
 	CHECK(strlen(buf) == need);
 	(void)buflen;
 }
 
-static pn_status parse_str(const char *text, uint64_t *out)
+static bool parse_str(const char *text, uint64_t *out, pn_error **error)
 {
-	return pn_quipu_parse(text, strlen(text), out);
+	return pn_quipu_parse(text, strlen(text), out, error);
 }
 
 static void expect_syntax(const char *text)
 {
 	uint64_t back = 256u;                             /* sentinel */
-	CHECK_ST(pn_quipu_parse(text, strlen(text), &back), pn_err_syntax);
+	CHECK_ERROR(pn_quipu_parse(text, strlen(text), &back, &err_), err_, PN_ERROR_SYNTAX);
 	CHECK(back == 256u);                              /* *out untouched */
 }
 
 static void expect_range(const char *text)
 {
 	uint64_t back = 256u;
-	CHECK_ST(pn_quipu_parse(text, strlen(text), &back), pn_err_range);
+	CHECK_ERROR(pn_quipu_parse(text, strlen(text), &back, &err_), err_, PN_ERROR_RANGE);
 	CHECK(back == 256u);
 }
 
@@ -230,10 +230,10 @@ int main(void)
 
 	CHECK(pn_quipu_render_size(0u) == 0u);
 	memset(buf, 'x', 4);
-	CHECK_ST(pn_quipu_render(0u, buf, 1), pn_ok);
+	CHECK_OK(pn_quipu_render(0u, buf, 1, &err_), err_);
 	CHECK(buf[0] == '\0');
 	v = UINT64_MAX;
-	CHECK_ST(parse_str("", &v), pn_ok);
+	CHECK_OK(parse_str("", &v, &err_), err_);
 	CHECK(v == 0u);
 
 	/* --- render_size exact everywhere, swept ------------------------------ */
@@ -247,18 +247,18 @@ int main(void)
 
 	/* --- errors: render ---------------------------------------------------- */
 
-	CHECK_ST(pn_quipu_render(1u, NULL, 16), pn_err_null);
+	CHECK_ERROR(pn_quipu_render(1u, pn_nothing(), 16, &err_), err_, PN_ERROR_NULL);
 
 	/* one past nineteen places: 10^19 overflows the uint64_t shelf */
 	memset(buf, 'x', 8);
-	CHECK_ST(pn_quipu_render(PN_QUIPU_MAX_VALUE + 1ull, buf,
-			sizeof buf), pn_err_range);
+	CHECK_ERROR(pn_quipu_render(PN_QUIPU_MAX_VALUE + 1ull, buf,
+			sizeof buf, &err_), err_, PN_ERROR_RANGE);
 	CHECK(memcmp(buf, "xxxx", 4) == 0);
-	CHECK_ST(pn_quipu_render(UINT64_MAX, buf, sizeof buf), pn_err_range);
+	CHECK_ERROR(pn_quipu_render(UINT64_MAX, buf, sizeof buf, &err_), err_, PN_ERROR_RANGE);
 
 	/* a buffer short of need + NUL fails and leaves buf alone */
 	memset(buf, 'x', 8);
-	CHECK_ST(pn_quipu_render(1u, buf, 3), pn_err_buffer);   /* need is 3 */
+	CHECK_ERROR(pn_quipu_render(1u, buf, 3, &err_), err_, PN_ERROR_BUFFER);   /* need is 3 */
 	CHECK(memcmp(buf, "xxxx", 4) == 0);
 
 	/* --- parsing: the round trip, exhaustive
@@ -269,14 +269,14 @@ int main(void)
 	for (uint64_t n = 0; n < 160000u; n++) {
 		char cord[1024];
 		size_t need = pn_quipu_render_size(n);
-		CHECK_ST(pn_quipu_render(n, cord, need + 1), pn_ok);
+		CHECK_OK(pn_quipu_render(n, cord, need + 1, &err_), err_);
 		(void)expect_render(n, want);
 		CHECK(strcmp(cord, want) == 0);
 		uint64_t back = UINT64_MAX;
-		CHECK_ST(pn_quipu_parse(cord, strlen(cord), &back), pn_ok);
+		CHECK_OK(pn_quipu_parse(cord, strlen(cord), &back, &err_), err_);
 		CHECK(back == n);
 		back = UINT64_MAX;
-		CHECK_ST(pn_quipu_parse(cord, need, &back), pn_ok); /* exact bytes */
+		CHECK_OK(pn_quipu_parse(cord, need, &back, &err_), err_); /* exact bytes */
 		CHECK(back == n);
 		if (pn_fails)
 			break;                             /* the first failure names n */
@@ -295,12 +295,12 @@ int main(void)
 			uint64_t n = (uint64_t)d * deep[i];
 			char cord[1024];
 			size_t need = pn_quipu_render_size(n);
-			CHECK_ST(pn_quipu_render(n, cord, need + 1), pn_ok);
+			CHECK_OK(pn_quipu_render(n, cord, need + 1, &err_), err_);
 			uint64_t back = UINT64_MAX;
-			CHECK_ST(pn_quipu_parse(cord, strlen(cord), &back), pn_ok);
+			CHECK_OK(pn_quipu_parse(cord, strlen(cord), &back, &err_), err_);
 			CHECK(back == n);
 			back = UINT64_MAX;
-			CHECK_ST(pn_quipu_parse(cord, need, &back), pn_ok);
+			CHECK_OK(pn_quipu_parse(cord, need, &back, &err_), err_);
 			CHECK(back == n);
 		}
 	}
@@ -310,10 +310,10 @@ int main(void)
 	(void)expect_render(PN_QUIPU_MAX_VALUE, want);
 	size_t top_need = pn_quipu_render_size(PN_QUIPU_MAX_VALUE);
 	CHECK(top_need == strlen(want));
-	CHECK_ST(pn_quipu_render(PN_QUIPU_MAX_VALUE, top,
-			sizeof top), pn_ok);
+	CHECK_OK(pn_quipu_render(PN_QUIPU_MAX_VALUE, top,
+			sizeof top, &err_), err_);
 	uint64_t back = UINT64_MAX;
-	CHECK_ST(parse_str(top, &back), pn_ok);
+	CHECK_OK(parse_str(top, &back, &err_), err_);
 	CHECK(back == PN_QUIPU_MAX_VALUE);
 
 	/* --- errors: the strict canonical cord
@@ -376,21 +376,21 @@ int main(void)
 	expect_range(SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE);
 
 	/* Nulls. */
-	CHECK_ST(pn_quipu_parse(NULL, 4, &back), pn_err_null);
-	CHECK_ST(pn_quipu_parse(FIGURE, 3, NULL), pn_err_null);
+	CHECK_ERROR(pn_quipu_parse(pn_nothing(), 4, &back, &err_), err_, PN_ERROR_NULL);
+	CHECK_ERROR(pn_quipu_parse(FIGURE, 3, pn_nothing(), &err_), err_, PN_ERROR_NULL);
 
 	/* A cut-off knot: two of the bullet's three bytes stop mid-UTF-8 —
 		two whole knots would be six bytes; seven is half a knot. */
 	back = 256u;
-	CHECK_ST(pn_quipu_parse(SIMPLE SIMPLE SIMPLE, 2u * 3u + 1u,
-			&back), pn_err_syntax);
+	CHECK_ERROR(pn_quipu_parse(SIMPLE SIMPLE SIMPLE, 2u * 3u + 1u,
+			&back, &err_), err_, PN_ERROR_SYNTAX);
 	CHECK(back == 256u);
 
 	/* Half a column: a bullet, a boundary, then the infinity cut short
 		— its two leading bytes plus a foreign tail byte. */
 	back = 256u;
-	CHECK_ST(pn_quipu_parse(SIMPLE " \xE2\x88\x41", 3u + 1u + 3u,
-			&back), pn_err_syntax);
+	CHECK_ERROR(pn_quipu_parse(SIMPLE " \xE2\x88\x41", 3u + 1u + 3u,
+			&back, &err_), err_, PN_ERROR_SYNTAX);
 	CHECK(back == 256u);
 
 	return CHECK_RUN();

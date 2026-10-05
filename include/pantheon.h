@@ -1094,37 +1094,53 @@ bool pn_mayan_parse(const char *_Nullable buf, size_t buflen,
 /*  Bytes needed to render n as a quipu cord, NOT counting the
  *  terminating NUL.  Pure and total — it never fails; for n >
  *  PN_QUIPU_MAX_VALUE its answer simply runs on and is meaningless,
- *  since render rejects such n with pn_err_range. */
+ *  since render turns down such n with a PN_ERROR_RANGE note. */
 size_t pn_quipu_render_size(uint64_t n);
 
-/*  Render n (0 .. PN_QUIPU_MAX_VALUE) as a quipu cord into buf as
- *  UTF-8, NUL-terminated.  One column of knots per place: d bullets
- *  above the units line, d infinities AT it (the long knot's turns,
- *  the figure-eight its first); a blank place writes no knots but
- *  keeps its boundary space, and 0 renders the empty cord — the Inca
- *  zero is no knot tied.
- *
- *  Errors: pn_err_null, pn_err_range (n > PN_QUIPU_MAX_VALUE: a
- *  twentieth line no pendant holds), pn_err_buffer (buflen <=
- *  render_size(n)).  On error buf is untouched. */
-pn_status pn_quipu_render(uint64_t n, char *buf, size_t buflen);
+/// Write @param n (0 .. PN_QUIPU_MAX_VALUE) as a quipu cord into
+/// @param buf as UTF-8, ending with a NUL.    Each place gets one
+/// column of knots: @param n's digit d for that place shown as d
+/// bullets above the units line, or d infinities right at it (the
+/// long knot's turns; the figure-eight is its first turn).  A blank
+/// place writes no knots but keeps its boundary space, and 0 renders
+/// the empty cord — the Inca zero is no knot tied.
+/// @param n - the whole number to render
+/// @param buf - where the cord lands, with room for the NUL
+/// @param buflen - bytes of room at buf
+/// @param error - where to hang the note on failure: PN_ERROR_NULL
+///     when buf is NULL, PN_ERROR_RANGE when n tops PN_QUIPU_MAX_VALUE
+///      (a twentieth line no pendant holds), PN_ERROR_BUFFER when
+///     buflen does not beat pn_quipu_render_size(n).  On any failure
+///     buf is left untouched.
+/// @returns true on success, false with a note in @param error.
+bool pn_quipu_render(uint64_t n, char *_Nonnull buf, size_t buflen,
+                     pn_error *_Nullable *_Nullable error);
 
-/*  Parse a rendered cord — the inverse of pn_quipu_render.  Strict
- *  canonical form: places = spaces + 1, the leftmost column sitting at
- *  place places − 1 and each space advancing one place; every column a
- *  run of one to nine IDENTICAL knots — bullets in the lines above the
- *  units, infinities at the units line alone (the figure-eight is
- *  where the cord ends).  A lone bullet at the units line, ∞
- *  anywhere above it, a mixed column, a leading or trailing space,
- *  columns touching with no boundary, any foreign byte (the
- *  chronicler's minus included), a knot cut off mid-UTF-8 — all
- *  pn_err_syntax; ten identical knots in one column, or more than
- *  PN_QUIPU_MAX_PLACES places, is more turns and more cord than a
- *  digit and a uint64_t hold: pn_err_range, the ruling the scribe's
- *  twentieth row gets.  An empty cord (buflen == 0) parses as 0 — the
- *  blank reads back as the nothing no knot was.  On error *out is
- *  untouched. */
-pn_status pn_quipu_parse(const char *buf, size_t buflen, uint64_t *out);
+/// Read back a rendered cord — the exact inverse of
+/// pn_quipu_render.    The reading demands the canonical form:
+/// places = spaces + 1, the leftmost column sitting at place
+/// places - 1 and each space stepping one place down; every column a
+/// run of one to nine IDENTICAL knots — bullets in the lines above
+/// the units, infinities at the units line alone (the figure-eight
+/// is where the cord ends).  A lone bullet at the units line, an
+/// infinity anywhere above it, a column that mixes families, a
+/// leading or trailing space, columns touching with no boundary, any
+/// foreign byte (the chronicler's minus included), or a knot cut off
+/// in the middle of its UTF-8 — all give PN_ERROR_SYNTAX.
+/// Ten identical knots in one column, or more than
+/// PN_QUIPU_MAX_PLACES places, is more turns and more cord than a
+/// digit and a uint64_t hold: PN_ERROR_RANGE, the ruling the
+/// scribe's twentieth row gets.  An empty cord (buflen == 0) reads
+/// back as 0 — the blank reads back as the nothing no knot was.
+/// @param buf - the cord to read
+/// @param buflen - bytes to read at buf
+/// @param out - where the number lands on success; untouched on any
+///     failure
+/// @param error - where to hang the note on failure.
+/// @returns true on success, false with a note in @param error.
+bool pn_quipu_parse(const char *_Nullable buf, size_t buflen,
+                    uint64_t *_Nullable out,
+                    pn_error *_Nullable *_Nullable error);
 
 /* ------------------------------------------------------------------------
  *  Greek alphabetic numerals — the Milesian (Ionic) system, in UTF-8.
