@@ -123,7 +123,7 @@ int main(void)
 	CHECK(strcmp(buf, ALPHA DEXIA) == 0);
 	/* the dexia's canonical bytes pinned: CD B4 — NFD unfolds it to
 	   U+02B9 and NFC never brings it back, so the module owns them */
-	CHECK((unsigned char)buf[1] == 0xCD && (unsigned char)buf[2] == 0xB4);
+	CHECK((unsigned char)buf[2] == 0xCD && (unsigned char)buf[3] == 0xB4);
 	render_ok(1000u, buf, sizeof buf);
 	/* the low keraia: CD B5, NFC-stable */
 	CHECK((unsigned char)buf[0] == 0xCD && (unsigned char)buf[1] == 0xB5);
