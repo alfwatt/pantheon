@@ -57,6 +57,10 @@ Consume the library with `-Iinclude build/libpantheon.a` and a single
 - [x] [Greek numerals](https://en.wikipedia.org/wiki/Greek_numerals)
 -       Milesian alphabetic cords in UTF-8: 27 letter-signs over three descending rows, the low keraia announcing the thousands, the trailing keraia proof of a number, one space splitting the runs, 0..999,999
 
+#### Roman
+- [x] [Roman numerals](https://en.wikipedia.org/wiki/Roman_numerals)
+-       canonical tallied form in ASCII: I V X L C D M with the subtractive digraphs IV IX XL XC CD CM, no clock-maker IIII, Bede's nulla for zero, 0..3,999
+
 ### Worked examples
 
 Every rendering below came out of the library itself
@@ -67,24 +71,24 @@ keep — it is part of the rendering.  The two conversion cores
 rendered notations follow narrow-to-wide, longest furthest right.
 
 ```
-   n    sex60  vigesimal  brahmi  greek  hanzi  mayan  rods   egyptian   quipu      cuneiform
-    ----------------------------------------------------------------------------------------------
-    1   1      1          𑁒       αʹ     一     𝋡      𝍠     𓏤          ∞          𒁹
-    2   2      2          𑁓       βʹ     二     𝋢      𝍡     𓏤𓏤         ∞∞         𒁹𒁹
-    3   3      3          𑁔       γʹ     三     𝋣      𝍢     𓏤𓏤𓏤        ∞∞∞        𒁹𒁹𒁹
-    4   4      4          𑁕       δʹ     四     𝋤      𝍣     𓏤𓏤𓏤𓏤       ∞∞∞∞       𒁹𒁹𒁹𒁹
-    5   5      5          𑁖       εʹ     五     𝋥      𝍤     𓏤𓏤𓏤𓏤𓏤      ∞∞∞∞∞      𒁹𒁹𒁹𒁹𒁹
-    6   6      6          𑁗       ϛʹ     六     𝋦      𝍥     𓏤𓏤𓏤𓏤𓏤𓏤     ∞∞∞∞∞∞     𒁹𒁹𒁹𒁹𒁹𒁹
-    7   7      7          𑁘       ζʹ     七     𝋧      𝍦     𓏤𓏤𓏤𓏤𓏤𓏤𓏤    ∞∞∞∞∞∞∞    𒁹𒁹𒁹𒁹𒁹𒁹𒁹
-    8   8      8          𑁙       ηʹ     八     𝋨      𝍧     𓏤𓏤𓏤𓏤𓏤𓏤𓏤𓏤   ∞∞∞∞∞∞∞∞   𒁹𒁹𒁹𒁹𒁹𒁹𒁹𒁹
-    9   9      9          𑁚       θʹ     九     𝋩      𝍨     𓏤𓏤𓏤𓏤𓏤𓏤𓏤𓏤𓏤  ∞∞∞∞∞∞∞∞∞  𒁹𒁹𒁹𒁹𒁹𒁹𒁹𒁹𒁹
+   n     sex60   vigesimal   brahmi   greek   hanzi   roman   mayan   rods    egyptian    quipu       cuneiform
+      -------------------------------------------------------------------------------------------------------------
+    1     1       1           𑁒        αʹ      一      I       𝋡       𝍠      𓏤           ∞           𒁹
+    2     2       2           𑁓        βʹ      二      II      𝋢       𝍡      𓏤𓏤          ∞∞          𒁹𒁹
+    3     3       3           𑁔        γʹ      三      III     𝋣       𝍢      𓏤𓏤𓏤         ∞∞∞         𒁹𒁹𒁹
+    4     4       4           𑁕        δʹ      四      IV      𝋤       𝍣      𓏤𓏤𓏤𓏤        ∞∞∞∞        𒁹𒁹𒁹𒁹
+    5     5       5           𑁖        εʹ      五      V       𝋥       𝍤      𓏤𓏤𓏤𓏤𓏤       ∞∞∞∞∞       𒁹𒁹𒁹𒁹𒁹
+    6     6       6           𑁗        ϛʹ      六      VI      𝋦       𝍥      𓏤𓏤𓏤𓏤𓏤𓏤      ∞∞∞∞∞∞      𒁹𒁹𒁹𒁹𒁹𒁹
+    7     7       7           𑁘        ζʹ      七      VII     𝋧       𝍦      𓏤𓏤𓏤𓏤𓏤𓏤𓏤     ∞∞∞∞∞∞∞     𒁹𒁹𒁹𒁹𒁹𒁹𒁹
+    8     8       8           𑁙        ηʹ      八      VIII    𝋨       𝍧      𓏤𓏤𓏤𓏤𓏤𓏤𓏤𓏤    ∞∞∞∞∞∞∞∞    𒁹𒁹𒁹𒁹𒁹𒁹𒁹𒁹
+    9     9       9           𑁚        θʹ      九      IX      𝋩       𝍨      𓏤𓏤𓏤𓏤𓏤𓏤𓏤𓏤𓏤   ∞∞∞∞∞∞∞∞∞   𒁹𒁹𒁹𒁹𒁹𒁹𒁹𒁹𒁹
 
-      the structural values: blanks, shells, grouping
-         (n stays base ten; the rest wear their own bases)
+       the structural values: blanks, shells, grouping
+           (n stays base ten; the rest wear their own bases)
 
-   10   10     10         𑁛       ιʹ     一十   𝋪      𝍩␣    𓎆          •␣         𒌋
-  100   1,40   5,0        𑁤       ρʹ     一百   𝋥␣𝋠    𝍠␣␣   𓍢          •␣␣        𒁹␣𒌋𒌋𒌋𒌋
- 1000   16,40  2,10,0     𑁥       ͵αʹ    一千   𝋢␣𝋪␣𝋠  𝍩␣␣␣  𓆼          •␣␣␣       𒌋𒁹𒁹𒁹𒁹𒁹𒁹␣𒌋𒌋𒌋𒌋
+   10     10      10          𑁛        ιʹ      一十    X       𝋪       𝍩␣     𓎆           •␣          𒌋
+  100     1,40    5,0         𑁤        ρʹ      一百    C       𝋥␣𝋠     𝍠␣␣    𓍢           •␣␣         𒁹␣𒌋𒌋𒌋𒌋
+ 1000     16,40   2,10,0      𑁥        ͵αʹ     一千    M       𝋢␣𝋪␣𝋠   𝍩␣␣␣   𓆼           •␣␣␣        𒌋𒁹𒁹𒁹𒁹𒁹𒁹␣𒌋𒌋𒌋𒌋
 ```
 
 ### Mathematics
