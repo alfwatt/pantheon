@@ -11,12 +11,12 @@
     U+1D369..U+1D371  COUNTING ROD TENS DIGIT ONE..NINE
 
     The units column takes the unit set, the tens takes the tens set,
-    the hundreds take the unit set again — the Song dynasty
+    the hundreds take the unit set again - the Song dynasty
     orientation, and what the Unicode names assume.
 
     The rods had no zero: an empty column stayed literally empty and
     the reader counted columns.  We keep the blank as a space, the
-    cuneiform gap grown to base ten — every place boundary writes
+    cuneiform gap grown to base ten - every place boundary writes
     exactly one space and a blank place writes one of its own, so a
     well-formed string holds exactly (places - 1) spaces:
 
@@ -27,7 +27,7 @@
     That law is what lets the blank survive the round trip: the
     parser sets places = spaces + 1, reads the leftmost glyph at
     place places - 1, and every glyph's form must match its place's
-    parity — the unit-set rod for 11 where the tens-set one belongs
+    parity - the unit-set rod for 11 where the tens-set one belongs
     is the rod version of a Babylonian missing-zero.
 
     The signs are spelled as universal character names, which keeps
@@ -129,7 +129,7 @@ bool pn_rods_render(uint64_t n, char *_Nonnull buf, size_t buflen,
 /* Parsing reads the board back.
 
    The whole string is rods and spaces in canonical spacing.  The
-   blank column — for two thousand years it had no symbol — is a
+   blank column - for two thousand years it had no symbol - is a
    space, so the spaces count exactly (places - 1) and the parser
    recovers places = spaces + 1 from it: the leftmost glyph sits at
    place places - 1, each run of r spaces moves the place along by
@@ -137,7 +137,7 @@ bool pn_rods_render(uint64_t n, char *_Nonnull buf, size_t buflen,
    alternating orientation is how the reader kept count of columns).
    A foreign byte, a sign cut off short, a leading space, two glyphs
    touching, or a digit in the wrong column is malformed; more than
-   PN_ROD_MAX_PLACES places is beyond the board, not bad grammar —
+   PN_ROD_MAX_PLACES places is beyond the board, not bad grammar -
    the same ruling the Egyptian scribe hands ten strokes. */
 
 /* Match a rod at @param p, where at least SIGN_BYTES of room remains

@@ -8,14 +8,14 @@
     A place worth d takes (d/10) copies of U followed by (d%10)
     copies of DISH, and places sit one space apart.  Unicode has no
     zero sign for the sexagesimal gap, so an empty place is written
-    as two spaces — the very blank a scribe left, with the very
+    as two spaces - the very blank a scribe left, with the very
     ambiguity that came with it: on the tablet a lone DISH meant 1,
     60, or 1/60, and only context told the reader which.
 
     The signs are spelled as universal character names so this file
     stays pure ASCII.  One deliberate choice: the precomposed signs
     of Unicode's "Cuneiform Numbers and Punctuation" block
-    (U+12400..) are NOT used — those are weights-and-measures signs,
+    (U+12400..) are NOT used - those are weights-and-measures signs,
     not the school-text digits of place-value writing.
 
     Reference: https://en.wikipedia.org/wiki/Babylonian_numerals
@@ -70,7 +70,7 @@ bool pn_babylonian_render(pn_sex60 v, char *_Nonnull buf, size_t buflen,
 	if (!well_formed(v))
 		return pn_error_set(error, PN_ERROR_DOMAIN,
 				                 "the value is not well-formed:"
-				                 " %u places, radix %u — places need"
+				                 " %u places, radix %u - places need"
 				                 " 1 to %u slots, each 0 to 59, and"
 				                 " the radix cannot pass n_places",
 				                v.n_places, v.radix,
@@ -124,8 +124,8 @@ bool pn_babylonian_render(pn_sex60 v, char *_Nonnull buf, size_t buflen,
     trailing run    3k      (k empty places after the last group)
     all-space       3k-1    (k empty places, no group at all)
 
-    Every other shape — other bytes, other spacings, groups written
-   out of order — is refused, and that strictness is exactly what
+    Every other shape - other bytes, other spacings, groups written
+   out of order - is refused, and that strictness is exactly what
    makes the parse-after-render round trip exact. */
 bool pn_babylonian_parse(const char *_Nullable buf, size_t buflen,
                          pn_sex60 *_Nullable out,
@@ -191,10 +191,11 @@ bool pn_babylonian_parse(const char *_Nullable buf, size_t buflen,
 		for (; zeros > 0; zeros--)
 			v.places[n++] = 0;
 
-		/* The group itself: U signs first, then DISH signs, in
-		  * canonical order with canonical counts only (five tens
-		  * plus nine ones still sits under 60; a sixth ten is no
-		  * single place). */
+		/*  The group itself: U signs first, then DISH signs, in
+  canonical order with canonical counts only (five tens
+  plus nine ones still sits under 60; a sixth ten is no
+  single place).
+*/
 		size_t nu = 0, nd = 0;
 
 		while (p + SIGN_BYTES <= end &&

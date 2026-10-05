@@ -1,36 +1,33 @@
-/* test_chinese.c — hanzi numeral rendering.
-   	 *
-   	 * The signs are written as C11 universal character names so this file
-   	 * stays pure ASCII (signs at least):
-   	 *
-   	 *   YI   U+4E00 一 = 1      (UTF-8 E4 B8 80)
-   	 *   SHI  U+5341 十 = 10     (UTF-8 E5 8D 81)
-   	 *   WAN  U+4E07 万 = 10 000 (UTF-8 E4 B8 87)
-   	 *   …  二 三 四 五 六 七 八 九 百 千 follow in the tables below.
-   	 *
-   	 * Golden rendering from https://en.wikipedia.org/wiki/Chinese_numerals:
-   	 * 4622 = 四千六百二十二 — digits with their multipliers, high to low,
-   	 * the formal full reading (一十四 for 14), and one blank space
-   	 * wherever a digit is skipped (一千 五 = 1005).
-   	 */
+/*  test_chinese.c — hanzi numeral rendering.
+   The signs are written as C11 universal character names so this file
+   stays pure ASCII (signs at least):
+   YI   U+4E00 一 = 1      (UTF-8 E4 B8 80)
+   SHI  U+5341 十 = 10     (UTF-8 E5 8D 81)
+   WAN  U+4E07 万 = 10 000 (UTF-8 E4 B8 87)
+   …  二 三 四 五 六 七 八 九 百 千 follow in the tables below.
+   Golden rendering from https://en.wikipedia.org/wiki/Chinese_numerals:
+   4622 = 四千六百二十二 — digits with their multipliers, high to low,
+   the formal full reading (一十四 for 14), and one blank space
+   wherever a digit is skipped (一千 五 = 1005).
+*/
 
 #include "check.h"
 
-#define YI    "\U00004E00"
-#define ER    "\U00004E8C"
-#define SAN   "\U00004E09"
-#define SI    "\U000056DB"
-#define WU    "\U00004E94"
-#define LIU   "\U0000516D"
-#define QI    "\U00004E03"
-#define BA    "\U0000516B"
-#define JIU   "\U00004E5D"
-#define SHI   "\U00005341"
-#define BAI   "\U0000767E"
-#define QIAN  "\U00005343"
-#define WAN   "\U00004E07"
-#define LING  "\U000096F6"   /* 零: the later scribal zero — foreign here */
-#define QUEN  "\U00003007"   /* 〇: the modern circle — foreign here too  */
+#define YI    "一"
+#define ER    "二"
+#define SAN   "三"
+#define SI    "四"
+#define WU    "五"
+#define LIU   "六"
+#define QI    "七"
+#define BA    "八"
+#define JIU   "九"
+#define SHI   "十"
+#define BAI   "百"
+#define QIAN  "千"
+#define WAN   "万"
+#define LING  "零"   /* 零: the later scribal zero - foreign here */
+#define QUEN  "〇"   /* 〇: the modern circle - foreign here too */
 
 /* Render into a generous buffer, asserting render_size == strlen. */
 static void render_ok(uint64_t n, char *buf, size_t buflen)
@@ -53,8 +50,9 @@ static void roundtrip(uint64_t n)
 	CHECK(back == n);
 }
 
-/* parse(text) — a NUL-terminated literal is exactly what a caller who
-   * measured it would pass. */
+/*  parse(text) — a NUL-terminated literal is exactly what a caller who
+   measured it would pass.
+*/
 static bool parse_str(const char *text, uint64_t *out, pn_error **error)
 {
 	return pn_hanzi_parse(text, strlen(text), out, error);
@@ -65,15 +63,15 @@ int main(void)
 	char buf[4096];
 	uint64_t v;
 
-			/* --- the single-digit values and the raw bytes ------------------- */
+						/* the single-digit values and the raw bytes */
 
 	render_ok(7u, buf, sizeof buf);
 	CHECK(strcmp(buf, QI) == 0);
-	/* the seven's raw bytes pinned, as the stroke's are */
+		/* the seven's raw bytes pinned, as the stroke's are */
 	CHECK((unsigned char)buf[0] == 0xE4 && (unsigned char)buf[1] == 0xB8 &&
 		(unsigned char)buf[2] == 0x83);
 
-			/* --- golden renderings -------------------------------------------- */
+						/* golden renderings */
 
 	render_ok(0u, buf, sizeof buf);                 /* the blank */
 	CHECK(buf[0] == '\0');
@@ -112,7 +110,7 @@ int main(void)
 	CHECK(strcmp(buf, JIU QIAN JIU BAI JIU SHI JIU WAN
 			JIU QIAN JIU BAI JIU SHI JIU) == 0);
 
-			/* --- render error cases ------------------------------------------- */
+						/* render error cases */
 
 	CHECK_ERROR(pn_hanzi_render(1u, pn_nothing(), 10, &err_), err_, PN_ERROR_NULL);
 	CHECK_ERROR(pn_hanzi_render(1u, buf, 0, &err_), err_, PN_ERROR_BUFFER);
@@ -122,7 +120,7 @@ int main(void)
 	CHECK_OK(pn_hanzi_render(PN_HANZI_MAX_VALUE, buf, sizeof buf, &err_), err_);
 	CHECK_ERROR(pn_hanzi_render(UINT64_MAX, buf, sizeof buf, &err_), err_, PN_ERROR_RANGE);
 
-			/* --- parse error cases -------------------------------------------- */
+						/* parse error cases */
 
 	CHECK_ERROR(pn_hanzi_parse(pn_nothing(), 0, &v, &err_), err_, PN_ERROR_NULL);
 	CHECK_ERROR(pn_hanzi_parse(buf, 3, pn_nothing(), &err_), err_, PN_ERROR_NULL);
@@ -130,32 +128,33 @@ int main(void)
 	uint64_t probe;
 	CHECK_OK(parse_str("", &probe, &err_), err_);         /* the blank reads back as 0 */
 	CHECK(probe == 0u);
-	CHECK_ERROR(parse_str("十四", &probe, &err_), err_, PN_ERROR_SYNTAX);        /* elided 一    */
+	CHECK_ERROR(parse_str("十四", &probe, &err_), err_, PN_ERROR_SYNTAX);        /* elided 一 */
 	CHECK_ERROR(parse_str("百一十", &probe, &err_), err_, PN_ERROR_SYNTAX);      /* begins with 百 */
-	CHECK_ERROR(parse_str("一百百", &probe, &err_), err_, PN_ERROR_SYNTAX);      /* 百 twice       */
-	CHECK_ERROR(parse_str("一三", &probe, &err_), err_, PN_ERROR_SYNTAX);        /* digit, digit   */
-	CHECK_ERROR(parse_str("四百百", &probe, &err_), err_, PN_ERROR_SYNTAX);      /* ascending...   */
+	CHECK_ERROR(parse_str("一百百", &probe, &err_), err_, PN_ERROR_SYNTAX);      /* 百 twice */
+	CHECK_ERROR(parse_str("一三", &probe, &err_), err_, PN_ERROR_SYNTAX);        /* digit, digit */
+	CHECK_ERROR(parse_str("四百百", &probe, &err_), err_, PN_ERROR_SYNTAX);      /* ascending... */
 	CHECK_ERROR(parse_str("三百二十" "十", &probe, &err_), err_, PN_ERROR_SYNTAX); /* ...and twice */
-	CHECK_ERROR(parse_str(" " WU, &probe, &err_), err_, PN_ERROR_SYNTAX);        /* leading space  */
+	CHECK_ERROR(parse_str(" " WU, &probe, &err_), err_, PN_ERROR_SYNTAX);        /* leading space */
 	CHECK_ERROR(parse_str(WU " ", &probe, &err_), err_, PN_ERROR_SYNTAX);        /* trailing space */
-	CHECK_ERROR(parse_str(YI QIAN "  " WU, &probe, &err_), err_, PN_ERROR_SYNTAX); /* doubled      */
-	CHECK_ERROR(parse_str(YI QIAN WU, &probe, &err_), err_, PN_ERROR_SYNTAX);    /* the colloquial
-	 	 	 	 	 	 	 	 	 	 	 	 	* 一千五 = "1500" is NOT 1005
-	 	 	 	 	 	 	 	 	 	 	 	 	* and not canonical either    */
+	CHECK_ERROR(parse_str(YI QIAN "  " WU, &probe, &err_), err_, PN_ERROR_SYNTAX); /* doubled */
+	CHECK_ERROR(parse_str(YI QIAN WU, &probe, &err_), err_, PN_ERROR_SYNTAX);    /*  the colloquial
+   一千五 = "1500" is NOT 1005
+   and not canonical either
+*/
 	CHECK_ERROR(parse_str(WU QIAN WAN WU, &probe, &err_), err_, PN_ERROR_SYNTAX); /* missing blank */
-	CHECK_ERROR(parse_str(SI BAI " " SAN SHI YI, &probe, &err_), err_, PN_ERROR_SYNTAX);                         /* unjustified blank      */
+	CHECK_ERROR(parse_str(SI BAI " " SAN SHI YI, &probe, &err_), err_, PN_ERROR_SYNTAX);                         /* unjustified blank */
 	CHECK_ERROR(parse_str(LING, &probe, &err_), err_, PN_ERROR_SYNTAX);         /* 零: not our zero */
-	CHECK_ERROR(parse_str(QUEN, &probe, &err_), err_, PN_ERROR_SYNTAX);         /* 〇: nor this one  */
-	CHECK_ERROR(parse_str("5", &probe, &err_), err_, PN_ERROR_SYNTAX);          /* ASCII            */
+	CHECK_ERROR(parse_str(QUEN, &probe, &err_), err_, PN_ERROR_SYNTAX);         /* 〇: nor this one */
+	CHECK_ERROR(parse_str("5", &probe, &err_), err_, PN_ERROR_SYNTAX);          /* ASCII */
 	CHECK_ERROR(parse_str("\xE4\xB8", &probe, &err_), err_, PN_ERROR_SYNTAX);   /* 一 cut off short */
-	CHECK_ERROR(parse_str("万", &probe, &err_), err_, PN_ERROR_SYNTAX);         /* 万 alone         */
-	CHECK_ERROR(parse_str(WU WAN SAN WAN, &probe, &err_), err_, PN_ERROR_SYNTAX); /* second 万      */
-	CHECK_ERROR(parse_str("百", &probe, &err_), err_, PN_ERROR_SYNTAX);         /* bare multiplier  */
+	CHECK_ERROR(parse_str("万", &probe, &err_), err_, PN_ERROR_SYNTAX);         /* 万 alone */
+	CHECK_ERROR(parse_str(WU WAN SAN WAN, &probe, &err_), err_, PN_ERROR_SYNTAX); /* second 万 */
+	CHECK_ERROR(parse_str("百", &probe, &err_), err_, PN_ERROR_SYNTAX);         /* bare multiplier */
 	CHECK_ERROR(parse_str(SAN WAN "千", &probe, &err_), err_, PN_ERROR_SYNTAX); /* 千 with no digit */
 
-			/* valid non-canonical-looking shapes that ARE canonical ----------- */
+						/* valid non-canonical-looking shapes that ARE canonical */
 
-	CHECK_OK(parse_str(YI SHI YI, &probe, &err_), err_);            /* 一十一 = 11     */
+	CHECK_OK(parse_str(YI SHI YI, &probe, &err_), err_);            /* 一十一 = 11 */
 	CHECK(probe == 11u);
 	CHECK_OK(parse_str(SI WAN " " SI, &probe, &err_), err_);          /* the blank */
 	CHECK(probe == 40004u);
@@ -165,14 +164,14 @@ int main(void)
 			JIU SHI JIU, &probe, &err_), err_);
 	CHECK(probe == PN_HANZI_MAX_VALUE);
 
-			/* --- round-trip sweep --------------------------------------------- */
+						/* round-trip sweep */
 
 	for (uint64_t n = 0; n < 10000; n++)
-		roundtrip(n);                            /* every units section       */
+		roundtrip(n);                            /* every units section */
 	for (uint64_t p = 1; p <= 10000000; p *= 10)
-		roundtrip(p);                            /* one 万 at each height     */
-	roundtrip(100000000u - 1);                   /* the maximum               */
-	roundtrip(1010101u);                         /* blank after blank         */
+		roundtrip(p);                            /* one 万 at each height */
+	roundtrip(100000000u - 1);                   /* the maximum */
+	roundtrip(1010101u);                         /* blank after blank */
 	roundtrip(9090909u);
 	roundtrip(10000001u);
 	roundtrip(4300000u);

@@ -1,12 +1,11 @@
-/* test_roman.c — Roman numerals, the canonical tallied form.
- *
- * The seven letters I V X L C D M are the signs — pure ASCII, no
- * universal character names needed.  Every expected string below came
- * from the generator .hermes/tmp/gen_test_roman.py via truth(), the
- * per-digit row law (thousands + hundreds row + tens row + units row),
- * cross-checked against the greedy law over the whole domain; none was
- * hand-typed.
- */
+/*  test_roman.c — Roman numerals, the canonical tallied form.
+   The seven letters I V X L C D M are the signs — pure ASCII, no
+   universal character names needed.  Every expected string below came
+   from the generator .hermes/tmp/gen_test_roman.py via truth(), the
+   per-digit row law (thousands + hundreds row + tens row + units row),
+   cross-checked against the greedy law over the whole domain; none was
+   hand-typed.
+*/
 
 #include "check.h"
 
@@ -73,7 +72,7 @@ int main(void)
 	char buf[64];
 	uint64_t v;
 
-	/* --- the row tables the numerals are built from ------------------ */
+		/* the row tables the numerals are built from */
 	CHECK(strcmp(th_row[3], "MMM") == 0);
 	CHECK(strcmp(h_row[4], "CD") == 0);
 	CHECK(strcmp(h_row[9], "CM") == 0);
@@ -83,7 +82,7 @@ int main(void)
 	CHECK(strcmp(u_row[9], "IX") == 0);
 	CHECK(strcmp(th_row[0], "") == 0);
 
-	/* --- golden numerals (the header table, truth()'s spellings) ------ */
+		/* golden numerals (the header table, truth()'s spellings) */
 	render_ok(1u, buf, sizeof buf);
 	CHECK(strcmp(buf, "I") == 0);
 	expect_parse("I", 1u);
@@ -136,7 +135,7 @@ int main(void)
 	CHECK(strcmp(buf, "MMMCMXCIX") == 0);
 	expect_parse("MMMCMXCIX", 3999u);
 
-	/* --- exhaustive round trip over the whole domain ------------------ */
+		/* exhaustive round trip over the whole domain */
 	for (uint64_t n = 0; n <= PN_ROMAN_MAX_VALUE; n++) {
 		char b2[64];
 		size_t need = pn_roman_render_size(n);
@@ -145,17 +144,17 @@ int main(void)
 		uint64_t back = 0;
 		CHECK_OK(pn_roman_parse(b2, strlen(b2), &back, &err_), err_);
 		CHECK(back == n);
-			/* the exact-fit buffer, and one byte short of the NUL */
+						/* the exact-fit buffer, and one byte short of the NUL */
 		CHECK_OK(pn_roman_render(n, buf, need + 1u, &err_), err_);
 			}
 
-	/* --- the ceiling and its neighbours -------------------------------- */
+		/* the ceiling and its neighbours */
 	render_ok(PN_ROMAN_MAX_VALUE, buf, sizeof buf);
 	CHECK(strcmp(buf, "MMMCMXCIX") == 0);
 	render_ok(PN_ROMAN_MAX_VALUE - 1u, buf, sizeof buf);
 	CHECK(strcmp(buf, "MMMCMXCVIII") == 0);
 
-	/* --- near-miss battery: the grammar the abacist settled on ---------- */
+		/* near-miss battery: the grammar the abacist settled on */
 	CHECK_ERROR(pn_roman_parse("IIII", 4u, &v, &err_), err_, PN_ERROR_SYNTAX);	/* the clock maker's fourth I */
 	CHECK_ERROR(pn_roman_parse("XXXX", 4u, &v, &err_), err_, PN_ERROR_SYNTAX);	/* a fourth X */
 	CHECK_ERROR(pn_roman_parse("CCCC", 4u, &v, &err_), err_, PN_ERROR_SYNTAX);	/* a fourth C */
@@ -166,7 +165,7 @@ int main(void)
 	CHECK_ERROR(pn_roman_parse("IIX", 3u, &v, &err_), err_, PN_ERROR_SYNTAX);	/* two units before a ten */
 	CHECK_ERROR(pn_roman_parse("IXI", 3u, &v, &err_), err_, PN_ERROR_SYNTAX);	/* tokens out of order */
 	CHECK_ERROR(pn_roman_parse("XVX", 3u, &v, &err_), err_, PN_ERROR_SYNTAX);	/* a decade reshuffled */
-	CHECK_ERROR(pn_roman_parse("ix", 2u, &v, &err_), err_, PN_ERROR_SYNTAX);	/* lowercase — the abacist's heresy */
+	CHECK_ERROR(pn_roman_parse("ix", 2u, &v, &err_), err_, PN_ERROR_SYNTAX);	/* lowercase - the abacist's heresy */
 	CHECK_ERROR(pn_roman_parse("MCMXCix", 7u, &v, &err_), err_, PN_ERROR_SYNTAX);	/* lowercase tail */
 	CHECK_ERROR(pn_roman_parse("MMMDCCCLXXXVIIIA", 16u, &v, &err_), err_, PN_ERROR_SYNTAX);	/* junk past the last I */
 	CHECK_ERROR(pn_roman_parse("M M", 3u, &v, &err_), err_, PN_ERROR_SYNTAX);	/* a space inside the tally */
@@ -183,7 +182,7 @@ int main(void)
 	CHECK_ERROR(pn_roman_parse("\x01", 1u, &v, &err_), err_, PN_ERROR_SYNTAX);	/* control byte */
 	CHECK_ERROR(pn_roman_parse("I\x00x", 3u, &v, &err_), err_, PN_ERROR_SYNTAX);	/* NUL inside the stated buflen */
 
-	/* --- legal tallies the goldens do not show -------------------------- */
+		/* legal tallies the goldens do not show */
 	expect_parse("", 0u);	/* 0 */
 	expect_parse("MMMDCCCLXXXVIII", 3888u);	/* 3888 */
 	expect_parse("MCMXCIX", 1999u);	/* 1999 */
@@ -195,7 +194,7 @@ int main(void)
 	expect_parse("LXXX", 80u);	/* 80 */
 	expect_parse("VIII", 8u);	/* 8 */
 
-	/* --- the blanks honor zero (Bede's nulla) ---------------------------- */
+		/* the blanks honor zero (Bede's nulla) */
 	render_ok(0u, buf, sizeof buf);
 	 CHECK(buf[0] == '\0');
 	CHECK(pn_roman_render_size(0u) == 0u);
@@ -203,18 +202,18 @@ int main(void)
 	CHECK_OK(pn_roman_parse("", 0, &v, &err_), err_);
 	CHECK(v == 0u);
 
-	/* --- range -------------------------------------------------------------*/
+		/* range */
 	CHECK_ERROR(pn_roman_render(PN_ROMAN_MAX_VALUE + 1u, buf, sizeof buf, &err_), err_, PN_ERROR_RANGE);
 	CHECK_ERROR(pn_roman_render(UINT64_MAX, buf, sizeof buf, &err_), err_, PN_ERROR_RANGE);
 
-	/* --- buffer -------------------------------------------------------------*/
+		/* buffer */
 	size_t fifteen = pn_roman_render_size(3888u);
 	CHECK(fifteen == 15u);
 	buf[0] = '?';
 	CHECK_ERROR(pn_roman_render(3888u, buf, fifteen, &err_), err_, PN_ERROR_BUFFER);
 	CHECK(buf[0] == '?');
 
-	/* --- nulls ---------------------------------------------------------------*/
+		/* nulls */
 	CHECK_ERROR(pn_roman_render(5u, pn_nothing(), sizeof buf, &err_), err_, PN_ERROR_NULL);
 	CHECK_ERROR(pn_roman_parse(pn_nothing(), 0, &v, &err_), err_, PN_ERROR_NULL);
 	CHECK_ERROR(pn_roman_parse("VIII", 4, pn_nothing(), &err_), err_, PN_ERROR_NULL);

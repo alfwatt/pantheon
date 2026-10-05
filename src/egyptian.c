@@ -53,11 +53,12 @@ static const uint64_t values[N_SIGNS] = {
 
 size_t pn_egyptian_render_size(uint64_t n)
 {
-	/* This answer never fails.  For n up to PN_EGYPTIAN_MAX_VALUE it
-	 * is exactly 4 times the sum of the decimal digits.  Past that
-	 * it keeps counting copies as if every digit above 10^6 could
-	 * still be carved, so the answer is only meaningless — render
-	 * turns down such n with PN_ERROR_RANGE anyway. */
+	/*  This answer never fails.  For n up to PN_EGYPTIAN_MAX_VALUE it
+  is exactly 4 times the sum of the decimal digits.  Past that
+  it keeps counting copies as if every digit above 10^6 could
+  still be carved, so the answer is only meaningless - render
+  turns down such n with PN_ERROR_RANGE anyway.
+*/
 	size_t bytes = 0;
 
 	while (n != 0) {
@@ -74,8 +75,9 @@ bool pn_egyptian_render(uint64_t n, char *_Nonnull buf, size_t buflen,
 		return pn_error_set(error, PN_ERROR_NULL,
 			                "render needs a buffer to write into");
 	if (n > PN_EGYPTIAN_MAX_VALUE) {
-		/* There is no sign above the Heh, so ten Heh signs are
-		 * not something this module writes. */
+		/*  There is no sign above the Heh, so ten Heh signs are
+  not something this module writes.
+*/
 		return pn_error_set(error, PN_ERROR_RANGE,
 			                "%llu needs ten or more signs of one kind;"
 			                " the biggest sign is the Heh at 1000000",
@@ -107,13 +109,13 @@ bool pn_egyptian_render(uint64_t n, char *_Nonnull buf, size_t buflen,
 
     Only the canonical spelling round-trips: the seven signs grouped
     into one run each, the runs stepping down in power, every run
-    holding 1 to 9 copies.  Anything else — a byte that is not a
+    holding 1 to 9 copies.  Anything else - a byte that is not a
     sign, a sign sliced off short, a run built from the bottom up, or
-    one sign written in two places — is rejected the way a reader
+    one sign written in two places - is rejected the way a reader
     today rejects "IIIX".  Ten copies of one sign is not bad spelling
     but bad arithmetic: the scribe would have carried to the next
     power, so that string names no canonical number.  That reply is
-    PN_ERROR_RANGE, not PN_ERROR_SYNTAX — the same reply six U
+    PN_ERROR_RANGE, not PN_ERROR_SYNTAX - the same reply six U
     wedges get from pn_babylonian_parse. */
 bool pn_egyptian_parse(const char *_Nullable buf, size_t buflen,
                        uint64_t *_Nullable out,
@@ -138,8 +140,9 @@ bool pn_egyptian_parse(const char *_Nullable buf, size_t buflen,
 				break;
 			}
 		if (found < 0) {
-			/* a byte no sign starts with, or a sign with
-			 * bytes cut off its end */
+			/*  a byte no sign starts with, or a sign with
+  bytes cut off its end
+*/
 			size_t room = (size_t)(end - p);
 
 			return pn_error_set(error, PN_ERROR_SYNTAX,
@@ -148,7 +151,7 @@ bool pn_egyptian_parse(const char *_Nullable buf, size_t buflen,
 			                    " left there: not enough)"
 			                    "%s",
 			                    (size_t)(p - buf), buflen, room,
-			                    room < SIGN_BYTES ? " — a sign is 4"
+			                    room < SIGN_BYTES ? " - a sign is 4"
 			                    " bytes whole" : "");
 		}
 		if (prev >= 0 && found <= prev)
@@ -167,14 +170,15 @@ bool pn_egyptian_parse(const char *_Nullable buf, size_t buflen,
 				                    "ten copies of one sign at"
 				                    " position %zu: ten strokes are"
 				                    " written as one hobble, scribe"
-				                    " — a run holds 1 to 9",
+				                    " - a run holds 1 to 9",
 				                    (size_t)(p - buf) - SIGN_BYTES);
 		} while (p + SIGN_BYTES <= end &&
 				memcmp(p, signs[found], SIGN_BYTES) == 0);
 
-		/* Nothing can overflow here: at most 9 copies over seven
-		 * different descending signs, the sum stops at
-		 * 9 * (10^6 + ... + 1) = 9 999 999, the domain's top. */
+		/*  Nothing can overflow here: at most 9 copies over seven
+  different descending signs, the sum stops at
+  9 * (10^6 + ... + 1) = 9 999 999, the domain's top.
+*/
 		sum += count * values[found];
 		prev = found;
 	}

@@ -5,7 +5,7 @@
     the quipu cord: an additive notation has no places to hold, so no
     struct layer sits between the number and its letters.
 
-    The grammar: four rows per digit, each written out in full — the
+    The grammar: four rows per digit, each written out in full - the
     thousands run (up to three Ms), the hundreds row, the tens row,
     the units row.    The rows descend; each run of I, X, C or M holds at
     most three; and the subtractive pairs IV IX XL XC CD CM stand
@@ -13,7 +13,7 @@
     canon: no clock-maker's IIII, no poet's IC, nothing past MMM CM
     XC IX.
 
-    The parser walks the greedy canon table — each step takes the
+    The parser walks the greedy canon table - each step takes the
     largest token the remaining letters still allow to start with.
     Better still, every numeral it accepts goes back through the
     renderer: a string that reads to @param n must render out byte
@@ -91,7 +91,7 @@ bool pn_roman_render(uint64_t n, char *_Nonnull buf, size_t buflen,
 }
 
 /* The greedy walk's table: how much a token is worth and how it
-   reads, largest first — the very order the renderer's rows write
+   reads, largest first - the very order the renderer's rows write
    out. */
 static const struct {
 	uint64_t value;

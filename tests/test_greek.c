@@ -1,20 +1,18 @@
-/* test_greek.c — Greek alphabetic (Milesian/Ionic) numerals, transcribed.
- *
- * Signs as C11 universal character names (this file stays pure ASCII):
- * the 27 numeral signs — 9 units alpha..theta with stigma U+03DB for
- * 6, 9 tens iota..koppa (koppa U+03DF for 90), 9 hundreds rho..omega
- * with sampi U+03E1 for 900 and plain sigma for 200 — plus LOWK
- * U+0375, the low keraia announcing the thousands run, and DEXIA
- * U+0374, the trailing keraia every nonempty cord wears.
- *
- * The separator space: 10001 (thousands run ι | units run α) and
- * 11000 (one thousands run ια) would butt onto the same cord — 972
- * such collisions live in the domain — so a number whose two runs are
- * both alive separates them with ONE space and the parser demands it
- * exactly there.  Every expected cord below was spelled by the
- * generator .hermes/tmp/gen_test_greek.py from the truth() law,
- * verified bijective over 0..999999; none was hand-typed.
- */
+/*  test_greek.c — Greek alphabetic (Milesian/Ionic) numerals, transcribed.
+   Signs as C11 universal character names (this file stays pure ASCII):
+   the 27 numeral signs — 9 units alpha..theta with stigma U+03DB for
+   6, 9 tens iota..koppa (koppa U+03DF for 90), 9 hundreds rho..omega
+   with sampi U+03E1 for 900 and plain sigma for 200 — plus LOWK
+   U+0375, the low keraia announcing the thousands run, and DEXIA
+   U+0374, the trailing keraia every nonempty cord wears.
+   The separator space: 10001 (thousands run ι | units run α) and
+   11000 (one thousands run ια) would butt onto the same cord — 972
+   such collisions live in the domain — so a number whose two runs are
+   both alive separates them with ONE space and the parser demands it
+   exactly there.  Every expected cord below was spelled by the
+   generator .hermes/tmp/gen_test_greek.py from the truth() law,
+   verified bijective over 0..999999; none was hand-typed.
+*/
 
 #include "check.h"
 
@@ -50,8 +48,9 @@
 #define OMEGA     "\u03c9"
 #define SAMPI     "\u03e1"
 
-/* d signs of each row, per digit 0..9; index 0 is the row's empty
-    place — the digit that writes nothing there. */
+/*  d signs of each row, per digit 0..9; index 0 is the row's empty
+   place - the digit that writes nothing there.
+*/
 static const char *const units_row[10] = {
 	"",
 	ALPHA,
@@ -118,26 +117,27 @@ int main(void)
 	char buf[64];
 	uint64_t v;
 
-	/* --- the two keraia and their raw bytes -------------------------- */
+		/* the two keraia and their raw bytes */
 	render_ok(1u, buf, sizeof buf);
 	CHECK(strcmp(buf, ALPHA DEXIA) == 0);
-	/* the dexia's canonical bytes pinned: CD B4 — NFD unfolds it to
-	   U+02B9 and NFC never brings it back, so the module owns them */
+		/*  the dexia's canonical bytes pinned: CD B4 — NFD unfolds it to
+	   U+02B9 and NFC never brings it back, so the module owns them
+	*/
 	CHECK((unsigned char)buf[2] == 0xCD && (unsigned char)buf[3] == 0xB4);
 	render_ok(1000u, buf, sizeof buf);
-	/* the low keraia: CD B5, NFC-stable */
+		/* the low keraia: CD B5, NFC-stable */
 	CHECK((unsigned char)buf[0] == 0xCD && (unsigned char)buf[1] == 0xB5);
 
-	/* --- the separator: the collision the space exists to kill -------- */
+		/* the separator: the collision the space exists to kill */
 	render_ok(10001u, buf, sizeof buf);
 	CHECK(strcmp(buf, LOWK IOTA SEP ALPHA DEXIA) == 0);
 	render_ok(11000u, buf, sizeof buf);
 	CHECK(strcmp(buf, LOWK IOTA ALPHA DEXIA) == 0);
-	/* same letter in both runs: the space, not the letters, separates */
+		/* same letter in both runs: the space, not the letters, separates */
 	render_ok(1001u, buf, sizeof buf);
  CHECK(strcmp(buf, LOWK ALPHA SEP ALPHA DEXIA) == 0);
 
-	/* --- golden cords (truth()'s spellings, see the header table) ----- */
+		/* golden cords (truth()'s spellings, see the header table) */
 	render_ok(1u, buf, sizeof buf);
 	CHECK(strcmp(buf, ALPHA DEXIA) == 0);
 	expect_parse(ALPHA DEXIA, 1u);
@@ -190,7 +190,7 @@ int main(void)
 	CHECK(strcmp(buf, LOWK SAMPI KOPPA THETA SEP SAMPI KOPPA THETA DEXIA) == 0);
 	expect_parse(LOWK SAMPI KOPPA THETA SEP SAMPI KOPPA THETA DEXIA, 999999u);
 
-	/* --- the row tables the cords are cut from ------------------------- */
+		/* the row tables the cords are cut from */
 	CHECK(strcmp(units_row[6], STIGMA) == 0);
 	CHECK(strcmp(tens_row[9], KOPPA) == 0);
 	CHECK(strcmp(hund_row[2], SIGMA_) == 0);
@@ -198,20 +198,20 @@ int main(void)
 	CHECK(units_row[0][0] == '\0' && tens_row[0][0] == '\0' &&
 	      hund_row[0][0] == '\0');
 
-	/* --- exhaustive round trip: render then parse, the whole domain --- */
+		/* exhaustive round trip: render then parse, the whole domain */
 	for (uint64_t n = 0; n <= PN_GREEK_MAX_VALUE; n++) {
 		char b2[64];
 		size_t need = pn_greek_render_size(n);
 		CHECK_OK(pn_greek_render(n, b2, sizeof b2, &err_), err_);
 		CHECK(strlen(b2) == need);
-		/* the exact-fit buffer */
+				/* the exact-fit buffer */
 		CHECK_OK(pn_greek_render(n, buf, need + 1u, &err_), err_);
 		uint64_t back = 0;
 		CHECK_OK(pn_greek_parse(b2, strlen(b2), &back, &err_), err_);
 		CHECK(back == n);
 	}
 
-	/* --- deep sweep d * 10^k over the keraia decades ------------------ */
+		/* deep sweep d * 10^k over the keraia decades */
 	for (uint64_t d = 1; d <= 9; d++) {
 		for (unsigned k = 2; k <= 5; k++) {
 			uint64_t p = 1;
@@ -227,7 +227,7 @@ int main(void)
 			CHECK(back == n);
 		}
 	}
-	/* the neighbours of the ceiling */
+		/* the neighbours of the ceiling */
 	for (uint64_t n = PN_GREEK_MAX_VALUE - 2u; n <= PN_GREEK_MAX_VALUE;
 	     n++) {
 		char b2[64];
@@ -237,7 +237,7 @@ int main(void)
 		CHECK(back == n);
 	}
 
-	/* --- near-miss battery: all the strict cord refuses ---------------- */
+		/* near-miss battery: all the strict cord refuses */
 	CHECK_ERROR(pn_greek_parse("\xcd\xb4", 2u, &v, &err_), err_, PN_ERROR_SYNTAX);/* lone trailing keraia is no number */
 	CHECK_ERROR(pn_greek_parse("\xce\xb1\xcd\xb4\xcd\xb4", 6u, &v, &err_), err_, PN_ERROR_SYNTAX);/* dexia twice */
 	CHECK_ERROR(pn_greek_parse("\xcd\xb4\xce\xb1\xcd\xb4", 6u, &v, &err_), err_, PN_ERROR_SYNTAX);/* dexia leads */
@@ -268,14 +268,14 @@ int main(void)
 	CHECK_ERROR(pn_greek_parse("\xce\xb1\xca\xb9", 4u, &v, &err_), err_, PN_ERROR_SYNTAX);/* render(1) put through NFC: the prime twin is refused */
 	CHECK_ERROR(pn_greek_parse("\xce\xb1\xcd\xb4\x00\x67\x61\x72\x62\x61\x67\x65", 12u, &v, &err_), err_, PN_ERROR_SYNTAX);/* NUL and junk past the cord */
 
-	/* --- legal cords the goldens do not show --------------------------- */
+		/* legal cords the goldens do not show */
 	expect_parse_len("\xcd\xb5\xce\xb1\x20\xce\xb1\xcd\xb4", 1001u, 9u);	/* 1001 */
 	expect_parse_len("\xcd\xb5\xce\xb9\x20\xce\xb1\xcd\xb4", 10001u, 9u);	/* 10001 */
 	expect_parse_len("\xcd\xb5\xce\xb9\xce\xb1\xcd\xb4", 11000u, 8u);	/* 11000 */
 	expect_parse_len("\xcd\xb5\xce\xb1\x20\xcf\x81\xcd\xb4", 1100u, 9u);	/* 1100 */
 	expect_parse_len("\xcd\xb5\xcf\x81\xcd\xb4", 100000u, 6u);	/* 100000 */
 
-	/* --- the blanks honor zero ------------------------------------------ */
+		/* the blanks honor zero */
 	render_ok(0u, buf, sizeof buf);
 	CHECK(buf[0] == '\0');
 	CHECK(pn_greek_render_size(0u) == 0u);
@@ -283,18 +283,18 @@ int main(void)
 	CHECK_OK(pn_greek_parse("", 0, &v, &err_), err_);
 	CHECK(v == 0u);
 
-	/* --- range -----------------------------------------------------------*/
+		/* range */
 	CHECK_ERROR(pn_greek_render(PN_GREEK_MAX_VALUE + 1u, buf, sizeof buf, &err_), err_, PN_ERROR_RANGE);
 	CHECK_ERROR(pn_greek_render(UINT64_MAX, buf, sizeof buf, &err_), err_, PN_ERROR_RANGE);
 
-	/* --- buffer -----------------------------------------------------------*/
+		/* buffer */
 	size_t nine = pn_greek_render_size(999999u);
-	/* one byte short of the NUL — the renderer must not touch buf */
+		/* one byte short of the NUL — the renderer must not touch buf */
 	buf[0] = '?';
 	CHECK_ERROR(pn_greek_render(999999u, buf, nine, &err_), err_, PN_ERROR_BUFFER);
 	CHECK(buf[0] == '?');
 
-	/* --- nulls -------------------------------------------------------------*/
+		/* nulls */
 	CHECK_ERROR(pn_greek_render(5u, pn_nothing(), sizeof buf, &err_), err_, PN_ERROR_NULL);
 	CHECK_ERROR(pn_greek_parse(pn_nothing(), 0, &v, &err_), err_, PN_ERROR_NULL);
 	CHECK_ERROR(pn_greek_parse(ALPHA DEXIA, 4, pn_nothing(), &err_), err_, PN_ERROR_NULL);

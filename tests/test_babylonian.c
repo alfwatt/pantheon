@@ -1,20 +1,17 @@
-/* test_babylonian.c — positional cuneiform rendering.
- *
- * The signs are written as C11 universal character names so this file
- * stays pure ASCII:
- *
- *   DISH  U+12079  vertical wedge = 1    (UTF-8 F0 92 81 B9)
- *   U     U+1230B  corner wedge   = 10   (UTF-8 F0 92 8C 8B)
- *
- * Golden renderings from https://en.wikipedia.org/wiki/Babylonian_numerals:
- *   23   = uu...  2 corner wedges + 3 verticals
- *   8583 = 2*60^2 + 23*60 + 3 rendered place by place.
- */
+/*  test_babylonian.c — positional cuneiform rendering.
+   The signs are written as C11 universal character names so this file
+   stays pure ASCII:
+   DISH  U+12079  vertical wedge = 1    (UTF-8 F0 92 81 B9)
+   U     U+1230B  corner wedge   = 10   (UTF-8 F0 92 8C 8B)
+   Golden renderings from https://en.wikipedia.org/wiki/Babylonian_numerals:
+   23   = uu...  2 corner wedges + 3 verticals
+   8583 = 2*60^2 + 23*60 + 3 rendered place by place.
+*/
 
 #include "check.h"
 
-#define DISH "\U00012079"
-#define U    "\U0001230B"
+#define DISH "𒁹"
+#define U    "𒌋"
 #define TEN_DISH DISH DISH DISH DISH DISH DISH DISH DISH DISH DISH
 
 /* Count whole sign occurrences in a rendered string. */
@@ -49,7 +46,7 @@ int main(void)
 {
 	char buf[4096];
 
-	/* --- single places: d tens-wedges then d%10 unit-wedges ---------- */
+		/* single places: d tens-wedges then d%10 unit-wedges */
 	static const uint8_t one[] = { 1 };
 	static const uint8_t nine[] = { 9 };
 	static const uint8_t ten[] = { 10 };
@@ -68,18 +65,18 @@ int main(void)
 	render_ok(mk(ten, 1, 1), buf, sizeof buf);
 	CHECK(strcmp(buf, U) == 0);
 
-	/* Wikipedia's example: 23 = two U + three DISH. */
+		/* Wikipedia's example: 23 = two U + three DISH. */
 	render_ok(mk(twentythree, 1, 1), buf, sizeof buf);
 	CHECK(strcmp(buf, U U DISH DISH DISH) == 0);
 
-	/* 57 = five U + seven DISH. */
+		/* 57 = five U + seven DISH. */
 	render_ok(mk(fiftyseven, 1, 1), buf, sizeof buf);
 	CHECK(count_sigs(buf, U) == 5 && count_sigs(buf, DISH) == 7);
 
 	render_ok(mk(fiftynine, 1, 1), buf, sizeof buf);
 	CHECK(count_sigs(buf, U) == 5 && count_sigs(buf, DISH) == 9);
 
-	/* Every single place 1..59: wedge counts must be exact. */
+		/* Every single place 1..59: wedge counts must be exact. */
 	for (unsigned d = 1; d <= 59; d++) {
 		uint8_t place = (uint8_t)d;
 		render_ok(mk(&place, 1, 1), buf, sizeof buf);
@@ -88,10 +85,11 @@ int main(void)
 		CHECK(strlen(buf) == (d / 10 + d % 10) * 4);
 	}
 
-	/* --- multi-place values ------------------------------------------- */
+		/* multi-place values */
 
-	/* The golden rendering: 8583 = 2,23,3.
-	*  DISH DISH  space  UU + 3 DISH  space  3 DISH */
+		/*  The golden rendering: 8583 = 2,23,3.
+	   DISH DISH  space  UU + 3 DISH  space  3 DISH
+	*/
 	static const uint8_t _8583[] = { 2, 23, 3 };
 	render_ok(mk(_8583, 3, 3), buf, sizeof buf);
 	CHECK(strcmp(buf,
@@ -99,15 +97,17 @@ int main(void)
 			U U DISH DISH DISH " "
 			DISH DISH DISH) == 0);
 
-	/* 3601 = 1,0,1: the middle place is the historical gap — two
-	*  spaces where no sign was impressed. */
+		/*  3601 = 1,0,1: the middle place is the historical gap — two
+	   spaces where no sign was impressed.
+	*/
 	static const uint8_t _3601[] = { 1, 0, 1 };
 	render_ok(mk(_3601, 3, 3), buf, sizeof buf);
 	CHECK(strcmp(buf, DISH "    " DISH) == 0);
 
-	/* The documented ambiguity, made testable: 60 written {1,0} and
-	*  1 written {1,0} with a different radix — the tablet itself cannot
-	*  tell them apart, so the renderer must not either. */
+		/*  The documented ambiguity, made testable: 60 written {1,0} and
+	   1 written {1,0} with a different radix — the tablet itself cannot
+	   tell them apart, so the renderer must not either.
+	*/
 	static const uint8_t one_zero[] = { 1, 0 };
 	render_ok(mk(one_zero, 2, 2), buf, sizeof buf);
 	char buf2[4096];
@@ -115,32 +115,33 @@ int main(void)
 	CHECK(strcmp(buf, buf2) == 0);
 	CHECK(strcmp(buf, DISH "   ") == 0);   /* wedge + joiner + 2-space gap */
 
-	/* Negative sign (our anachronism) leads the rendering. */
+		/* Negative sign (our anachronism) leads the rendering. */
 	pn_sex60 negv = mk(one, 1, 1);
 	negv.neg = true;
 	render_ok(negv, buf, sizeof buf);
 	CHECK(buf[0] == '-' && strcmp(buf + 1, DISH) == 0);
 
-	/* Fractional places render like integer ones: no radix point was
-	*  ever drawn.  {0,45} = 0;45 and {45} render alike. */
+		/*  Fractional places render like integer ones: no radix point was
+	   ever drawn.  {0,45} = 0;45 and {45} render alike.
+	*/
 	static const uint8_t zero_45[] = { 0, 45 };
 	static const uint8_t just45[] = { 45 };
 	render_ok(mk(zero_45, 2, 1), buf, sizeof buf);
 	render_ok(mk(just45, 1, 0), buf2, sizeof buf2);
 	CHECK(strcmp(buf + 3, buf2) == 0);     /* past the "  " gap + joiner */
 
-	/* --- errors -------------------------------------------------------- */
+		/* errors */
 
-	/* NULL buffer. */
+		/* NULL buffer. */
 	CHECK_ERROR(pn_babylonian_render(mk(one, 1, 1), pn_nothing(), 16, &err_), err_, PN_ERROR_NULL);
 
-	/* Buffer one byte short of need + NUL fails and leaves buf alone. */
+		/* Buffer one byte short of need + NUL fails and leaves buf alone. */
 	pn_sex60 v1 = mk(one, 1, 1);
 	memset(buf, 'x', 8);
 	CHECK_ERROR(pn_babylonian_render(v1, buf, 4, &err_), err_, PN_ERROR_BUFFER);
 	CHECK(memcmp(buf, "xxxx", 4) == 0);
 
-	/* Malformed values must not print wedges. */
+		/* Malformed values must not print wedges. */
 	pn_sex60 bad = mk(one, 1, 1);
 	bad.n_places = 0;
 	memset(buf, 'x', 8);
@@ -155,15 +156,15 @@ int main(void)
 	bad.radix = 3;                          /* radix > n_places */
 	CHECK_ERROR(pn_babylonian_render(bad, buf, sizeof buf, &err_), err_, PN_ERROR_DOMAIN);
 
-	/* render_size is total: a zero-place value still measures. */
+		/* render_size is total: a zero-place value still measures. */
 	static const uint8_t zero[] = { 0 };
 	CHECK(pn_babylonian_render_size(mk(zero, 1, 1)) == 2);
 
-	/* --- parsing ---------------------------------------------------------
-	*
-	* Round trip first: whatever the renderer impressed, the parser must
-	* read back — places, count and sign — whether handed the NUL-
-	* terminated string or just its exact bytes. */
+		/*  parsing
+	   Round trip first: whatever the renderer impressed, the parser must
+	   read back — places, count and sign — whether handed the NUL-
+	   terminated string or just its exact bytes.
+	*/
 	static const uint8_t rt1[] = { 1 };
 	static const uint8_t rt2[] = { 59 };
 	static const uint8_t rt3[] = { 2, 23, 3 };
@@ -193,13 +194,13 @@ int main(void)
 			CHECK(w.n_places == rt_lens[c] && w.neg == v.neg);
 			CHECK(memcmp(w.places, rts[c], rt_lens[c]) == 0);
 			CHECK(w.radix == rt_lens[c]);       /* period-style reading */
-			/* the length-based call, NUL not included */
+						/* the length-based call, NUL not included */
 			CHECK_OK(pn_babylonian_parse(rendered, need, &w, &err_), err_);
 			CHECK(w.n_places == rt_lens[c]);
 		}
 	}
 
-	/* The 8583 reading, spelled out. */
+		/* The 8583 reading, spelled out. */
 	static const uint8_t expect_8583[] = { 2, 23, 3 };
 	pn_sex60 read;
 	const char *tablet =
@@ -210,16 +211,17 @@ int main(void)
 	CHECK(read.n_places == 3 && read.radix == 3 && !read.neg);
 	CHECK(memcmp(read.places, expect_8583, sizeof expect_8583) == 0);
 
-	/* Errors: the strict spacing law and the canonical group shape.
-	* (Each leaves *out untouched — checked via the sentinel below.) */
+		/*  Errors: the strict spacing law and the canonical group shape.
+	   (Each leaves *out untouched — checked via the sentinel below.)
+	*/
 	static const char *const bad_strings[] = {
-			"",                 /* nothing at all                        */
-			" ",            	   /* one space is no tablet                */
-			"    ",            /* four spaces: not 3k-1                  */
-			"abc",               /* not signs, not spaces                  */
-			"\t" DISH,           /* tabs are not the scribe's separator    */
-			DISH U,                               /* DISH before U          */
-			"\x22",              /* an embedded quote byte                 */
+			"",                 /* nothing at all */
+			" ",            	   /* one space is no tablet */
+			"    ",            /* four spaces: not 3k-1 */
+			"abc",               /* not signs, not spaces */
+			"\t" DISH,           /* tabs are not the scribe's separator */
+			DISH U,                               /* DISH before U */
+			"\x22",              /* an embedded quote byte */
 	};
 	for (size_t i = 0; i < sizeof bad_strings / sizeof bad_strings[0]; i++) {
 		read = mk(one, 1, 1);
@@ -229,20 +231,20 @@ int main(void)
 		CHECK(read.n_places == 7);             /* untouched */
 	}
 
-	/* Six U signs overflow one place: that is range, not grammar. */
+		/* Six U signs overflow one place: that is range, not grammar. */
 	read = mk(one, 1, 1);
 	read.n_places = 7;
 	CHECK_ERROR(pn_babylonian_parse(U U U U U U, sizeof(U U U U U U) - 1,
 			&read, &err_), err_, PN_ERROR_RANGE);
 	CHECK(read.n_places == 7);
 
-	/* Ten DISH signs overflow one place too: range, not grammar. */
+		/* Ten DISH signs overflow one place too: range, not grammar. */
 	read = mk(one, 1, 1);
 	read.n_places = 7;
 	CHECK_ERROR(pn_babylonian_parse(TEN_DISH, sizeof(TEN_DISH) - 1, &read, &err_), err_, PN_ERROR_RANGE);
 	CHECK(read.n_places == 7);
 
-	/* Seventeen places: too deep a tablet. */
+		/* Seventeen places: too deep a tablet. */
 	char deep[PN_SEX60_MAX_PLACES * 5 + 2];
 	char *dp = deep;
 	for (unsigned i = 0; i < PN_SEX60_MAX_PLACES + 1; i++) {
@@ -254,14 +256,14 @@ int main(void)
 	*dp = '\0';
 	CHECK_ERROR(pn_babylonian_parse(deep, (size_t)(dp - deep), &read, &err_), err_, PN_ERROR_RANGE);
 
-	/* Nulls. */
+		/* Nulls. */
 	CHECK_ERROR(pn_babylonian_parse(pn_nothing(), 4, &read, &err_), err_, PN_ERROR_NULL);
 	CHECK_ERROR(pn_babylonian_parse(DISH, 4, pn_nothing(), &err_), err_, PN_ERROR_NULL);
 
-	/* A cut-off sign (3 of DISH's 4 bytes) is not a sign. */
+		/* A cut-off sign (3 of DISH's 4 bytes) is not a sign. */
 	CHECK_ERROR(pn_babylonian_parse(DISH, 3, &read, &err_), err_, PN_ERROR_SYNTAX);
 
-	/* A negative round-trips its sign. */
+		/* A negative round-trips its sign. */
 	pn_sex60 neg_zero = mk(rt6, 1, 1);
 	neg_zero.neg = true;
 	char neg_rendered[16];

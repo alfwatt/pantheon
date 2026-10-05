@@ -1,6 +1,6 @@
 /*  brahmi.c — libPantheon: Brahmi numerals, UTF-8.
 
-    Twenty signs, filling four slots from the top down — thousands,
+    Twenty signs, filling four slots from the top down - thousands,
     hundreds, tens, ones.  Unlike Egypt, no digit here is a
     repetition: every unit 1..9 and every ten 10..90 got its own
     dedicated sign, so 47 is two signs, not eleven:
@@ -12,7 +12,7 @@
     U+1107F          BRAHMI NUMBER JOINER        (the ligature join)
 
     Hundreds and thousands multiply: a digit 2..9 ligatured with its
-    power sign — power first, then the joiner, then the multiplier —
+    power sign - power first, then the joiner, then the multiplier -
     so 400 ligates into "hundred join four": one stacked sign for
     scribes to carve and readers to count.    An additive component
     stays unligated; 100 plus 4 (Unicode 14.x's ruling): the joiner
@@ -20,13 +20,13 @@
     multiplier needs no ligature: the power sign on its own already
     says 100.
 
-    There is no sign above the thousand and no zero at all — a lone
-    blank is the nothing owed — so 0 renders as the empty string, and
+    There is no sign above the thousand and no zero at all - a lone
+    blank is the nothing owed - so 0 renders as the empty string, and
     anything past 9 999 is out of range rather than absurd.
 
     The parser reads the four slots, not the signs: 2 222 writes "two"
-    three times — thousands multiplier, hundreds multiplier, ones term
-    — and only a second term inside one slot is a blunder.  Two bare
+    three times - thousands multiplier, hundreds multiplier, ones term
+    - and only a second term inside one slot is a blunder.  Two bare
     power signs in a row, a joiner with no multiplier behind it, a
     ligature left unligated (hundred four four: 100+4+4, and no slot
     allows the second four), or signs climbing up the pillar are all
@@ -74,7 +74,7 @@ static const char *const tens[9] = {
 
 /* Write @param n's canonical Brahmi string; @param buf may be NULL,
    which only counts.  Past PN_BRAHMI_MAX_VALUE the count drops the
-   places above the thousand and its answer means nothing — render
+   places above the thousand and its answer means nothing - render
    turns it down. */
 static size_t brahmi_emit(uint64_t n, char *buf)
 {
@@ -152,18 +152,18 @@ bool pn_brahmi_render(uint64_t n, char *_Nonnull buf, size_t buflen,
 
    The canonical form is what makes the round trip exact: the twenty
    number signs plus the joiner, read as at most four terms climbing
-   down — thousands, hundreds, tens, ones — each term at most once,
+   down - thousands, hundreds, tens, ones - each term at most once,
    with nothing between them.  A hundreds or thousands term is either
    the bare power sign (digit 1) or the ligature <power JOINER
    units-digit> (digits 2..9); the ones and tens terms are their one
-   dedicated sign.  Everything else — foreign bytes, a sign cut off
+   dedicated sign.  Everything else - foreign bytes, a sign cut off
    mid-UTF-8, a term out of its slot, a joiner joining anything but a
    multiplier to its power, a 1-times-100 ligature that should have
    been the bare sign, or an unligated ligature like "hundred four
-   four" — is refused the way a reader refuses "IIIX". */
+   four" - is refused the way a reader refuses "IIIX". */
 
 /* The full sign inventory in code-point order: units, tens, powers,
-   joiner — the joiner is never a term and never leads a match. */
+   joiner - the joiner is never a term and never leads a match. */
 #define N_SIGNS 21
 static const char *const signs[N_SIGNS] = {
 	ONE, TWO, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, NINE,

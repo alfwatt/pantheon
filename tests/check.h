@@ -23,7 +23,7 @@
 static int pn_checks, pn_fails;
 
     /* The header marks required pointers _Nonnull, so clang rightly
-    refuses to compile a test that hands one a plain NULL on purpose —
+    refuses to compile a test that hands one a plain NULL on purpose -
     and those tests exist precisely to prove the null check works.
     Hand these to the call instead: the compiler cannot look inside
     the volatile load below, and what the function under test
@@ -80,17 +80,6 @@ __attribute__((unused)) static void *pn_nothing(void)
 					#expr, pn_error_describe(slot));                            \
 	}                                                                         \
 	pn_error_free(slot);                                                      \
-} while (0)
-
-/* Legacy, for calls not yet converted to pn_error. */
-#define CHECK_ST(expr, want) do {                                                 \
-	pn_status got_ = (expr);                                                  \
-	pn_checks++;                                                              \
-	if (got_ != (want)) {                                                     \
-		pn_fails++;                                                           \
-		fprintf(stderr, "FAIL %s:%d: %s -> %s\n", __FILE__, __LINE__,        \
-				#expr, pn_strerror(got_));                                   \
-	}                                                                        \
 } while (0)
 
 #define CHECK_DBL(got, want, eps) do {                                           \

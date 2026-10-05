@@ -148,50 +148,27 @@ const char *_Nonnull pn_error_describe(const pn_error *_Nullable error);
 /// does nothing.
 void pn_error_clear(pn_error *_Nullable *_Nullable location);
 
-/*  Legacy status codes still used by the numeral modules being
-    converted this revision; each module that adopts pn_error drops
-    its share.  Error text for printf("%s", pn_strerror(st)).  Never
-    NULL.  */
-typedef enum pn_status {
-    pn_ok = 0,
-    pn_err_null,    /* a pointer argument was NULL                    */
-    pn_err_syntax,  /* malformed input string                         */
-    pn_err_range,   /* too many places, a place > 59, or the value
-                       does not fit the target type                   */
-    pn_err_domain,  /* value not representable in the requested form
-                       (e.g. fractional places converted to integer)  */
-    pn_err_buffer,  /* caller's buffer too small                      */
-} pn_status;
-
-const char *pn_strerror(pn_status st);
-
 // MARK: - Sexagesimal
 
-/* ------------------------------------------------------------------------
- * Babylonian sexagesimal (base-60) values.
- *
- * A value is a string of "places", each holding a digit 0..59, most
- * significant first.  The Babylonians (c. 1800 BCE onward) wrote these
- * with two cuneiform signs and — crucially — had NO zero placeholder
- * and NO radix point: 𒁹 (one vertical wedge) alone could mean 1, 60
- * or 1/60; context decided.  See
- * https://en.wikipedia.org/wiki/Sexagesimal and
- * https://en.wikipedia.org/wiki/Babylonian_numerals .
- *
- * pn_sex60 therefore carries an explicit radix position, a MODERN
- * convention added so this type is a number and not a riddle:
- *
- *     value = (-1)^neg * sum_i  places[i] * 60^(radix - 1 - i)
- *
- * In period style, use radix == n_places (a pure integer).
- *
- * The representation is a fixed-size array of bytes inside a ~20-byte
- * struct passed by value: no allocations, safe for real-time and
- * embedded callers.  double is offered only as a conversion utility,
- * never the canonical form — many exact sexagesimal values (0;20 is
- * 1/3) have no finite binary expansion, and 60^9 already exceeds 2^53,
- * beyond the exact range of a double.
- * ---------------------------------------------------------------------- */
+/*  Babylonian sexagesimal (base-60) values.
+   A value is a string of "places", each holding a digit 0..59, most
+   significant first.  The Babylonians (c. 1800 BCE onward) wrote these
+   with two cuneiform signs and - crucially - had NO zero placeholder
+   and NO radix point: 𒁹 (one vertical wedge) alone could mean 1, 60
+   or 1/60; context decided.  See
+   https://en.wikipedia.org/wiki/Sexagesimal and
+   https://en.wikipedia.org/wiki/Babylonian_numerals .
+   pn_sex60 therefore carries an explicit radix position, a MODERN
+   convention added so this type is a number and not a riddle:
+   value = (-1)^neg * sum_i  places[i] * 60^(radix - 1 - i)
+   In period style, use radix == n_places (a pure integer).
+   The representation is a fixed-size array of bytes inside a ~20-byte
+   struct passed by value: no allocations, safe for real-time and
+   embedded callers.  double is offered only as a conversion utility,
+   never the canonical form - many exact sexagesimal values (0;20 is
+   1/3) have no finite binary expansion, and 60^9 already exceeds 2^53,
+   beyond the exact range of a double.
+*/
 
 #define PN_SEX60_MAX_PLACES 16  /* 60^16 ~ 2.8e28: plenty; keeps the struct tiny */
 
@@ -199,20 +176,18 @@ typedef struct pn_sex60 {
     uint8_t places[PN_SEX60_MAX_PLACES]; /* each 0..59, most significant first */
     uint8_t n_places;                     /* number of significant places, 1..16 */
     uint8_t radix;                        /* places left of the radix point
-                                             (a modern addition — the Babylonians
+                                             (a modern addition - the Babylonians
                                              wrote none); 0 means purely fractional */
     bool    neg;                          /* modern nicety; Old Babylonian texts
                                              carry no sign */
 } pn_sex60;
 
-/* --- sexagesimal strings (modern scholarly transcription) --------------
- *
- * Old Babylonian values survive in print as comma- or colon-separated
- * places, e.g. the famous YBC 7289 diagonal:  1,24,51,10  (= about 1.41421,
- * an excellent approximation of sqrt(2)).  Following Neugebauer, we let a
- * semicolon mark the radix point — the convention for readings like
- * 1;24,51,10 — though no Babylonian tablet ever wrote one.
- * -------------------------------------------------------------------- */
+/*  Old Babylonian values survive in print as comma- or colon-separated
+   places, e.g. the famous YBC 7289 diagonal:  1,24,51,10  (= about 1.41421,
+   an excellent approximation of sqrt(2)).  Following Neugebauer, we let a
+   semicolon mark the radix point - the convention for readings like
+   1;24,51,10 - though no Babylonian tablet ever wrote one.
+*/
 
 /// Read a modern transcription of a sexagesimal value: an optional
 /// '-', then one or more places of one or two decimal digits (each
@@ -268,8 +243,6 @@ bool pn_sex60_parse(const char *text, pn_sex60 *_Nullable out,
 #define PN_SEX60_FORMAT_MAX_LEN (1 + 3 * PN_SEX60_MAX_PLACES + 1) /* '-' + places+seps + NUL */
 bool pn_sex60_format(pn_sex60 v, char sep, char *_Nonnull buf,
                      size_t buflen, pn_error *_Nullable *_Nullable error);
-
-/* --- conversion to / from ordinary numbers ------------------------------ */
 
 /// Turn an ordinary unsigned integer into sexagesimal places by
 /// dividing by 60 again and again:
@@ -345,35 +318,29 @@ bool pn_sex60_from_double(double x, uint8_t frac_places,
 
 // MARK: - Cuneiform Numbers
 
-/* --- Babylonian cuneiform numerals (UTF-8 rendering) --------------------
- *
- * The two positional signs of the Neo-Babylonian system, per the
- * Unicode Standard names list:
- *
- *   U+12079  CUNEIFORM SIGN DISH   𒁹   vertical wedge, value 1
- *            UTF-8: F0 92 81 B9
- *   U+1230B  CUNEIFORM SIGN U      𒌋   corner wedge,   value 10
- *            UTF-8: F0 92 8C 8B
- *
- * Both live in the main Cuneiform block (U+12000..U+123FF); the
- * precomposed signs of the "Cuneiform Numbers and Punctuation" block
- * (U+12400..) are metrology signs, not school-text positional digits,
- * so we do NOT use them — each place is written as (d/10) copies of U
- * followed by (d%10) copies of DISH, e.g. 23 = 𒌋𒌋𒁹𒁹𒁹.
- *
- * Unicode encodes NO zero placeholder for the sexagesimal gap.  An
- * empty place is rendered as two spaces — faithfully reproducing the
- * original place-value ambiguity: on the clay tablet a lone 𒁹 was 1 or
- * 60 or 1/60, and only context told the reader which.
- * -------------------------------------------------------------------- */
+/*  The two positional signs of the Neo-Babylonian system, per the
+   Unicode Standard names list:
+   U+12079  CUNEIFORM SIGN DISH   𒁹   vertical wedge, value 1
+   UTF-8: F0 92 81 B9
+   U+1230B  CUNEIFORM SIGN U      𒌋   corner wedge,   value 10
+   UTF-8: F0 92 8C 8B
+   Both live in the main Cuneiform block (U+12000..U+123FF); the
+   precomposed signs of the "Cuneiform Numbers and Punctuation" block
+   (U+12400..) are metrology signs, not school-text positional digits,
+   so we do NOT use them - each place is written as (d/10) copies of U
+   followed by (d%10) copies of DISH, e.g. 23 = 𒌋𒌋𒁹𒁹𒁹.
+   Unicode encodes NO zero placeholder for the sexagesimal gap.  An
+   empty place is rendered as two spaces - faithfully reproducing the
+   original place-value ambiguity: on the clay tablet a lone 𒁹 was 1 or
+   60 or 1/60, and only context told the reader which.
+*/
 
 #define PN_CUNEIFORM_DISH 0x12079u /* 𒁹 vertical wedge = 1  */
 #define PN_CUNEIFORM_U    0x1230Bu /* 𒌋 corner wedge    = 10 */
 
-/* Exact number of bytes (excluding the NUL) pn_babylonian_render will
- * write for a well-formed v.  Pure and total — it never fails; on a
- * malformed v its answer is simply meaningless, since render rejects
- * such values with a PN_ERROR_DOMAIN note. */
+/*  write for a well-formed v.  Pure and total — it never fails; on a
+   malformed v its answer is simply meaningless, since render rejects
+*/
 size_t pn_babylonian_render_size(pn_sex60 v);
 
 /// Write @param v in positional cuneiform style into @param buf as
@@ -397,7 +364,7 @@ size_t pn_babylonian_render_size(pn_sex60 v);
 bool pn_babylonian_render(pn_sex60 v, char *_Nonnull buf, size_t buflen,
                           pn_error *_Nullable *_Nullable error);
 
-// Parse a rendered cuneiform string — the inverse of
+// Parse a rendered cuneiform string - the inverse of
 // pn_babylonian_render.  @param buf holds exactly @param buflen bytes
 // of UTF-8 built from '-', the two signs, and separating spaces:
 //
@@ -405,7 +372,7 @@ bool pn_babylonian_render(pn_sex60 v, char *_Nonnull buf, size_t buflen,
 //
 // A place group is (d/10) U signs then (d%10) DISH signs; groups join
 // with one space, and the two-space gap of a zero place reads back as
-// a zero place.  The spacing is strict — between signs it must run 1,
+// a zero place.  The spacing is strict - between signs it must run 1,
 // 4, 7, … spaces (3k+1: joiner plus k gaps); leading and trailing
 // runs are multiples of 3; an all-space string has length 3k-1.  Any
 // other spacing, and any other byte, is malformed.  Round-trip law:
@@ -414,7 +381,7 @@ bool pn_babylonian_render(pn_sex60 v, char *_Nonnull buf, size_t buflen,
 //
 // The cuneiform itself carries no radix point ('-' notwithstanding),
 // so the parsed value gets the period-style reading: radix ==
-// n_places.  A lone 𒁹 parses as 1 — whether the scribe meant 60 or
+// n_places.  A lone 𒁹 parses as 1 - whether the scribe meant 60 or
 // 1/60, only context knew.
 /// @param buf - the rendered cuneiform to read
 /// @param buflen - bytes to read at buf
@@ -433,27 +400,22 @@ bool pn_babylonian_parse(const char *_Nullable buf, size_t buflen,
 
 // MARK: - Vigesimal
 
-/* ------------------------------------------------------------------------
- *  Vigesimal — the base-20 core value: places, radix, conversions.
- *
- *  The pn_vigesimal counterpart of pn_sex60: a fixed-size array of
- *  bytes inside a ~20-byte struct passed by value — no allocations,
- *  safe for real-time and embedded callers.
- *
- *      value = (-1)^neg * sum_i  places[i] * 20^(radix - 1 - i)
- *
- *  places[i] runs 0..19, most significant first.  In period style,
- *  use radix == n_places.  The radix position and the sign are MODERN
- *  niceties, added so this type is a number and not a riddle: no
- *  book of the codices wrote a radix point, and the Dresden Codex
- *  carries no negative numbers.
- *
- *  double is offered only as a conversion utility, never the canonical
- *  form: 0;5 in this notation is 1/4 and exact, but 0;1 is 1/20 and
- *  has no finite binary expansion (20 = 4 x 5 keeps a factor five),
- *  and 20^13 = 8.192e16 already exceeds 2^53 — one whole row later
- *  than sexagesimal's 60^8, because base twenty is half a square.
- *  ---------------------------------------------------------------------- */
+/*  Vigesimal — the base-20 core value: places, radix, conversions.
+   The pn_vigesimal counterpart of pn_sex60: a fixed-size array of
+   bytes inside a ~20-byte struct passed by value - no allocations,
+   safe for real-time and embedded callers.
+   value = (-1)^neg * sum_i  places[i] * 20^(radix - 1 - i)
+   places[i] runs 0..19, most significant first.  In period style,
+   use radix == n_places.  The radix position and the sign are MODERN
+   niceties, added so this type is a number and not a riddle: no
+   book of the codices wrote a radix point, and the Dresden Codex
+   carries no negative numbers.
+   double is offered only as a conversion utility, never the canonical
+   form: 0;5 in this notation is 1/4 and exact, but 0;1 is 1/20 and
+   has no finite binary expansion (20 = 4 x 5 keeps a factor five),
+   and 20^13 = 8.192e16 already exceeds 2^53 - one whole row later
+   than sexagesimal's 60^8, because base twenty is half a square.
+*/
 
 #define PN_VIGESIMAL_MAX_PLACES 16    /* 20^16 ~ 6.6e20: plenty; keeps the struct tiny */
 
@@ -461,7 +423,7 @@ typedef struct pn_vigesimal {
 	uint8_t places[PN_VIGESIMAL_MAX_PLACES]; /* each 0..19, most significant first */
 	uint8_t n_places;                     /* number of significant places, 1..16 */
 	uint8_t radix;                        /* places left of the radix point
-	                                         (a modern addition — the Maya
+	                                         (a modern addition - the Maya
 	                                         wrote none); 0 means purely fractional */
 	bool    neg;                          /* modern nicety; the codices
 	                                         carry no sign */
@@ -571,40 +533,35 @@ bool pn_vigesimal_from_double(double x, uint8_t frac_places,
                               pn_vigesimal *_Nullable out,
                               pn_error *_Nullable *_Nullable error);
 
-/* ------------------------------------------------------------------------
- * Egyptian hieroglyphic numerals (UTF-8 rendering).
- *
- * The Egyptian system (c. 3000 BCE onward) was decimal but ADDITIVE: a
- * distinct hieroglyph for each power of ten, repeated as many times as
- * the digit demands — no positional notation at all.  See
- * https://en.wikipedia.org/wiki/Egyptian_numerals .  The seven signs,
- * per the Unicode Standard names list (all in the Egyptian Hieroglyphs
- * block U+13000..U+1342F, all 4 bytes of UTF-8):
- *
- *   U+133E4  EGYPTIAN HIEROGLYPH Z001   𓏤  single stroke,      value 1
- *   U+13386  EGYPTIAN HIEROGLYPH V020   𓎆  cattle hobble,        value 10
- *   U+13362  EGYPTIAN HIEROGLYPH V001   𓍢  coil of rope,         value 100
- *   U+131BC  EGYPTIAN HIEROGLYPH M012   𓆼  lotus,                value 1 000
- *   U+130AD  EGYPTIAN HIEROGLYPH D050   𓂭  bent finger,          value 10 000
- *   U+13190  EGYPTIAN HIEROGLYPH I008   𓆐  tadpole,              value 100 000
- *   U+13068  EGYPTIAN HIEROGLYPH C011   𓁨  Heh (god, arms raised), value 1 000 000
- *
- * There is NO sign above the Heh and NO zero: the scribe simply left a
- * blank where our 0 sits, and a lone blank on an accounting ostracon
- * meant "nothing owed".  So the renderable domain is the scribe's full
- * set, 0..PN_EGYPTIAN_MAX_VALUE — every sign at most nine times — and
- * zero renders as the empty string.  Values beyond the Heh (10 000 000
- * would need ten Heh signs, 10^8 a hundred) are pn_err_range, not
- * because Egypt could not count them but because this rendering insists
- * each sign be written out, and a nine-million-sign tablet fits no
- * caller's buffer.
- *
- * Canonical form: signs grouped in DESCENDING powers of ten, one
- * contiguous run per sign, with no separators — unlike cuneiform, the
- * distinct signs are self-delimiting and there is no gap to preserve.
- * 4622 (the Karnak carving) is thus four lotus + six coils + two
- * hobbles + two strokes, largest first, as any scribe would carve it.
- * ---------------------------------------------------------------------- */
+/*  Egyptian hieroglyphic numerals (UTF-8 rendering).
+   The Egyptian system (c. 3000 BCE onward) was decimal but ADDITIVE: a
+   distinct hieroglyph for each power of ten, repeated as many times as
+   the digit demands - no positional notation at all.  See
+   https://en.wikipedia.org/wiki/Egyptian_numerals .  The seven signs,
+   per the Unicode Standard names list (all in the Egyptian Hieroglyphs
+   block U+13000..U+1342F, all 4 bytes of UTF-8):
+   U+133E4  EGYPTIAN HIEROGLYPH Z001   𓏤  single stroke,      value 1
+   U+13386  EGYPTIAN HIEROGLYPH V020   𓎆  cattle hobble,        value 10
+   U+13362  EGYPTIAN HIEROGLYPH V001   𓍢  coil of rope,         value 100
+   U+131BC  EGYPTIAN HIEROGLYPH M012   𓆼  lotus,                value 1 000
+   U+130AD  EGYPTIAN HIEROGLYPH D050   𓂭  bent finger,          value 10 000
+   U+13190  EGYPTIAN HIEROGLYPH I008   𓆐  tadpole,              value 100 000
+   U+13068  EGYPTIAN HIEROGLYPH C011   𓁨  Heh (god, arms raised), value 1 000 000
+   There is NO sign above the Heh and NO zero: the scribe simply left a
+   blank where our 0 sits, and a lone blank on an accounting ostracon
+   meant "nothing owed".  So the renderable domain is the scribe's full
+   set, 0..PN_EGYPTIAN_MAX_VALUE - every sign at most nine times - and
+   zero renders as the empty string.  Values beyond the Heh (10 000 000
+   would need ten Heh signs, 10^8 a hundred) are out of range, not
+   because Egypt could not count them but because this rendering insists
+   each sign be written out, and a nine-million-sign tablet fits no
+   caller's buffer.
+   Canonical form: signs grouped in DESCENDING powers of ten, one
+   contiguous run per sign, with no separators - unlike cuneiform, the
+   distinct signs are self-delimiting and there is no gap to preserve.
+   4622 (the Karnak carving) is thus four lotus + six coils + two
+   hobbles + two strokes, largest first, as any scribe would carve it.
+*/
 
 // MARK: - Egyptian Numerals
 
@@ -667,52 +624,46 @@ bool pn_egyptian_parse(const char *_Nullable buf, size_t buflen,
 
 // MARK: - Hanzi Numerals
 
-/* ------------------------------------------------------------------------
-	*  Chinese hanzi numerals (UTF-8 rendering).
-	*
-	*  Chinese numerals are decimal, but they write no bare place-value
-	*  digits: the number is two sections around 万, value = A * 10^4 + B,
-	*  and each section spells its nonzero digits high to low as
-	*  (digit + 千/百/十), the section's units digit bare and last:
-	*
-	*      四千六百二十二          = 4622      (Wikipedia's worked example)
-	*      九千九百九十九万
-	*      九千九百九十九            = 99 999 999  (the maximum)
-	*
-	*  The signs, per the Unicode Standard names list (all in the CJK
-	*  Unified Ideographs block, all 3 bytes of UTF-8):
-	*
-	*    U+4E00 一 = 1      U+4E8C 二 = 2      U+4E09 三 = 3
-	*    U+56DB 四 = 4      U+4E94 五 = 5      U+516D 六 = 6
-	*    U+4E03 七 = 7      U+516B 八 = 8      U+4E5D 九 = 9
-	*    U+5341 十 = 10     U+767E 百 = 100    U+5343 千 = 1000
-	*    U+4E07 万 = 10 000
-	*
-	*  Zero follows the Egyptian blank: a skipped digit is simply not
-	*  written, and the skip is acknowledged by exactly one U+0020 space
-	*  between the surrounding terms — 1005 is 一千 五 and 1050 is
-	*  一千 五十, where later China would write 一千零五 and 一千零五十.
-	*  The space never carries value, because each digit's place is
-	*  already pinned by its multiplier (a bare digit is always its
-	*  section's units digit), so the round trip stays exact — unlike
-	*  the load-bearing gap of the counting rods below.
-	*
-	*  Canonical form is the full formal reading; colloquial elisions are
-	*  not canonical: 14 is 一十四, never the spoken 十四.  亿 (10^8) and
-	*  traditional 萬 are outside this rendering — the domain stops at
-	*  万, the same ruling as Egypt's missing sign above the Heh — so
-	*  PN_HANZI_MAX_VALUE is 99 999 999, 九千九百九十九万九千九百九十九.
-	* ---------------------------------------------------------------------- */
+/*  Chinese hanzi numerals (UTF-8 rendering).
+   Chinese numerals are decimal, but they write no bare place-value
+   digits: the number is two sections around 万, value = A * 10^4 + B,
+   and each section spells its nonzero digits high to low as
+   (digit + 千/百/十), the section's units digit bare and last:
+   四千六百二十二          = 4622      (Wikipedia's worked example)
+   九千九百九十九万
+   九千九百九十九            = 99 999 999  (the maximum)
+   The signs, per the Unicode Standard names list (all in the CJK
+   Unified Ideographs block, all 3 bytes of UTF-8):
+   U+4E00 一 = 1      U+4E8C 二 = 2      U+4E09 三 = 3
+   U+56DB 四 = 4      U+4E94 五 = 5      U+516D 六 = 6
+   U+4E03 七 = 7      U+516B 八 = 8      U+4E5D 九 = 9
+   U+5341 十 = 10     U+767E 百 = 100    U+5343 千 = 1000
+   U+4E07 万 = 10 000
+   Zero follows the Egyptian blank: a skipped digit is simply not
+   written, and the skip is acknowledged by exactly one U+0020 space
+   between the surrounding terms - 1005 is 一千 五 and 1050 is
+   一千 五十, where later China would write 一千零五 and 一千零五十.
+   The space never carries value, because each digit's place is
+   already pinned by its multiplier (a bare digit is always its
+   section's units digit), so the round trip stays exact - unlike
+   the load-bearing gap of the counting rods below.
+   Canonical form is the full formal reading; colloquial elisions are
+   not canonical: 14 is 一十四, never the spoken 十四.  亿 (10^8) and
+   traditional 萬 are outside this rendering - the domain stops at
+   万, the same ruling as Egypt's missing sign above the Heh - so
+   PN_HANZI_MAX_VALUE is 99 999 999, 九千九百九十九万九千九百九十九.
+*/
 
 #define PN_HANZI_MAX_VALUE 99999999ull /* nine 九 in every place of both sections */
 
-/*  Exact number of bytes (excluding the NUL) pn_hanzi_render will
-	*  write for a well-formed n: three per sign drawn — every digit, every
-	*  multiplier used, and the 万 — plus one for each blank space
-	*  acknowledging a skipped digit.  Pure and total — it never fails; for
-	*  n > PN_HANZI_MAX_VALUE its answer is simply meaningless, since
-	*  render rejects such values with pn_err_range.  render_size(0) == 0:
-	*  the blank. */
+/// Exact bytes (excluding the NUL) pn_hanzi_render will write for a
+/// well-formed @param n: three per sign drawn — every digit, every
+/// multiplier used, and the 万 — plus one for each blank space
+/// acknowledging a skipped digit.  This answer never fails; for
+/// @param n past PN_HANZI_MAX_VALUE it simply means nothing, since
+/// render turns such values down.  render_size(0) == 0: the blank.
+/// @param n - the number whose rendered size to measure
+/// @returns the byte count render would write, NUL not counted.
 size_t pn_hanzi_render_size(uint64_t n);
 
 /// Write @param n (0 .. PN_HANZI_MAX_VALUE) as canonical hanzi into
@@ -753,44 +704,37 @@ bool pn_hanzi_parse(const char *_Nullable buf, size_t buflen,
                     uint64_t *_Nullable out,
                     pn_error *_Nullable *_Nullable error);
 
-/* ------------------------------------------------------------------------
-	*  Counting rod numerals (UTF-8 rendering).
-	*
-	*  Rod numerals (算筹, in use c. 400 BCE onward in China, Japan,
-	*  Korea and Vietnam) are true positional decimal: one bundle of
-	*  rods per column, the columns alternating between two forms of the
-	*  digits so that a lone rod can never be confused with its rotated
-	*  twin.  The Unicode block encodes both forms (Supplementary
-	*  Multilingual Plane, all 4 bytes of UTF-8):
-	*
-	*    U+1D360..U+1D368  COUNTING ROD UNIT DIGIT ONE..NINE
-	*                      𝍠 𝍡 𝍢 𝍣 𝍤 𝍥 𝍦 𝍧 𝍨
-	*    U+1D369..U+1D371  COUNTING ROD TENS DIGIT ONE..NINE
-	*                      𝍩 𝍪 𝍫 𝍬 𝍭 𝍮 𝍯 𝍰 𝍱
-	*
-	*  The units column takes the unit set, the tens column the tens set,
-	*  the hundreds the unit set again, and so on — the Song-dynasty
-	*  orientation, which is also what the Unicode names assume.
-	*
-	*  The rods had NO zero — an empty column was literally left empty,
-	*  and the reader counted columns to know each place — so the blank
-	*  is rendered as space here, the cuneiform gap generalised to base
-	*  ten: every place boundary contributes exactly one space, and a
-	*  blank place contributes one of its own.  A well-formed string
-	*  therefore holds exactly (places − 1) spaces, which is what makes
-	*  the faithful blank round-trip:
-	*
-	*         𝍪 𝍢       = 23        (adjacent places: one joiner)
-	*         𝍠  𝍠      = 101       (the blank tens place: joiner plus one)
-	*         𝍠            = 100       (𝍠 plus two blanks, not the lone 1)
-	*
-	*  A column's form must match the parity of its place: writing 11 as
-	*  𝍠 𝍠 instead of 𝍩 𝍠 is the rod equivalent of a DISH before
-	*  a U, and pn_rods_parse rejects it.  There is no sign of negative
-	*  values (the red/black rods of later Japanese counting are outside
-	*  this rendering), and modern transcriptions' 〇 U+3007 is not
-	*  written — a zero is a blank, as on the counting board.
-	* ---------------------------------------------------------------------- */
+/*  Counting rod numerals (UTF-8 rendering).
+   Rod numerals (算筹, in use c. 400 BCE onward in China, Japan,
+   Korea and Vietnam) are true positional decimal: one bundle of
+   rods per column, the columns alternating between two forms of the
+   digits so that a lone rod can never be confused with its rotated
+   twin.  The Unicode block encodes both forms (Supplementary
+   Multilingual Plane, all 4 bytes of UTF-8):
+   U+1D360..U+1D368  COUNTING ROD UNIT DIGIT ONE..NINE
+   𝍠 𝍡 𝍢 𝍣 𝍤 𝍥 𝍦 𝍧 𝍨
+   U+1D369..U+1D371  COUNTING ROD TENS DIGIT ONE..NINE
+   𝍩 𝍪 𝍫 𝍬 𝍭 𝍮 𝍯 𝍰 𝍱
+   The units column takes the unit set, the tens column the tens set,
+   the hundreds the unit set again, and so on - the Song-dynasty
+   orientation, which is also what the Unicode names assume.
+   The rods had NO zero - an empty column was literally left empty,
+   and the reader counted columns to know each place - so the blank
+   is rendered as space here, the cuneiform gap generalised to base
+   ten: every place boundary contributes exactly one space, and a
+   blank place contributes one of its own.  A well-formed string
+   therefore holds exactly (places − 1) spaces, which is what makes
+   the faithful blank round-trip:
+   𝍪 𝍢       = 23        (adjacent places: one joiner)
+   𝍠  𝍠      = 101       (the blank tens place: joiner plus one)
+   𝍠            = 100       (𝍠 plus two blanks, not the lone 1)
+   A column's form must match the parity of its place: writing 11 as
+   𝍠 𝍠 instead of 𝍩 𝍠 is the rod equivalent of a DISH before
+   a U, and pn_rods_parse rejects it.  There is no sign of negative
+   values (the red/black rods of later Japanese counting are outside
+   this rendering), and modern transcriptions' 〇 U+3007 is not
+   written - a zero is a blank, as on the counting board.
+*/
 
 // MARK: - Rod Numerals
 
@@ -799,12 +743,11 @@ bool pn_hanzi_parse(const char *_Nullable buf, size_t buflen,
 #define PN_ROD_MAX_PLACES 19           /* 10^19 − 1 still fits uint64_t     */
 	#define PN_ROD_MAX_VALUE 9999999999999999999ull /* 10^19 − 1: nineteen nines   */
 
-/*  Exact number of bytes (excluding the NUL) pn_rods_render will write
-	*  for a well-formed n: four per rod drawn, plus one space per place
-	*  boundary — i.e. 4*(count of nonzero digits) + (count of digits − 1).
-	*  Pure and total — it never fails; for n > PN_ROD_MAX_VALUE its answer
-	*  is simply meaningless, since render rejects such values with
-	*  pn_err_range.  render_size(0) == 0: the empty board. */
+/*  for a well-formed n: four per rod drawn, plus one space per place
+   boundary - i.e. 4*(count of nonzero digits) + (count of digits − 1).
+   Pure and total - it never fails; for n > PN_ROD_MAX_VALUE its answer
+   is simply meaningless, since render rejects such values with
+*/
 size_t pn_rods_render_size(uint64_t n);
 
 /// Write @param n as rod numerals into @param buf as UTF-8, ending
@@ -856,48 +799,41 @@ bool pn_rods_parse(const char *_Nullable buf, size_t buflen,
                    uint64_t *_Nullable out,
                    pn_error *_Nullable *_Nullable error);
 
-/* ------------------------------------------------------------------------
-  *  Indian Brahmi numerals (UTF-8 rendering).
-  *
-  *  Brahmi numerals (attested from the 3rd century BCE, on Ashoka's edicts
-  *  and the coins of the Western Satraps) are the direct graphic ancestors
-  *  of the modern Hindu-Arabic digits — but conceptually a different
-  *  system: a non-positional decimal notation with NO zero.  See
-  *  https://en.wikipedia.org/wiki/Brahmi_numerals .  The twenty signs, per
-  *  the Unicode Standard names list (all in the Brahmi block
-  *  U+11000..U+1107F, all 4 bytes of UTF-8):
-  *
-  *    U+11052..U+1105A  BRAHMI NUMBER ONE..NINE      𑁒 𑁓 𑁔 𑁕 𑁖 𑁗 𑁘 𑁙 𑁚
-  *    U+1105B..U+11063  BRAHMI NUMBER TEN..NINETY    𑁛 𑁜 𑁝 𑁞 𑁟 𑁠 𑁡 𑁢 𑁣
-  *    U+11064           BRAHMI NUMBER ONE HUNDRED    𑁤
-  *    U+11065           BRAHMI NUMBER ONE THOUSAND   𑁥
-  *
-  *  Unlike Egypt, no digit is written by repetition: every unit 1..9 and
-  *  every ten 10..90 has its own dedicated sign, so 47 needs two signs,
-  *  not eleven.  There is NO sign above the thousand (the Jain infinities
-  *  counted in words, not signs) and NO zero — a lone blank is the
-  *  nothing owed — so the renderable domain is 0..PN_BRAHMI_MAX_VALUE
-  *  and zero renders as the empty string, the scribe's blank again.
-  *
-  *  Hundreds and thousands are MULTIPLICATIVE, per Unicode 14.x: a digit
-  *  2..9 ligatured with the power sign — the power first, then the
-  *  U+1107F BRAHMI NUMBER JOINER, then the multiplier — so 400 is
-  *  <𑁤 𑁿 𑁕> (100 JOINER 4) rendered as one stacked ligature, while an
-  *  additive component stays unligated: 104 is <𑁤 𑁕> (100 4).  The joiner
-  *  marks that semantic distinction, so it is never dropped, never
-  *  doubled, and legal only between number signs — 1 × 100 is written
-  *  with the bare power sign, as 𑁥𑁥 is no number any more than 𓏤..𓏤 ten
-  *  strokes were.
-  *
-  *  Canonical form: up to four terms descending — thousands, hundreds,
-  *  tens, ones — each at most once, with no separators; a signs table
-  *  and the four slots make every string self-delimiting:
-  *
-  *    𑁤𑁿𑁓𑁟𑁗  = 256   (the Sasaram edict: 200 ligature + fifty + six)
-  *    𑁤𑁟𑁔         = 153   (the Damasena coin: 100-50-3)
-  *    𑁥𑁿𑁚𑁤𑁿𑁚𑁣𑁚 = 9999  (the full set; 𑁚 appears three times, in three
-  *                          slots — slots, not sign identity, rule)
-  * ---------------------------------------------------------------------- */
+/*  Indian Brahmi numerals (UTF-8 rendering).
+   Brahmi numerals (attested from the 3rd century BCE, on Ashoka's edicts
+   and the coins of the Western Satraps) are the direct graphic ancestors
+   of the modern Hindu-Arabic digits - but conceptually a different
+   system: a non-positional decimal notation with NO zero.  See
+   https://en.wikipedia.org/wiki/Brahmi_numerals .  The twenty signs, per
+   the Unicode Standard names list (all in the Brahmi block
+   U+11000..U+1107F, all 4 bytes of UTF-8):
+   U+11052..U+1105A  BRAHMI NUMBER ONE..NINE      𑁒 𑁓 𑁔 𑁕 𑁖 𑁗 𑁘 𑁙 𑁚
+   U+1105B..U+11063  BRAHMI NUMBER TEN..NINETY    𑁛 𑁜 𑁝 𑁞 𑁟 𑁠 𑁡 𑁢 𑁣
+   U+11064           BRAHMI NUMBER ONE HUNDRED    𑁤
+   U+11065           BRAHMI NUMBER ONE THOUSAND   𑁥
+   Unlike Egypt, no digit is written by repetition: every unit 1..9 and
+   every ten 10..90 has its own dedicated sign, so 47 needs two signs,
+   not eleven.  There is NO sign above the thousand (the Jain infinities
+   counted in words, not signs) and NO zero - a lone blank is the
+   nothing owed - so the renderable domain is 0..PN_BRAHMI_MAX_VALUE
+   and zero renders as the empty string, the scribe's blank again.
+   Hundreds and thousands are MULTIPLICATIVE, per Unicode 14.x: a digit
+   2..9 ligatured with the power sign - the power first, then the
+   U+1107F BRAHMI NUMBER JOINER, then the multiplier - so 400 is
+   <𑁤 𑁿 𑁕> (100 JOINER 4) rendered as one stacked ligature, while an
+   additive component stays unligated: 104 is <𑁤 𑁕> (100 4).  The joiner
+   marks that semantic distinction, so it is never dropped, never
+   doubled, and legal only between number signs - 1 × 100 is written
+   with the bare power sign, as 𑁥𑁥 is no number any more than 𓏤..𓏤 ten
+   strokes were.
+   Canonical form: up to four terms descending - thousands, hundreds,
+   tens, ones - each at most once, with no separators; a signs table
+   and the four slots make every string self-delimiting:
+   𑁤𑁿𑁓𑁟𑁗  = 256   (the Sasaram edict: 200 ligature + fifty + six)
+   𑁤𑁟𑁔         = 153   (the Damasena coin: 100-50-3)
+   𑁥𑁿𑁚𑁤𑁿𑁚𑁣𑁚 = 9999  (the full set; 𑁚 appears three times, in three
+   slots - slots, not sign identity, rule)
+*/
 
 // MARK: - Brahmi Numerals
 
@@ -908,14 +844,13 @@ bool pn_rods_parse(const char *_Nullable buf, size_t buflen,
 #define PN_BRAHMI_NUMBER_JOINER      0x1107Fu /* 𑁿 ligature join, numbers only */
 #define PN_BRAHMI_MAX_VALUE          9999u    /* four filled slots: no sign above 𑁥 */
 
-/*  Exact number of bytes (excluding the NUL) pn_brahmi_render will
-  *  write for a well-formed n: four per sign drawn, joiner included —
-  *  a thousands or hundreds term costs four bytes with its digit 1
-  *  (bare power sign) and twelve with its digit 2..9 (power, joiner,
-  *  multiplier), a tens or ones term four bytes when present.  Pure and
-  *  total — it never fails; for n > PN_BRAHMI_MAX_VALUE its answer is
-  *  simply meaningless, since render rejects such values with
-  *  pn_err_range.  render_size(0) == 0: the blank. */
+/*  write for a well-formed n: four per sign drawn, joiner included —
+   a thousands or hundreds term costs four bytes with its digit 1
+   (bare power sign) and twelve with its digit 2..9 (power, joiner,
+   multiplier), a tens or ones term four bytes when present.  Pure and
+   total - it never fails; for n > PN_BRAHMI_MAX_VALUE its answer is
+   simply meaningless, since render rejects such values with
+*/
 size_t pn_brahmi_render_size(uint64_t n);
 
 /// Write @param n as Brahmi numerals into @param buf as UTF-8,
@@ -967,55 +902,46 @@ bool pn_brahmi_parse(const char *_Nullable buf, size_t buflen,
                      uint64_t *_Nullable out,
                      pn_error *_Nullable *_Nullable error);
 
-/* ------------------------------------------------------------------------
- *  Mayan bar-and-dot numerals over pn_vigesimal — the renderer.
- *
- *  The Maya had what no other ancient place-value script here can
- *  claim, and what Unicode's cuneiform block pointedly lacks: a real
- *  zero.  Dots for units, bars for fives, a shell for nought, and the
- *  block composites them into one sign per place 0..19:
- *
- *  U+1D2E0..U+1D2E4   MAYAN NUMERAL ZERO..FOUR      shell, dots   = 0..4
- *  U+1D2E5..U+1D2E9   MAYAN NUMERAL FIVE..NINE      bars + dots   = 5..9
- *  U+1D2EA..U+1D2EE   MAYAN NUMERAL TEN..FOURTEEN   two bars      = 10..14
- *  U+1D2EF..U+1D2F3   MAYAN NUMERAL FIFTEEN..NINETEEN three bars  = 15..19
- *
- *  (Unicode block Mayan Numerals, U+1D2E0..U+1D2F3; Unicode 10.0, 2017
- *  after proposal L2/16-264, Jameson Quinn.  All twenty are SMP: four
- *  bytes of UTF-8 each under the stem F0 9D 8B.)
- *
- *  The codex stacks places vertically, least significant at the
- *  bottom; we transcribe the stack top-down made left-to-right —
- *  most significant place first, one space per place boundary, exactly
- *  the linearisation the rod columns get:
- *
-\t *      𝋡 𝋣   ->   23     (three dots under one dot: 1x20 + 3)
-\t *      𝋡 𝋭   ->   33     (dot above three dots atop two bars)
-\t *      𝋡 𝋡 𝋩   ->   429     (dot dot nine: 1x400 + 1x20 + 9)
-\t *      𝋡 𝋢 𝋠 𝋠   ->   8800     (the shells hold rows three and four)
-\t *      𝋠   ->   0     (the shell itself: no blank needed)
- *
- *  Each place carries exactly ONE precomposed sign, so a zero place
- *  writes its shell instead of the Babylonian's two-space gap: the
- *  string is self-counting, no context tells a reader where the rows
- *  are.  pn_mayan_render draws every place that well_formed allows,
- *  including fractional ones (no radix point is carved; the '-' is an
- *  anachronism, as in the cuneiform renderer above), and pn_mayan_parse
- *  answers period style: radix == n_places.
- *
- *  References: https://en.wikipedia.org/wiki/Maya_numerals ,
- *  https://en.wikipedia.org/wiki/Vigesimal
- * ------------------------------------------------------------------------ */
+/*  Mayan bar-and-dot numerals over pn_vigesimal — the renderer.
+   The Maya had what no other ancient place-value script here can
+   claim, and what Unicode's cuneiform block pointedly lacks: a real
+   zero.  Dots for units, bars for fives, a shell for nought, and the
+   block composites them into one sign per place 0..19:
+   U+1D2E0..U+1D2E4   MAYAN NUMERAL ZERO..FOUR      shell, dots   = 0..4
+   U+1D2E5..U+1D2E9   MAYAN NUMERAL FIVE..NINE      bars + dots   = 5..9
+   U+1D2EA..U+1D2EE   MAYAN NUMERAL TEN..FOURTEEN   two bars      = 10..14
+   U+1D2EF..U+1D2F3   MAYAN NUMERAL FIFTEEN..NINETEEN three bars  = 15..19
+   (Unicode block Mayan Numerals, U+1D2E0..U+1D2F3; Unicode 10.0, 2017
+   after proposal L2/16-264, Jameson Quinn.  All twenty are SMP: four
+   bytes of UTF-8 each under the stem F0 9D 8B.)
+   The codex stacks places vertically, least significant at the
+   bottom; we transcribe the stack top-down made left-to-right -
+   most significant place first, one space per place boundary, exactly
+   the linearisation the rod columns get:
+   \t *      𝋡 𝋣   ->   23     (three dots under one dot: 1x20 + 3)
+   \t *      𝋡 𝋭   ->   33     (dot above three dots atop two bars)
+   \t *      𝋡 𝋡 𝋩   ->   429     (dot dot nine: 1x400 + 1x20 + 9)
+   \t *      𝋡 𝋢 𝋠 𝋠   ->   8800     (the shells hold rows three and four)
+   \t *      𝋠   ->   0     (the shell itself: no blank needed)
+   Each place carries exactly ONE precomposed sign, so a zero place
+   writes its shell instead of the Babylonian's two-space gap: the
+   string is self-counting, no context tells a reader where the rows
+   are.  pn_mayan_render draws every place that well_formed allows,
+   including fractional ones (no radix point is carved; the '-' is an
+   anachronism, as in the cuneiform renderer above), and pn_mayan_parse
+   answers period style: radix == n_places.
+   References: https://en.wikipedia.org/wiki/Maya_numerals ,
+   https://en.wikipedia.org/wiki/Vigesimal
+*/
 
 // MARK: - Mayan Numerals
 
 #define PN_MAYAN_DIGIT_ZERO 0x1D2E0u /* SHELL …through U+1D2F3 (digit d: +d) */
 
-/*  Bytes needed to render v as bar-and-dot Maya numerals, NOT counting
- *  the terminating NUL: one sign per place and one space per place
- *  boundary, plus a '-' when neg.  Pure and total — it never fails; on
- *  a malformed v its answer is simply meaningless, since render rejects
- *  such values with a PN_ERROR_DOMAIN note. */
+/*  the terminating NUL: one sign per place and one space per place
+   boundary, plus a '-' when neg.  Pure and total - it never fails; on
+   a malformed v its answer is simply meaningless, since render rejects
+*/
 size_t pn_mayan_render_size(pn_vigesimal v);
 
 /// Write @param v as Maya bar-and-dot numerals into @param buf as
@@ -1060,57 +986,48 @@ bool pn_mayan_parse(const char *_Nullable buf, size_t buflen,
                     pn_vigesimal *_Nullable out,
                     pn_error *_Nullable *_Nullable error);
 
-/* ------------------------------------------------------------------------
- *  Inca quipu — positional decimal knot notation, transcribed in UTF-8.
- *
- *  The quipucamayuq tied numbers onto pendant cords hanging from a
- *  main cord: base ten by POSITION along the cord, the units line
- *  nearest the free end and each higher place marching up toward the
- *  main cord (L. Leland Locke established the place value in 1912;
- *  Ascher & Ascher read the archives).  Our transcription lays the
- *  pendant down, most significant place first — the linearisation the
- *  counting-board rods get in rods.c:
- *
- *  Unicode encodes NO quipu signs — there is no knot block to borrow,
- *  unlike the cuneiform wedges of babylonian.c — so the cord is
- *  transcribed with two generic glyphs:
- *
- *  U+2022 •  BULLET     one simple knot          (Locke's s): d of
- *                                   them mark digit d in every line
- *                                   above the units
- *  U+221E ∞  INFINITY   the figure-eight knot (Locke's E) at the
- *                                   units line, and d of them in a row
- *                                   the long knot of d turns (d L)
- *
- *  Both are BMP: three bytes of UTF-8 each, stems E2 80 A2 and
- *  E2 88 9E.  In Locke's own shorthand, the article's worked cords:
- *
- *        ••••••• ••• ∞      ->      731      (7s, 3s, E)
- *        ••••••••  ∞∞∞∞      ->      804      (8s, X, 4L: the blank tens keeps two boundaries)
- *        • •••• ••••••••• ∞∞∞      ->      1493      (1s, 4s, 9s, 3L)
- *        •       ->      10      (one knot over the blank units)
- *        ∞      ->      1      (figure-eight: units never say bullet)
- *              ->      0      (the empty cord: no knot tied)
- *
- *  The Inca zero was the ABSENCE of a knot in the right position — the
- *  truest blank in this library, kept literally: one space per place
- *  boundary and a blank place writes no sign of its own, so a
- *  well-formed cord holds exactly (places − 1) spaces and the parser
- *  reads places = spaces + 1 off the cord unaided.  The figure-eight
- *  is the reader's anchor — it lives at the units line and nowhere
- *  else, as good as the distinctive units knot on the real cord — so
- *  ∞ above the units line is no cord, and a lone simple knot is no
- *  number (the tens digit of 10 hangs over the blank units with its
- *  boundary space kept).
- *
- *  One cord, one number: color, ply, S/Z twist, subsidiary cords and
- *  the chroniclers' multi-number pendants are not the number system,
- *  and no transcription pretends at them.
- *
- *  References: https://en.wikipedia.org/wiki/Quipu ,
- *  Locke, The Ancient Quipu or Peruvian Knot Record (1912);
- *  Ascher & Ascher, Mathematics of the Incas: Code of the Quipu (1997).
- * ------------------------------------------------------------------------ */
+/*  Inca quipu — positional decimal knot notation, transcribed in UTF-8.
+   The quipucamayuq tied numbers onto pendant cords hanging from a
+   main cord: base ten by POSITION along the cord, the units line
+   nearest the free end and each higher place marching up toward the
+   main cord (L. Leland Locke established the place value in 1912;
+   Ascher & Ascher read the archives).  Our transcription lays the
+   pendant down, most significant place first - the linearisation the
+   counting-board rods get in rods.c:
+   Unicode encodes NO quipu signs - there is no knot block to borrow,
+   unlike the cuneiform wedges of babylonian.c - so the cord is
+   transcribed with two generic glyphs:
+   U+2022 •  BULLET     one simple knot          (Locke's s): d of
+   them mark digit d in every line
+   above the units
+   U+221E ∞  INFINITY   the figure-eight knot (Locke's E) at the
+   units line, and d of them in a row
+   the long knot of d turns (d L)
+   Both are BMP: three bytes of UTF-8 each, stems E2 80 A2 and
+   E2 88 9E.  In Locke's own shorthand, the article's worked cords:
+   ••••••• ••• ∞      ->      731      (7s, 3s, E)
+   ••••••••  ∞∞∞∞      ->      804      (8s, X, 4L: the blank tens keeps two boundaries)
+   • •••• ••••••••• ∞∞∞      ->      1493      (1s, 4s, 9s, 3L)
+   •       ->      10      (one knot over the blank units)
+   ∞      ->      1      (figure-eight: units never say bullet)
+   ->      0      (the empty cord: no knot tied)
+   The Inca zero was the ABSENCE of a knot in the right position - the
+   truest blank in this library, kept literally: one space per place
+   boundary and a blank place writes no sign of its own, so a
+   well-formed cord holds exactly (places − 1) spaces and the parser
+   reads places = spaces + 1 off the cord unaided.  The figure-eight
+   is the reader's anchor - it lives at the units line and nowhere
+   else, as good as the distinctive units knot on the real cord - so
+   ∞ above the units line is no cord, and a lone simple knot is no
+   number (the tens digit of 10 hangs over the blank units with its
+   boundary space kept).
+   One cord, one number: color, ply, S/Z twist, subsidiary cords and
+   the chroniclers' multi-number pendants are not the number system,
+   and no transcription pretends at them.
+   References: https://en.wikipedia.org/wiki/Quipu ,
+   Locke, The Ancient Quipu or Peruvian Knot Record (1912);
+   Ascher & Ascher, Mathematics of the Incas: Code of the Quipu (1997).
+*/
 
 // MARK: - Quipu Numerals
 
@@ -1119,10 +1036,9 @@ bool pn_mayan_parse(const char *_Nullable buf, size_t buflen,
 #define PN_QUIPU_MAX_PLACES      19        /* 10^19 − 1 still fits uint64_t     */
 #define PN_QUIPU_MAX_VALUE 9999999999999999999ull /* nineteen nines               */
 
-/*  Bytes needed to render n as a quipu cord, NOT counting the
- *  terminating NUL.  Pure and total — it never fails; for n >
- *  PN_QUIPU_MAX_VALUE its answer simply runs on and is meaningless,
- *  since render turns down such n with a PN_ERROR_RANGE note. */
+/*  terminating NUL.  Pure and total — it never fails; for n >
+   PN_QUIPU_MAX_VALUE its answer simply runs on and is meaningless,
+*/
 size_t pn_quipu_render_size(uint64_t n);
 
 /// Write @param n (0 .. PN_QUIPU_MAX_VALUE) as a quipu cord into
@@ -1170,100 +1086,88 @@ bool pn_quipu_parse(const char *_Nullable buf, size_t buflen,
                     uint64_t *_Nullable out,
                     pn_error *_Nullable *_Nullable error);
 
-/* ------------------------------------------------------------------------
- *  Greek alphabetic numerals — the Milesian (Ionic) system, in UTF-8.
- *
- *  No place values, no zero: the market and the chancery took the
- *  alphabet itself as the digit set — the first three letters of each
- *  row are its unit: α (1), ι (10), ρ (100) — and filled the gaps with
- *  three letters the classical alphabet had lost but the numerals
- *  kept: ϛ stigma (6), ϟ koppa (90), ϡ sampi (900).  Above 999 the
- *  thousands get their own run of the same signs, announced by the
- *  low keraia ͵ (U+0375) in front of them, and the whole number wears
- *  the trailing keraia ʹ (U+0374) behind it — the horn-mark of the
- *  stenographers, a keraia being to Greek numerals what the decimal
- *  point is to ours: the reader's proof that a number is being read.
- *  So every nonempty rendering carries exactly one ʹ at the end, and
- *  the parser demands it where the culture did.
- *
- *  A spelling is a descending SCALE RUN — at most one sign from the
- *  hundreds row ρ σ τ υ φ χ ψ ω ϡ, then the tens row ι κ λ μ ν ξ ο π
- *  ϟ, then the units row α β γ δ ε ϛ ζ η θ — nothing backward, no
- *  sign twice: 999 is never ροο and 150 is never νρ, for exactly the
- *  reason no scribe stacked nine 𓏥 coils.  A legal run is the ONLY
- *  run spelling its value: the rows are worth 100/10/1, so a run is
- *  decimal notation in letters and the descent is forced.
- *
- *  Above 999 the cord is two runs under one low keraia — thousands
- *  first, then units — and the culture let them butt together with
- *  nothing between: ͵ιαʹ then reads BOTH 11000 (ια = 11 thousands)
- *  and 10001 (ι = 10 thousands, α = 1 unit); an exhaustive sweep of
- *  the domain counts 972 of those shared cords, so a number whose
- *  thousands run AND units run are both live separates them with ONE
- *  space (the stenographers' own gutter): 10001 renders ͵ι␣αʹ and
- *  11000 renders ͵ιαʹ, and the space, like the quipu's, is part of
- *  the canonical cord.  Whole thousands carry no space (nothing to
- *  separate); numbers below 1000 carry no low keraia at all.  Two
- *  runs may share a letter — 1001 is ͵α␣αʹ — the space, not
- *  uniqueness of letters, is what tells the runs apart.  The
- *  article's table, worked through this transcription:
- *
- *    αʹ           ->    1
- *    ιθʹ          ->    19
- *    σνϛʹ         ->    256
- *    χϛʹ          ->    606
- *    ϡϟθʹ         ->    999
- *    ͵αʹ          ->    1000
- *    ͵α␣αʹ        ->    1001
- *    ͵β␣ιθʹ       ->    2019
- *    ͵ι␣αʹ        ->    10001
- *    ͵ιαʹ         ->    11000
- *    ͵ϡϟθ␣ϡϟθʹ    ->    999999
- *
- *   (999999 = 999 thousands over 999 units — the culture wrote no
- *  millions in these signs, and PN_GREEK_MAX_VALUE stops where the
- *  alphabet does.)
- *
- *  The majuscule of printed editions (͵Β␣ΙΘʹ for 2019) is typography,
- *  not notation: this module renders and parses lowercase only, and
- *  capitals are pn_err_syntax, like every foreign letter — Roman I V
- *  X among them (the Roman numerals keep their own block U+2160.. and
- *  will get their own module).
- *
- *  One trap before normalising these cords: the trailing keraia
- *  U+0374 is NFC-UNSTABLE — NFD unfolds it to U+02B9 MODIFIER LETTER
- *  PRIME and NFC never brings it back (every cord of this module,
- *  1..999999, falls to that trap; the low keraia U+0375 is stable).
- *  The module writes the canonical CD B4 bytes and accepts nothing
- *  else: the prime, the tonos ΄ U+0384 and the dakia are near-miss
- *  impostors — pn_err_syntax, like the Mayan dot on a quipu cord.
- *
- *  6/90/900 take the archaic ϛ ϟ ϡ (U+03DB, U+03DF, U+03E1, Greek-and-
- *  Coptic extensions, NFC-stable); 200 takes plain σ U+03C3 — the
- *  lunate ϲ of Byzantine hands and the final ς of living Greek are
- *  BOTH refused, the final sigma being a sandhi rule of the language,
- *  not a numeral sign, and ϲ U+03F2 colliding with san.
- *
- *  Zero had no glyph (the culture counted what was there); like the
- *  Egyptian scribe's blank, the rods' empty column and the unstrung
- *  quipu cord, n == 0 renders the empty string and buflen == 0 reads
- *  back as 0 — this section follows the uint64-direct rule book.
- *
- *  References: https://en.wikipedia.org/wiki/Greek_numerals ,
- *  https://en.wikipedia.org/wiki/Keraia
- * ------------------------------------------------------------------------ */
+/*  Greek alphabetic numerals — the Milesian (Ionic) system, in UTF-8.
+   No place values, no zero: the market and the chancery took the
+   alphabet itself as the digit set - the first three letters of each
+   row are its unit: α (1), ι (10), ρ (100) - and filled the gaps with
+   three letters the classical alphabet had lost but the numerals
+   kept: ϛ stigma (6), ϟ koppa (90), ϡ sampi (900).  Above 999 the
+   thousands get their own run of the same signs, announced by the
+   low keraia ͵ (U+0375) in front of them, and the whole number wears
+   the trailing keraia ʹ (U+0374) behind it - the horn-mark of the
+   stenographers, a keraia being to Greek numerals what the decimal
+   point is to ours: the reader's proof that a number is being read.
+   So every nonempty rendering carries exactly one ʹ at the end, and
+   the parser demands it where the culture did.
+   A spelling is a descending SCALE RUN - at most one sign from the
+   hundreds row ρ σ τ υ φ χ ψ ω ϡ, then the tens row ι κ λ μ ν ξ ο π
+   ϟ, then the units row α β γ δ ε ϛ ζ η θ - nothing backward, no
+   sign twice: 999 is never ροο and 150 is never νρ, for exactly the
+   reason no scribe stacked nine 𓏥 coils.  A legal run is the ONLY
+   run spelling its value: the rows are worth 100/10/1, so a run is
+   decimal notation in letters and the descent is forced.
+   Above 999 the cord is two runs under one low keraia - thousands
+   first, then units - and the culture let them butt together with
+   nothing between: ͵ιαʹ then reads BOTH 11000 (ια = 11 thousands)
+   and 10001 (ι = 10 thousands, α = 1 unit); an exhaustive sweep of
+   the domain counts 972 of those shared cords, so a number whose
+   thousands run AND units run are both live separates them with ONE
+   space (the stenographers' own gutter): 10001 renders ͵ι␣αʹ and
+   11000 renders ͵ιαʹ, and the space, like the quipu's, is part of
+   the canonical cord.  Whole thousands carry no space (nothing to
+   separate); numbers below 1000 carry no low keraia at all.  Two
+   runs may share a letter - 1001 is ͵α␣αʹ - the space, not
+   uniqueness of letters, is what tells the runs apart.  The
+   article's table, worked through this transcription:
+   αʹ           ->    1
+   ιθʹ          ->    19
+   σνϛʹ         ->    256
+   χϛʹ          ->    606
+   ϡϟθʹ         ->    999
+   ͵αʹ          ->    1000
+   ͵α␣αʹ        ->    1001
+   ͵β␣ιθʹ       ->    2019
+   ͵ι␣αʹ        ->    10001
+   ͵ιαʹ         ->    11000
+   ͵ϡϟθ␣ϡϟθʹ    ->    999999
+   (999999 = 999 thousands over 999 units - the culture wrote no
+   millions in these signs, and PN_GREEK_MAX_VALUE stops where the
+   alphabet does.)
+   The majuscule of printed editions (͵Β␣ΙΘʹ for 2019) is typography,
+   not notation: this module renders and parses lowercase only, and
+   capitals are syntax errors, like every foreign letter - Roman I V
+   X among them (the Roman numerals keep their own block U+2160.. and
+   will get their own module).
+   One trap before normalising these cords: the trailing keraia
+   U+0374 is NFC-UNSTABLE - NFD unfolds it to U+02B9 MODIFIER LETTER
+   PRIME and NFC never brings it back (every cord of this module,
+   1..999999, falls to that trap; the low keraia U+0375 is stable).
+   The module writes the canonical CD B4 bytes and accepts nothing
+   else: the prime, the tonos ΄ U+0384 and the dakia are near-miss
+   impostors - syntax errors, like the Mayan dot on a quipu cord.
+   6/90/900 take the archaic ϛ ϟ ϡ (U+03DB, U+03DF, U+03E1, Greek-and-
+   Coptic extensions, NFC-stable); 200 takes plain σ U+03C3 - the
+   lunate ϲ of Byzantine hands and the final ς of living Greek are
+   BOTH refused, the final sigma being a sandhi rule of the language,
+   not a numeral sign, and ϲ U+03F2 colliding with san.
+   Zero had no glyph (the culture counted what was there); like the
+   Egyptian scribe's blank, the rods' empty column and the unstrung
+   quipu cord, n == 0 renders the empty string and buflen == 0 reads
+   back as 0 - this section follows the uint64-direct rule book.
+   References: https://en.wikipedia.org/wiki/Greek_numerals ,
+   https://en.wikipedia.org/wiki/Keraia
+*/
 
 // MARK: - Greek Numerals
 
 #define PN_GREEK_MAX_VALUE 999999ull /* two full runs, 999 of 1000 over
-                                        999 — written millions needed
+                                        999 - written millions needed
                                         fresh marks no standard survived */
 
-/*  Exact number of bytes (excluding the NUL) pn_greek_render will
- *  write: TWO per sign — every sign is a 2-byte BMP code point, both
- *  keraia included — plus ONE for the run-separating space when both
- *  runs are live (n >= 1000 with units above it).  n == 0 renders the
- *  empty cord. */
+/*  write: TWO per sign — every sign is a 2-byte BMP code point, both
+   keraia included - plus ONE for the run-separating space when both
+   runs are live (n >= 1000 with units above it).  n == 0 renders the
+*/
 size_t pn_greek_render_size(uint64_t n);
 
 /// Write @param n (1 .. PN_GREEK_MAX_VALUE) as a Milesian cord into
@@ -1306,74 +1210,64 @@ bool pn_greek_parse(const char *_Nullable buf, size_t buflen,
                     uint64_t *_Nullable out,
                     pn_error *_Nullable *_Nullable error);
 
-/* ------------------------------------------------------------------------
- *  Roman numerals — the canonical form, in ordinary ASCII letters.
- *
- *  No zero, no place values: the ledger kept seven capital letters —
- *   I (1), V (5), X (10), L (50), C (100), D (500), M (1000) — and the
- *  subtractive habits of the Middle Ages: a unit written BEFORE the
- *  sign it undershoots stands for the gap — IV is 5 less 1, IX is 10
- *  less 1.  The grammar this module renders and reads is the tallied
- *  canonical form — the per-digit rows of thousands, hundreds, tens
- *  and units, always in full: 3888 is MMMDCCCLXXXVIII, the longest
- *  numeral there is, and 1999 is MCMXCIX — never the shortcuts the
- *  clocks and ink allowed (IIII for 4, IC for 99, VX, and the
- *  overlined vincula that meant 5000 would be other cultures'
- *  invention; the abacist editors settled on these letters alone).
- *
- *  A canonical numeral is the ONLY spelling of its value: the rows
- *  descend, each run of I, X, C or M holds at most three, the six
- *  subtractive digraphs IV IX XL XC CD CM appear at most once and
- *  belong to their digit — that descent is forced, the same way the
- *  Greek run's is, so a numeral reads back exactly one number.  The
- *  culture's own proofs agree: the same year is MCMXCIX in every
- *  inscription that spells it full.
- *
- *  The article's table, worked through this transcription:
- *
- *    I                ->   1
- *    IV               ->   4
- *    V                ->   5
- *    IX               ->   9
- *    XIV              ->   14
- *    XLIV             ->   44
- *    XC               ->   90
- *    CD               ->   400
- *    CM               ->   900
- *    M                ->   1000
- *    MCMXCIX          ->   1999
- *    MMMDCCCLXXXVIII  ->   3888
- *    MMMCMXCIX        ->   3999
- *
- *   (3999 = MMM | CM | XC | IX, the ceiling; the Romans wrote larger
- *  with overlines and fresh marks no standard survived.)
- *
- *  Zero had no letter (the ledger counted what was there — Bede's
- *  abbey later wrote nulla, the nothing, in its place); like the
- *  Egyptian blank, the rods' gap, the unstrung cord and the silent
- *  keraia, n == 0 renders the empty string and buflen == 0 reads
- *  back as 0 — this section follows the uint64-direct rule book.
- *
- *  Lowercase letters, Greek, whacked-out spaced variants and every
- *  foreign byte are pn_err_syntax — a numeral in the abacist's sense
- *  is capital ASCII letters only.
- *
- *  References: https://en.wikipedia.org/wiki/Roman_numerals
- * ------------------------------------------------------------------------ */
+/*  Roman numerals — the canonical form, in ordinary ASCII letters.
+   No zero, no place values: the ledger kept seven capital letters -
+   I (1), V (5), X (10), L (50), C (100), D (500), M (1000) - and the
+   subtractive habits of the Middle Ages: a unit written BEFORE the
+   sign it undershoots stands for the gap - IV is 5 less 1, IX is 10
+   less 1.  The grammar this module renders and reads is the tallied
+   canonical form - the per-digit rows of thousands, hundreds, tens
+   and units, always in full: 3888 is MMMDCCCLXXXVIII, the longest
+   numeral there is, and 1999 is MCMXCIX - never the shortcuts the
+   clocks and ink allowed (IIII for 4, IC for 99, VX, and the
+   overlined vincula that meant 5000 would be other cultures'
+   invention; the abacist editors settled on these letters alone).
+   A canonical numeral is the ONLY spelling of its value: the rows
+   descend, each run of I, X, C or M holds at most three, the six
+   subtractive digraphs IV IX XL XC CD CM appear at most once and
+   belong to their digit - that descent is forced, the same way the
+   Greek run's is, so a numeral reads back exactly one number.  The
+   culture's own proofs agree: the same year is MCMXCIX in every
+   inscription that spells it full.
+   The article's table, worked through this transcription:
+   I                ->   1
+   IV               ->   4
+   V                ->   5
+   IX               ->   9
+   XIV              ->   14
+   XLIV             ->   44
+   XC               ->   90
+   CD               ->   400
+   CM               ->   900
+   M                ->   1000
+   MCMXCIX          ->   1999
+   MMMDCCCLXXXVIII  ->   3888
+   MMMCMXCIX        ->   3999
+   (3999 = MMM | CM | XC | IX, the ceiling; the Romans wrote larger
+   with overlines and fresh marks no standard survived.)
+   Zero had no letter (the ledger counted what was there - Bede's
+   abbey later wrote nulla, the nothing, in its place); like the
+   Egyptian blank, the rods' gap, the unstrung cord and the silent
+   keraia, n == 0 renders the empty string and buflen == 0 reads
+   back as 0 - this section follows the uint64-direct rule book.
+   Lowercase letters, Greek, whacked-out spaced variants and every
+   foreign byte are syntax errors - a numeral in the abacist's sense
+   is capital ASCII letters only.
+   References: https://en.wikipedia.org/wiki/Roman_numerals
+*/
 
 // MARK: - Roman Numerals
 
 #define PN_ROMAN_MAX_VALUE 3999ull /* MMM CM XC IX: three thousands and
                                       the alphabet's full hundreds-tens-
-                                      units row — vinculum numbers had no
+                                      units row - vinculum numbers had no
                                       standard to keep them */
 
-#define PN_ROMAN_FORMAT_MAX_LEN 16 /* 15 letters — the canon of 3888 —
+#define PN_ROMAN_FORMAT_MAX_LEN 16 /* 15 letters - the canon of 3888 -
                                       plus the NUL                   */
 
-/*  Exact number of bytes (excluding the NUL) pn_roman_render will
- *  write: the letters of the four per-digit rows, at most four per
- *  live row (DCCC, XXX, VIII...).  n == 0 renders the empty cord. */
+/*  write: the letters of the four per-digit rows, at most four per
+*/
 size_t pn_roman_render_size(uint64_t n);
 
 /// Write @param n (1 .. PN_ROMAN_MAX_VALUE) as canonical Roman
@@ -1409,21 +1303,19 @@ bool pn_roman_parse(const char *_Nullable buf, size_t buflen,
                     uint64_t *_Nullable out,
                     pn_error *_Nullable *_Nullable error);
 
-/* --- early mathematical theory (Elements VII-IX, the sieve of
-     Eratosthenes, the gnomon figures) ---------------------------------
- *
- *  The reckoning that sat underneath the numerals: Euclid's ladder
- *  of remainders, the papyrus of struck rows, the Pythagoreans'
- *  triples, the abacist's ledger of factors.  Nothing here renders a
- *  notation — these are the working functions of the culture, on the
- *  whole uint64 ledger 0..18446744073709551615.
- *
- *  Primality is proved, never merely probable: below 2^32 Euclid's
- *  own trial division by the sieve's unstruck rows is the complete
- *  argument, and above it Miller's seven certified witnesses (2,
- *  325, 9375, 28178, 450775, 9780504, 1795265022) decide every case
- *  of the ledger before the water clock runs out.
- */
+/*  Early mathematical theory (Elements VII-IX, the sieve of
+   Eratosthenes, the gnomon figures).
+   The reckoning that sat underneath the numerals: Euclid's ladder
+   of remainders, the papyrus of struck rows, the Pythagoreans'
+   triples, the abacist's ledger of factors.  Nothing here renders a
+   notation - these are the working functions of the culture, on the
+   whole uint64 ledger 0..18446744073709551615.
+   Primality is proved, never merely probable: below 2^32 Euclid's
+   own trial division by the sieve's unstruck rows is the complete
+   argument, and above it Miller's seven certified witnesses (2,
+   325, 9375, 28178, 450775, 9780504, 1795265022) decide every case
+   of the ledger before the water clock runs out.
+*/
 
 // MARK: - Math
 
@@ -1432,76 +1324,149 @@ bool pn_roman_parse(const char *_Nullable buf, size_t buflen,
 #define PN_MATH_SIDE_MAX_VALUE          4294967295ull
 #define PN_MATH_MAX_FACTORS             64u
 
-/*  The papyrus of Eratosthenes.  pn_math_sieve_size answers pi(limit),
- *  the count of primes from 2 to limit; it answers 0 when limit < 2
- *  or passes PN_MATH_SIEVE_MAX_VALUE = 1000000, the last row of the
- *  papyrus.  pi(100) = 25, pi(1000) = 168, pi(1000000) =
- *  78498.  pn_math_sieve lays the board in ascending order and
- *  reports the rows it set in *count: sieve(30) ends at 29,
- *  sieve(1000000) at 999983.  Errors like the other ledgers:
- *  pn_err_null, pn_err_range, pn_err_buffer (cap short of the count;
- *  the caller's rows and *count keep their word). */
 size_t pn_math_sieve_size(uint64_t limit);
 
-pn_status pn_math_sieve(uint64_t limit, uint64_t *out, size_t cap,
-                        size_t *count);
+/// Lay the sieve board in @param out in ascending order and report
+/// the rows it set through @param count.    PN_ERROR_NULL when out or
+/// count is NULL, PN_ERROR_RANGE when @param limit passes
+/// PN_MATH_SIEVE_MAX_VALUE, PN_ERROR_BUFFER when @param cap falls
+/// short of the count — and on any failure the caller's rows and
+/// @param count keep their word.
+/// @param limit - strike the primes from 2 to this
+/// @param out - where the primes land, @param cap slots of room
+/// @param cap - slots available at @param out
+/// @param count - how many primes were written, on success
+/// @param error - where to hang the note on failure.
+/// @returns true on success, false with a note in @param error.
+bool pn_math_sieve(uint64_t limit, uint64_t *_Nullable out, size_t cap,
+                   size_t *_Nullable count,
+                   pn_error *_Nullable *_Nullable error);
 
-/*  Euclid's ladder (Elements VII.1-2): the greatest common measure.
- *  gcd(1071, 462) = 21; gcd(0, 0) = 0 by the abacist's
- *  convention.  lcm(1071, 462) = 23562; a blank row makes the ratio
- *  blank: lcm(0, n) = 0.  A product past the ledger top is
- *  pn_err_range.  Both answer pn_err_null on a NULL out. */
-pn_status pn_math_gcd(uint64_t a, uint64_t b, uint64_t *out);
+/// Euclid's ladder (Elements VII.1-2): the greatest common measure
+/// of @param a and @param b.  gcd(1071, 462) = 21; gcd(0, 0) = 0 by
+/// the abacist's convention.
+/// @param a - one number
+/// @param b - the other number
+/// @param out - where the answer lands on success
+/// @param error - where to hang the note on failure: PN_ERROR_NULL
+///     when out is NULL.
+/// @returns true on success, false with a note in @param error.
+bool pn_math_gcd(uint64_t a, uint64_t b, uint64_t *_Nullable out,
+                 pn_error *_Nullable *_Nullable error);
 
-pn_status pn_math_lcm(uint64_t a, uint64_t b, uint64_t *out);
+/// The least common multiple: the smallest number both @param a and
+/// @param b measure.  lcm(1071, 462) = 23562; a blank row makes the
+/// ratio blank — lcm(0, n) = 0.  PN_ERROR_NULL when out is NULL,
+/// PN_ERROR_RANGE when the product leaves the ledger.
+/// @param a - one number
+/// @param b - the other number
+/// @param out - where the answer lands on success
+/// @param error - where to hang the note on failure.
+/// @returns true on success, false with a note in @param error.
+bool pn_math_lcm(uint64_t a, uint64_t b, uint64_t *_Nullable out,
+                 pn_error *_Nullable *_Nullable error);
 
-/*  The Pythagoreans' gnomon figures.  is_square(999950884) is true —
- *  the square of 31622.  is_prime(561) answers false: Siegel's
- *  number, the Carmichael fool that fools the Fermat test alone.
- *  next_prime is inclusive, the culture counting the number itself
- *  when it is already prime: next_prime(1) = 2, next_prime(2) =
- *  2, next_prime(46340) = 46349; past the last prime of the
- *  ledger it answers pn_err_range. */
-pn_status pn_math_is_square(uint64_t n, bool *out);
+/// Is @param n a square number?  The Pythagoreans' gnomon figures:
+/// is_square(999950884) is true, the square of 31622.
+/// @param n - the number to weigh
+/// @param out - where the verdict lands on success
+/// @param error - where to hang the note on failure: PN_ERROR_NULL
+///     when out is NULL.
+/// @returns true on success, false with a note in @param error.
+bool pn_math_is_square(uint64_t n, bool *_Nullable out,
+                       pn_error *_Nullable *_Nullable error);
 
-pn_status pn_math_is_prime(uint64_t n, bool *out);
+/// Is @param n prime?  Seven Miller-Rabin witnesses answer for the
+/// whole ledger, so Carmichael's fools — is_prime(561) says false —
+/// cannot slip past.
+/// @param n - the number to weigh
+/// @param out - where the verdict lands on success
+/// @param error - where to hang the note on failure: PN_ERROR_NULL
+///     when out is NULL.
+/// @returns true on success, false with a note in @param error.
+bool pn_math_is_prime(uint64_t n, bool *_Nullable out,
+                      pn_error *_Nullable *_Nullable error);
 
-pn_status pn_math_next_prime(uint64_t n, uint64_t *out);
+/// The next prime at or after @param n — inclusive, the culture
+/// counting the number itself when it is already prime:
+/// next_prime(1) = 2, next_prime(2) = 2, next_prime(46340) = 46349.
+/// @param n - weigh from here upward
+/// @param out - where the answer lands on success
+/// @param error - where to hang the note on failure: PN_ERROR_NULL
+///     when out is NULL, PN_ERROR_RANGE past the last prime of the
+///     ledger.
+/// @returns true on success, false with a note in @param error.
+bool pn_math_next_prime(uint64_t n, uint64_t *_Nullable out,
+                        pn_error *_Nullable *_Nullable error);
 
-/*  The abacist's ledger of factors: n = f[0] x f[1] x ... ascending,
- *  repeats kept — the culture wrote 90 as 2 x 3 x 3 x 5 and 649 as 11 x 59.
- *  The blank and the unit are the empty product:
- *  factorize_size(0) = factorize_size(1) = 0.  The longest braid on
- *  the ledger is 63 twos (2^63), so PN_MATH_MAX_FACTORS = 64 rows
- *  always hold.  A cap short of the count is pn_err_buffer; on any
- *  error the caller's rows and *count keep their word. */
 size_t pn_math_factorize_size(uint64_t n);
 
-pn_status pn_math_factorize(uint64_t n, uint64_t *out, size_t cap,
-                            size_t *count);
+/// The abacist's ledger of factors: @param n = f[0] x f[1] x ...
+/// ascending, repeats kept — the culture wrote 90 as 2 x 3 x 3 x 5
+/// and 649 as 11 x 59.  PN_ERROR_NULL when out or count is NULL,
+/// PN_ERROR_BUFFER when @param cap falls short of the count; on any
+/// failure the caller's rows and @param count keep their word.
+/// @param n - split this number
+/// @param out - where the factors land, @param cap slots of room
+/// @param cap - slots available at @param out
+/// @param count - how many factors were written, on success
+/// @param error - where to hang the note on failure.
+/// @returns true on success, false with a note in @param error.
+bool pn_math_factorize(uint64_t n, uint64_t *_Nullable out, size_t cap,
+                       size_t *_Nullable count,
+                       pn_error *_Nullable *_Nullable error);
 
-/*  The numbers equal to their own parts (Elements IX.36): 6 = 1 + 2
- *  + 3, 28, 496, 8128 — the even form Euclid built and Euler proved
- *  necessary.  The culture weighed proper divisors from 1 up, so the
- *  blank and the unit sit out of the domain: perfect_check(0) is
- *  pn_err_range, while perfect_check(90) answers pn_ok with false. */
-pn_status pn_math_perfect_check(uint64_t n, bool *out);
+/// Is @param n equal to its own parts (Elements IX.36)?  6 = 1 + 2
+/// + 3, then 28, 496, 8128 — the even form Euclid built and Euler
+/// proved necessary.  The culture weighed proper divisors from 1 up,
+/// so the blank and the unit sit outside the domain:
+/// perfect_check(0) earns a PN_ERROR_RANGE note while
+/// perfect_check(90) answers cleanly with false.
+/// @param n - the number to weigh
+/// @param out - where the verdict lands on success
+/// @param error - where to hang the note on failure: PN_ERROR_NULL
+///     when out is NULL, PN_ERROR_RANGE when n is below 2.
+/// @returns true on success, false with a note in @param error.
+bool pn_math_perfect_check(uint64_t n, bool *_Nullable out,
+                           pn_error *_Nullable *_Nullable error);
 
 // MARK: - Pythagoreas
 
-/*  The Plimpton tablet's loom (Elements X.29): from m > n >= 1 with
- *  m <= PN_MATH_M_MAX_VALUE = 65535, the legs are m*m - n*n and
- *  2*m*n and the hypotenuse m*m + n*n.  m = 2, n = 1 weaves 3,
- *  4, 5; m = 12, n = 5 weaves 119, 120, 169.
- *  Any side past PN_MATH_SIDE_MAX_VALUE = 4294967295 (the rod's own
- *  foot) is pn_err_range.  pythagorean_check weighs the rod: (119,
- *  120, 169) stands; sides out of the rod's foot are pn_err_range. */
-pn_status pn_math_pythagorean_triple(uint64_t m, uint64_t n,
-                                     uint64_t *leg1, uint64_t *leg2,
-                                     uint64_t *hypotenuse);
+/// The Plimpton tablet's loom (Elements X.29): from @param m >
+/// @param n >= 1 with m <= PN_MATH_M_MAX_VALUE, the legs are m*m -
+/// n*n and 2*m*n and the hypotenuse m*m + n*n.   m = 2, n = 1 weaves
+/// 3, 4, 5; m = 12, n = 5 weaves 119, 120, 169.  The gnomon leg
+/// comes first, Plimpton's order.
+/// @param m - the longer generator
+/// @param n - the shorter generator
+/// @param leg1 - where the gnomon leg lands
+/// @param leg2 - where the even leg lands
+/// @param hypotenuse - where the hypotenuse lands
+/// @param error - where to hang the note on failure: PN_ERROR_NULL
+///     when any answer slot is NULL, PN_ERROR_RANGE when the
+///     generators break 1 <= n < m <= 65535 or any side runs past
+///     PN_MATH_SIDE_MAX_VALUE.
+/// @returns true on success, false with a note in @param error.
+bool pn_math_pythagorean_triple(uint64_t m, uint64_t n,
+                                uint64_t *_Nullable leg1,
+                                uint64_t *_Nullable leg2,
+                                uint64_t *_Nullable hypotenuse,
+                                pn_error *_Nullable *_Nullable error);
 
-pn_status pn_math_pythagorean_check(uint64_t x, uint64_t y, uint64_t z,
-                                    bool *out);
+/// Weigh the rod: does @param x*x + @param y*y equal @param z*z?
+/// (119, 120, 169) stands.  Sides outside the rod's foot earn a
+/// PN_ERROR_RANGE note.
+/// @param x - one side
+/// @param y - the other side
+/// @param z - the longest side
+/// @param out - where the verdict lands on success
+/// @param error - where to hang the note on failure: PN_ERROR_NULL
+///     when out is NULL, PN_ERROR_RANGE when a side runs under 1 or
+///     past PN_MATH_SIDE_MAX_VALUE.
+/// @returns true on success, false with a note in @param error.
+bool pn_math_pythagorean_check(uint64_t x, uint64_t y, uint64_t z,
+                               bool *_Nullable out,
+                               pn_error *_Nullable *_Nullable error);
 
 #ifdef __cplusplus
 }

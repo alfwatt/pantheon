@@ -5,7 +5,7 @@
     units-signs and writes an empty place as two blank spaces
     (Unicode ships no Babylonian placeholder, and on the clay the
     gap really was ambiguous).  The Maya block, by contrast, hands
-    over one ready-made sign for every place from 0 to 19 — the
+    over one ready-made sign for every place from 0 to 19 - the
     shell included.  So: one sign per place, one space per boundary.
     The string counts its own rows out loud; there is no spacing
     arithmetic around a two-space gap, and no lone dot needing
@@ -20,7 +20,7 @@
 
     The codex stacks rows from the floor up (least significant at
     the bottom); our transcription reads the stack from the top
-    down and lays it left to right — 429 renders as dot dot nine.
+    down and lays it left to right - 429 renders as dot dot nine.
 
     References: https://en.wikipedia.org/wiki/Maya_numerals
     Unicode block Mayan Numerals (U+1D2E0..U+1D2F3), proposal
@@ -59,9 +59,9 @@ static int well_formed(pn_vigesimal v)
 }
 
 /* Match one digit sign at p (where at least SIGN_BYTES bytes remain):
-   the digit 0..19 comes back in *digit, and anything else — the
+   the digit 0..19 comes back in *digit, and anything else - the
    block's empty space past U+1D2F3, U+1D2F4..U+1D2FF, which is
-   unassigned and carves nothing — gives -1. */
+   unassigned and carves nothing - gives -1. */
 static int match_mayan(const char *p, const char *end, unsigned *digit)
 {
 	if (p + SIGN_BYTES > end || memcmp(p, MAYAN_PREFIX, 3) != 0)
@@ -77,11 +77,12 @@ static int match_mayan(const char *p, const char *end, unsigned *digit)
 
 size_t pn_mayan_render_size(pn_vigesimal v)
 {
-	/* This answer never fails: '-' when neg, one sign per place, one
-	 * gutter per boundary.  For a well-formed v it is exactly what
-	 * render will write; on a malformed one the count simply runs on
-	 * and means nothing — render turns down such v with
-	 * PN_ERROR_DOMAIN anyway. */
+	/*  This answer never fails: '-' when neg, one sign per place, one
+  gutter per boundary.  For a well-formed v it is exactly what
+  render will write; on a malformed one the count simply runs on
+  and means nothing - render turns down such v with
+  PN_ERROR_DOMAIN anyway.
+*/
 	size_t n = v.neg ? 1u : 0u;
 
 	for (unsigned i = 0; i < v.n_places; i++) {
@@ -101,7 +102,7 @@ bool pn_mayan_render(pn_vigesimal v, char *_Nonnull buf, size_t buflen,
 	if (!well_formed(v))
 		return pn_error_set(error, PN_ERROR_DOMAIN,
 				                    "the value is not well-formed:"
-				                    " %u places, radix %u — places need"
+				                    " %u places, radix %u - places need"
 				                    " 1 to %u slots, each 0 to 19, and"
 				                    " the radix cannot pass n_places",
 				                   v.n_places, v.radix,
@@ -132,7 +133,7 @@ bool pn_mayan_render(pn_vigesimal v, char *_Nonnull buf, size_t buflen,
 
 /* Parsing reads back what rendering wrote.
 
-   The grammar is '-? (sign ' ')* sign' — rows that count themselves.
+   The grammar is '-? (sign ' ')* sign' - rows that count themselves.
    The shell is welcome anywhere a whole place sits: a zero row whose
    blank a reader would otherwise have to guess at is exactly what
    the shell exists to spell, and a shell at the front is kept
@@ -204,9 +205,10 @@ bool pn_mayan_parse(const char *_Nullable buf, size_t buflen,
 		p++;
 	}
 	v.n_places = (uint8_t)k;
-	v.radix = v.n_places;   /* the carved stack carries no point:
-	                          * period style, the same answer the
-	                          * cuneiform parser gives                */
+	v.radix = v.n_places;   /*  the carved stack carries no point:
+  period style, the same answer the
+  cuneiform parser gives
+*/
 	*out = v;
 	return true;
 }

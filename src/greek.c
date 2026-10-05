@@ -3,7 +3,7 @@
 
     The rule book here is the same one the uint64 notations follow:
     no place-value struct sits between the number and its cord, just
-    like the egyptian scribe, the counting rods and the quipu — an
+    like the egyptian scribe, the counting rods and the quipu - an
     additive notation has no places to hold.
 
     The cord is made of: an optional low keraia (U+0375) that
@@ -14,7 +14,7 @@
      (rho..sampi), then one from the tens row (iota..koppa), then one
     from the units row (alpha..theta).  The digit d of a row is that
     row's d-th sign, written ONCE: the market kept its own dedicated
-    letter for every one of the 27 digits, so 900 is sampi — not nine
+    letter for every one of the 27 digits, so 900 is sampi - not nine
     sampis packed together.  The space kills the butt-joint
     collisions (10001 reads "low-keraia iota, space, alpha" against
     11000's "low-keraia iota alpha"), and it belongs to the canonical
@@ -25,7 +25,7 @@
     point outside the 27 numeral signs and the two keraia.  Capitals,
     the lunate sigma U+03F2, the final sigma, the digamma U+03DD, the
     tonos, and the NFC twin of the dexia (U+02B9) hold no table entry
-    and fall out as syntax errors — which is exactly the culture's
+    and fall out as syntax errors - which is exactly the culture's
     own verdict on a misspelled number.
 
     References: https://en.wikipedia.org/wiki/Greek_numerals
@@ -155,8 +155,8 @@ bool pn_greek_render(uint64_t n, char *_Nonnull buf, size_t buflen,
 /* Look one decoded code point up in the three rows.    The descent
    rank @rank (3, 2, 1: the order a run must walk) and the worth
    @val come back only for a sign with a table entry.    Everything
-   else — the capitals, the lunate and final sigmas, the digamma, the
-   tonos, the prime twin, Latin letters — misses and turns into a
+   else - the capitals, the lunate and final sigmas, the digamma, the
+   tonos, the prime twin, Latin letters - misses and turns into a
    syntax error. */
 static int sign_info(uint32_t cp, unsigned *rank, unsigned *val)
 {
@@ -178,7 +178,7 @@ static int sign_info(uint32_t cp, unsigned *rank, unsigned *val)
 }
 
 /* The worth of a legal run — at most one sign per row, the rows
-   strictly descending, every sign pulled from the tables — or 0 when
+   strictly descending, every sign pulled from the tables - or 0 when
    the run is empty or malformed.  No run of a legal number is worth
    0: a blank row writes nothing and a written row is worth its
    sign. */

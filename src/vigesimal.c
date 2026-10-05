@@ -10,7 +10,7 @@
     sexagesimal is arithmetic: 20 = 4 x 5, so a fraction with a
     factor five in its bottom is no more dyadic than a sixtieth
      (0;1, which is 1/20, repeats forever in binary), while 20^12 is
-    the last power under 2^53 — a whole row more breathing room than
+    the last power under 2^53 - a whole row more breathing room than
     60^8, worth remembering by anyone who trusts
     pn_vigesimal_to_double as the canonical form.
 
@@ -84,9 +84,10 @@ bool pn_vigesimal_parse(const char *text, pn_vigesimal *_Nullable out,
 	int radix = -1; /* where the ';' sits, if it sits anywhere */
 
 	for (;;) {
-		 /* One place: one or two decimal digits.  A longer run of
-		   * digits — a mistyped decimal "100" — is read three
-		   * digits deep and refused as out of range. */
+		 /*  One place: one or two decimal digits.  A longer run of
+  digits - a mistyped decimal "100" - is read three
+  digits deep and refused as out of range.
+*/
 		unsigned d = 0;
 		int nd = 0;
 
@@ -155,24 +156,24 @@ bool pn_vigesimal_format(pn_vigesimal v, char sep, char *_Nonnull buf,
 	if (!well_formed(v))
 		return pn_error_set(error, PN_ERROR_DOMAIN,
 				                  "the value is not well-formed:"
-				                  " %u places, radix %u — places need"
+				                  " %u places, radix %u - places need"
 				                  " 1 to %u slots, each 0 to 19, and"
 				                  " the radix cannot pass n_places",
 				                  v.n_places, v.radix,
 				                  PN_VIGESIMAL_MAX_PLACES);
 
-	/* Written in scratch space first, so a late failure can never
-	  * leave buf holding half a number.  Worst case: '-' + 16
-	  * places x 2 digits + 15 separators + NUL = 49 bytes, which
-	  * the declared maximum has room for.
-	  *
-	  * One deliberate departure from pn_sex60_format: places print
-	  * with the FEWEST decimal digits they need, no zero padding
-	  * past the first place.  Sexagesimal pads its places to two
-	  * digits as the scholarly convention (1,24,51,10); a
-	  * base-twenty place runs 0..19 and "02" would dress a codex
-	  * digit in Babylonian clothes.  The first place still keeps
-	  * its literal 0 — "0;5" means 1/4. */
+	/*  Written in scratch space first, so a late failure can never
+  leave buf holding half a number.  Worst case: '-' + 16
+  places x 2 digits + 15 separators + NUL = 49 bytes, which
+  the declared maximum has room for.
+  One deliberate departure from pn_sex60_format: places print
+  with the FEWEST decimal digits they need, no zero padding
+  past the first place.  Sexagesimal pads its places to two
+  digits as the scholarly convention (1,24,51,10); a
+  base-twenty place runs 0..19 and "02" would dress a codex
+  digit in Babylonian clothes.  The first place still keeps
+  its literal 0 - "0;5" means 1/4.
+*/
 	char tmp[PN_VIGESIMAL_FORMAT_MAX_LEN];
 	char *q = tmp;
 
@@ -202,8 +203,8 @@ bool pn_vigesimal_format(pn_vigesimal v, char sep, char *_Nonnull buf,
 
 /* from_u64 peels places off the bottom (divide by 20 again and
    again); to_u64 builds the number back up with Horner's scheme.
-   The codices did exactly this on the counting surface — the
-   Dresden page arithmetic — and there is no Babylonian-style
+   The codices did exactly this on the counting surface - the
+   Dresden page arithmetic - and there is no Babylonian-style
    missing-zero tragedy here: the Maya had the shell. */
 bool pn_vigesimal_from_u64(uint64_t n, pn_vigesimal *_Nullable out,
                            pn_error *_Nullable *_Nullable error)
@@ -292,7 +293,7 @@ bool pn_vigesimal_to_u64(pn_vigesimal v, uint64_t *_Nullable out,
 /* to_double works out the whole part and the fraction each as an
    exact uint64_t where one fits, then does one correctly-rounded
    division.  So the answer is exact whenever a double is able to
-   hold it at all — and in base twenty "at all" reaches 20^12's
+   hold it at all - and in base twenty "at all" reaches 20^12's
    worth of whole places. */
 bool pn_vigesimal_to_double(pn_vigesimal v, double *_Nullable out,
                             pn_error *_Nullable *_Nullable error)
@@ -328,9 +329,10 @@ bool pn_vigesimal_to_double(pn_vigesimal v, double *_Nullable out,
 		for (; i < v.radix; i++)
 			val = val * 20.0 + (double)v.places[i];
 
-	/* the fraction: one exact whole number F over one exact power
-	  * 20^k, which is a single correctly-rounded division while
-	  * k <= 14. */
+	/*  the fraction: one exact whole number F over one exact power
+  20^k, which is a single correctly-rounded division while
+  k <= 14.
+*/
 	unsigned k = (unsigned)v.n_places - v.radix;
 
 	if (k > 0) {
@@ -376,11 +378,12 @@ bool pn_vigesimal_from_double(double x, uint8_t frac_places,
 	double ip = floor(mag);   /* the whole part */
 	double fp = mag - ip;     /* the fraction: from 0 up to, but not, 1 */
 
-	/* The whole-value places, LEAST significant first: ipd[0] holds
-	  * the 20^0 place, the one the fraction leans against.  Divide
-	  * with a correction step: ip / 20.0 rounds, so the remainder
-	  * is worked out again instead of trusting the pair the
-	  * division hands back. */
+	/*  The whole-value places, LEAST significant first: ipd[0] holds
+  the 20^0 place, the one the fraction leans against.  Divide
+  with a correction step: ip / 20.0 rounds, so the remainder
+  is worked out again instead of trusting the pair the
+  division hands back.
+*/
 	uint8_t ipd[PN_VIGESIMAL_MAX_PLACES];
 	size_t ki = 0;
 
@@ -404,10 +407,11 @@ bool pn_vigesimal_from_double(double x, uint8_t frac_places,
 		ip = q;
 	}
 
-	/* The fractional places, MOST significant first: fpd[0] holds
-	  * the 20^-1 place, made by the first multiply.  The last kept
-	  * place rounds half away from zero; trailing zeros stay, so
-	  * every answer is reproducible. */
+	/*  The fractional places, MOST significant first: fpd[0] holds
+  the 20^-1 place, made by the first multiply.  The last kept
+  place rounds half away from zero; trailing zeros stay, so
+  every answer is reproducible.
+*/
 	uint8_t fpd[PN_VIGESIMAL_MAX_PLACES];
 	size_t kf = frac_places;
 
@@ -428,11 +432,12 @@ bool pn_vigesimal_from_double(double x, uint8_t frac_places,
 		fpd[j] = dgt;
 	}
 
-	/* Fraction carries run right to left, every place handing its
-	  * overflow to the neighbour on its left; whatever escapes past
-	  * the radix point leaves a carry for the whole side.  With no
-	  * fraction places kept at all, the leftover fraction itself
-	  * decides the rounding. */
+	/*  Fraction carries run right to left, every place handing its
+  overflow to the neighbour on its left; whatever escapes past
+  the radix point leaves a carry for the whole side.  With no
+  fraction places kept at all, the leftover fraction itself
+  decides the rounding.
+*/
 	int carry = (kf == 0 && fp >= 0.5);
 
 	for (size_t i = kf; i-- > 0; )
@@ -444,9 +449,10 @@ bool pn_vigesimal_from_double(double x, uint8_t frac_places,
 				carry = 1;
 			}
 
-	/* The whole-part carry chain, least to most significant; a carry
-	  * that walks clean off the top becomes a new leading 1 — every
-	  * place it crossed is zero already, carried clean through. */
+	/*  The whole-part carry chain, least to most significant; a carry
+  that walks clean off the top becomes a new leading 1 - every
+  place it crossed is zero already, carried clean through.
+*/
 	int carry_out = 0;
 
 	if (carry) {

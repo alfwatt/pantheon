@@ -148,21 +148,3 @@ void pn_error_clear(pn_error **location)
         *location = NULL;
     }
 }
-
-/* Legacy: the text for the flat status codes, kept word-for-word for
-   the modules not yet converted to pn_error. */
-const char *pn_strerror(pn_status st)
-{
-    static const char *const msgs[] = {
-        "pn_ok",
-        "pn_err_null",
-        "pn_err_syntax",
-        "pn_err_range",
-        "pn_err_domain",
-        "pn_err_buffer",
-    };
-
-    if ((unsigned)st >= sizeof msgs / sizeof msgs[0])
-        return "pn_status out of range";
-    return msgs[st];
-}

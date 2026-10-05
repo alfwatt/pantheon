@@ -10,13 +10,13 @@
 
     The blank for zero follows the Egyptian ruling: a skipped digit
     is not written at all, and the skip is admitted by exactly one
-    space between the terms on both sides of it — 一千 五 = 1005,
+    space between the terms on both sides of it - 一千 五 = 1005,
     一千 五十 = 1050, where a later scribe would write 零.  The space
     carries no value (the multipliers pin every digit's place), so it
     is a pure canonical marker and the round trip stays exact.
     Canonical form means the full formal reading: 一十四, never the
-    spoken elision 十四.  The domain stops at 万 — no sign above it
-    lives here, just as Egypt had none above the Heh — so
+    spoken elision 十四.  The domain stops at 万 - no sign above it
+    lives here, just as Egypt had none above the Heh - so
     PN_HANZI_MAX_VALUE is 99 999 999.
 
     The signs are spelled as universal character names, which keeps
@@ -55,7 +55,7 @@ static const uint64_t pow10s[4] = { 1u, 10u, 100u, 1000u };
 
 /* Write @param n's canonical hanzi string; @param buf may be NULL,
    which only counts.  Past PN_HANZI_MAX_VALUE the count drops the
-   places above 万 and its answer means nothing — render turns down
+   places above 万 and its answer means nothing - render turns down
    such n with a PN_ERROR_RANGE note anyway. */
 static size_t hanzi_emit(uint64_t n, char *buf)
 {
@@ -110,8 +110,8 @@ bool pn_hanzi_render(uint64_t n, char *_Nonnull buf, size_t buflen,
 	if (n > PN_HANZI_MAX_VALUE)
 		return pn_error_set(error, PN_ERROR_RANGE,
 				                       "%llu runs past %llu: no sign"
-				                       " above 万 lives in this module"
-				                       " (亿 is not written here)",
+				                       " above \U00004E07 lives in this module"
+				                       " (\U00004EBF is not written here)",
 				                       (unsigned long long)n,
 				                       (unsigned long long)PN_HANZI_MAX_VALUE);
 
@@ -131,13 +131,13 @@ bool pn_hanzi_render(uint64_t n, char *_Nonnull buf, size_t buflen,
 /* Parsing reads back what rendering wrote.
 
    The canonical form is what makes the round trip exact.  A string
-   is terms — (digit [千|百|十]) or a bare digit — strictly descending
+   is terms - (digit [千|百|十]) or a bare digit - strictly descending
    in place inside each section, with at most one 万 written right
    after the top section's last term.  Between two terms in a row a
    space shows up if and only if they sit more than one place apart;
-   neighboring terms must touch.  Everything else — foreign bytes, a
+   neighboring terms must touch.  Everything else - foreign bytes, a
    sign cut off mid-UTF-8, 十四 missing its 一, 四百 三十一 with an
-   unearned space, 五千万五 missing its blank — is refused the way a
+   unearned space, 五千万五 missing its blank - is refused the way a
    reader refuses "IIIX". */
 
 /* Match a digit sign at @param p: the digit 1..9 comes back, or -1
@@ -196,13 +196,13 @@ bool pn_hanzi_parse(const char *_Nullable buf, size_t buflen,
 		if (memcmp(w, WAN, SIGN_BYTES) == 0) {
 			if (wan != NULL)
 				return pn_error_set(error, PN_ERROR_SYNTAX,
-				                           "a second 万 in one string:"
-				                           " there is one 万 at most");
+				                           "a second \U00004E07 in one string:"
+				                           " there is one \U00004E07 at most");
 			wan = w;
 				}
 	if (wan != NULL && wan == buf)
 		return pn_error_set(error, PN_ERROR_SYNTAX,
-				                       "万 with no top section for it to"
+				                       "\U00004E07 with no top section for it to"
 				                       " ride on");
 
 	const char *const starts[2] = { buf, wan != NULL ? wan + SIGN_BYTES : buf };

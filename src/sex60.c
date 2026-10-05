@@ -67,9 +67,10 @@ bool pn_sex60_parse(const char *text, pn_sex60 *_Nullable out,
 
 	int radix = -1; /* where the ';' sits, if it sits anywhere */
 	for (;;) {
-		 /* One place: one or two decimal digits.  A longer run of
-		  * digits — the "3599" from the header docs — is read
-		  * three digits deep and refused as out of range.        */
+		 /*  One place: one or two decimal digits.  A longer run of
+  digits - the "3599" from the header docs - is read
+  three digits deep and refused as out of range.
+*/
 		unsigned d = 0;
 		int nd = 0;
 
@@ -141,16 +142,17 @@ bool pn_sex60_format(pn_sex60 v, char sep, char *_Nonnull buf,
 	if (!well_formed(v))
 		return pn_error_set(error, PN_ERROR_DOMAIN,
 				                "the value is not well-formed:"
-				                " %u places, radix %u — places need"
+				                " %u places, radix %u - places need"
 				                " 1 to %u slots, each 0 to 59, and"
 				                " the radix cannot pass n_places",
 				                v.n_places, v.radix,
 				                PN_SEX60_MAX_PLACES);
 
-	/* Written in scratch space first, so a late failure can never
-	 * leave buf holding half a number.  Worst case: '-' + 16
-	 * places x 2 digits + 15 separators + NUL = 49 bytes, which
-	 * the declared maximum has room for. */
+	/*  Written in scratch space first, so a late failure can never
+  leave buf holding half a number.  Worst case: '-' + 16
+  places x 2 digits + 15 separators + NUL = 49 bytes, which
+  the declared maximum has room for.
+*/
 	char tmp[PN_SEX60_FORMAT_MAX_LEN];
 	char *q = tmp;
 
@@ -301,9 +303,10 @@ bool pn_sex60_to_double(pn_sex60 v, double *_Nullable out,
 		for (; i < v.radix; i++)
 			val = val * 60.0 + (double)v.places[i];
 
-	/* the fraction: one exact whole number F over one exact power
-	 * 60^k, which is a single correctly-rounded division while
-	 * k <= 10. */
+	/*  the fraction: one exact whole number F over one exact power
+  60^k, which is a single correctly-rounded division while
+  k <= 10.
+*/
 	unsigned k = (unsigned)v.n_places - v.radix;
 
 	if (k > 0) {
@@ -349,11 +352,12 @@ bool pn_sex60_from_double(double x, uint8_t frac_places,
 	double ip = floor(mag);   /* the whole part */
 	double fp = mag - ip;     /* the fraction: from 0 up to, but not, 1 */
 
-	/* The whole-value places, LEAST significant first: ipd[0] holds
-	 * the 60^0 place, the one the fraction leans against.  Divide
-	 * with a correction step: ip / 60.0 rounds, so the remainder is
-	 * worked out again instead of trusting the pair the division
-	 * hands back. */
+	/*  The whole-value places, LEAST significant first: ipd[0] holds
+  the 60^0 place, the one the fraction leans against.  Divide
+  with a correction step: ip / 60.0 rounds, so the remainder is
+  worked out again instead of trusting the pair the division
+  hands back.
+*/
 	uint8_t ipd[PN_SEX60_MAX_PLACES];
 	size_t ki = 0;
 
@@ -377,10 +381,11 @@ bool pn_sex60_from_double(double x, uint8_t frac_places,
 		ip = q;
 	}
 
-	/* The fractional places, MOST significant first: fpd[0] holds
-	 * the 60^-1 place, made by the first multiply.  The last kept
-	 * place rounds half away from zero; trailing zeros stay, so
-	 * every answer is reproducible. */
+	/*  The fractional places, MOST significant first: fpd[0] holds
+  the 60^-1 place, made by the first multiply.  The last kept
+  place rounds half away from zero; trailing zeros stay, so
+  every answer is reproducible.
+*/
 	uint8_t fpd[PN_SEX60_MAX_PLACES];
 	size_t kf = frac_places;
 
@@ -399,11 +404,12 @@ bool pn_sex60_from_double(double x, uint8_t frac_places,
 		fpd[j] = dgt;
 	}
 
-	/* Fraction carries run right to left, every place handing its
-	 * overflow to the neighbour on its left; whatever escapes past
-	 * the radix point leaves a carry for the whole side.  With no
-	 * fraction places kept at all, the leftover fraction itself
-	 * decides the rounding. */
+	/*  Fraction carries run right to left, every place handing its
+  overflow to the neighbour on its left; whatever escapes past
+  the radix point leaves a carry for the whole side.  With no
+  fraction places kept at all, the leftover fraction itself
+  decides the rounding.
+*/
 	int carry = (kf == 0 && fp >= 0.5);
 
 	for (size_t i = kf; i-- > 0; )
@@ -415,9 +421,10 @@ bool pn_sex60_from_double(double x, uint8_t frac_places,
 				carry = 1;
 			}
 
-	/* The whole-part carry chain, least to most significant; a carry
-	 * that walks clean off the top becomes a new leading 1 — every
-	 * place it crossed is zero already, carried clean through. */
+	/*  The whole-part carry chain, least to most significant; a carry
+  that walks clean off the top becomes a new leading 1 - every
+  place it crossed is zero already, carried clean through.
+*/
 	int carry_out = 0;
 
 	if (carry) {
