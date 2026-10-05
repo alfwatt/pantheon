@@ -85,7 +85,7 @@ static void expect_render(uint64_t n, char *out)
 static void render_ok(uint64_t n, char *buf, size_t buflen)
 {
 	size_t need = pn_brahmi_render_size(n);
-	CHECK_ST(pn_brahmi_render(n, buf, need + 1), pn_ok);
+	CHECK_OK(pn_brahmi_render(n, buf, need + 1, &err_), err_);
 	CHECK(strlen(buf) == need);
 	(void)buflen;
 }
@@ -182,7 +182,7 @@ int main(void)
 
 	CHECK(pn_brahmi_render_size(0u) == 0);
 	memset(buf, 'x', 4);
-	CHECK_ST(pn_brahmi_render(0u, buf, 1), pn_ok);
+	CHECK_OK(pn_brahmi_render(0u, buf, 1, &err_), err_);
 	CHECK(buf[0] == '\0');
 
 	/* --- render_size is exact everywhere -------------------------------- */
@@ -196,19 +196,19 @@ int main(void)
 
 	/* --- errors ---------------------------------------------------------- */
 
-	CHECK_ST(pn_brahmi_render(1u, NULL, 16), pn_err_null);
+	CHECK_ERROR(pn_brahmi_render(1u, pn_nothing(), 16, &err_), err_, PN_ERROR_NULL);
 
 	/* One past the four filled slots is range, not silence: there is
 	 * no sign above the thousand. */
 	memset(buf, 'x', 8);
-	CHECK_ST(pn_brahmi_render(PN_BRAHMI_MAX_VALUE + 1u, buf,
-			sizeof buf), pn_err_range);
+	CHECK_ERROR(pn_brahmi_render(PN_BRAHMI_MAX_VALUE + 1u, buf,
+			sizeof buf, &err_), err_, PN_ERROR_RANGE);
 	CHECK(memcmp(buf, "xxxx", 4) == 0);
-	CHECK_ST(pn_brahmi_render(UINT64_MAX, buf, sizeof buf), pn_err_range);
+	CHECK_ERROR(pn_brahmi_render(UINT64_MAX, buf, sizeof buf, &err_), err_, PN_ERROR_RANGE);
 
 	/* Buffer one byte short of need + NUL fails and leaves buf alone. */
 	memset(buf, 'x', 8);
-	CHECK_ST(pn_brahmi_render(1u, buf, 4), pn_err_buffer);
+	CHECK_ERROR(pn_brahmi_render(1u, buf, 4, &err_), err_, PN_ERROR_BUFFER);
 	CHECK(memcmp(buf, "xxxx", 4) == 0);
 
 	/* --- parsing: the round trip, exhaustive -----------------------------
@@ -218,14 +218,14 @@ int main(void)
 	for (uint64_t n = 0; n <= PN_BRAHMI_MAX_VALUE; n++) {
 		char rendered[3 * 12 + 4 + 1];
 		size_t need = pn_brahmi_render_size(n);
-		CHECK_ST(pn_brahmi_render(n, rendered, need + 1), pn_ok);
+		CHECK_OK(pn_brahmi_render(n, rendered, need + 1, &err_), err_);
 		(void)expect_render(n, want);
 		CHECK(strcmp(rendered, want) == 0);
 		uint64_t back = UINT64_MAX;
-		CHECK_ST(pn_brahmi_parse(rendered, strlen(rendered), &back), pn_ok);
+		CHECK_OK(pn_brahmi_parse(rendered, strlen(rendered), &back, &err_), err_);
 		CHECK(back == n);
 		back = UINT64_MAX;
-		CHECK_ST(pn_brahmi_parse(rendered, need, &back), pn_ok);
+		CHECK_OK(pn_brahmi_parse(rendered, need, &back, &err_), err_);
 		CHECK(back == n);
 		if (pn_fails)
 			break;    /* the first failure names n */
@@ -234,25 +234,25 @@ int main(void)
 	/* The Sasaram reading, spelled out. */
 	uint64_t read;
 	const char *sasaram = HUNDRED JOINER TWO FIFTY SIX;
-	CHECK_ST(pn_brahmi_parse(sasaram, strlen(sasaram), &read), pn_ok);
+	CHECK_OK(pn_brahmi_parse(sasaram, strlen(sasaram), &read, &err_), err_);
 	CHECK(read == 256u);
 
 	/* The Damasena reading. */
 	const char *damasena = HUNDRED FIFTY THREE;
-	CHECK_ST(pn_brahmi_parse(damasena, strlen(damasena), &read), pn_ok);
+	CHECK_OK(pn_brahmi_parse(damasena, strlen(damasena), &read, &err_), err_);
 	CHECK(read == 153u);
 
 	/* The additive component: 100 then 4 reads 104, no ligature. */
-	CHECK_ST(pn_brahmi_parse(HUNDRED FOUR, 8, &read), pn_ok);
+	CHECK_OK(pn_brahmi_parse(HUNDRED FOUR, 8, &read, &err_), err_);
 	CHECK(read == 104u);
 
 	/* The ligatured form reads the product, not the sum. */
-	CHECK_ST(pn_brahmi_parse(HUNDRED JOINER FOUR, 12, &read), pn_ok);
+	CHECK_OK(pn_brahmi_parse(HUNDRED JOINER FOUR, 12, &read, &err_), err_);
 	CHECK(read == 400u);
 
 	/* The blank reads back as the nothing it was. */
 	read = UINT64_MAX;
-	CHECK_ST(pn_brahmi_parse("", 0, &read), pn_ok);
+	CHECK_OK(pn_brahmi_parse("", 0, &read, &err_), err_);
 	CHECK(read == 0u);
 
 	/* --- errors: the strict canonical form --------------------------------
@@ -290,35 +290,35 @@ int main(void)
 	};
 	for (size_t i = 0; i < sizeof bad_strings / sizeof bad_strings[0]; i++) {
 		read = 256u;                        /* sentinel */
-		CHECK_ST(pn_brahmi_parse(bad_strings[i], strlen(bad_strings[i]),
-				&read), pn_err_syntax);
+		CHECK_ERROR(pn_brahmi_parse(bad_strings[i], strlen(bad_strings[i]),
+				&read, &err_), err_, PN_ERROR_SYNTAX);
 		CHECK(read == 256u);                 /* untouched */
 	}
 
 	/* Nulls. */
-	CHECK_ST(pn_brahmi_parse(NULL, 4, &read), pn_err_null);
-	CHECK_ST(pn_brahmi_parse(ONE, 4, NULL), pn_err_null);
+	CHECK_ERROR(pn_brahmi_parse(pn_nothing(), 4, &read, &err_), err_, PN_ERROR_NULL);
+	CHECK_ERROR(pn_brahmi_parse(ONE, 4, pn_nothing(), &err_), err_, PN_ERROR_NULL);
 
 	/* A cut-off sign (3 of the ONE sign's 4 bytes) is not a sign. */
 	read = 256u;
-	CHECK_ST(pn_brahmi_parse(ONE, 3, &read), pn_err_syntax);
+	CHECK_ERROR(pn_brahmi_parse(ONE, 3, &read, &err_), err_, PN_ERROR_SYNTAX);
 	CHECK(read == 256u);
 
 	/* Half a ligature: the joiner's first 3 bytes are foreign. */
 	read = 256u;
-	CHECK_ST(pn_brahmi_parse(HUNDRED JOINER, 4 + 3, &read), pn_err_syntax);
+	CHECK_ERROR(pn_brahmi_parse(HUNDRED JOINER, 4 + 3, &read, &err_), err_, PN_ERROR_SYNTAX);
 	CHECK(read == 256u);
 
 	/* A sign glued after a cut-off run: the tail byte is foreign. */
 	read = 256u;
-	CHECK_ST(pn_brahmi_parse(ONE "\x41", 5, &read), pn_err_syntax);
+	CHECK_ERROR(pn_brahmi_parse(ONE "\x41", 5, &read, &err_), err_, PN_ERROR_SYNTAX);
 	CHECK(read == 256u);
 
 	/* A Brahmi DIGIT (U+11066..U+1106F) is not a Brahmi NUMBER: the
 	 * joiner is legal only between number signs, and the digits are a
 	 * different invention entirely. */
 	read = 256u;
-	CHECK_ST(pn_brahmi_parse("\U00011066", 4, &read), pn_err_syntax);
+	CHECK_ERROR(pn_brahmi_parse("\U00011066", 4, &read, &err_), err_, PN_ERROR_SYNTAX);
 	CHECK(read == 256u);
 
 	return CHECK_RUN();

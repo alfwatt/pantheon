@@ -918,41 +918,54 @@ bool pn_rods_parse(const char *_Nullable buf, size_t buflen,
   *  pn_err_range.  render_size(0) == 0: the blank. */
 size_t pn_brahmi_render_size(uint64_t n);
 
-/*  Render n in Brahmi numerals into buf as UTF-8, NUL-terminated: the
-  *  terms descending thousands, hundreds, tens, ones; each nonzero digit
-  *  its dedicated sign (1..9, or TEN..NINETY for the tens digit), and a
-  *  hundreds or thousands digit d written ligatured: d == 1 the bare
-  *  power sign, d == 2..9 the power sign, then U+1107F, then NUMBER_d.
-  *  n == 0 renders the empty string — the blank.  Needs exactly
-  *  pn_brahmi_render_size(n) bytes + NUL; a smaller buffer gives
-  *  pn_err_buffer and leaves buf untouched.
-  *
-  *  Errors: pn_err_null, pn_err_range (n > PN_BRAHMI_MAX_VALUE),
-  *  pn_err_buffer.  On error buf is untouched. */
-pn_status pn_brahmi_render(uint64_t n, char *buf, size_t buflen);
+/// Write @param n as Brahmi numerals into @param buf as UTF-8,
+/// ending with a NUL: the terms climb down thousands, hundreds,
+/// tens, ones.  Each nonzero digit takes its own dedicated sign
+/// (1..9, or the tens signs for the tens digit), and a hundreds or
+/// thousands digit ligates: d == 1 is the bare power sign, d == 2..9
+/// is the power sign, then U+1107F the joiner, then the units sign
+/// for d.  @param n == 0 renders the empty string — the blank.  The
+/// write needs exactly pn_brahmi_render_size(@param n) bytes plus
+/// the NUL.  PN_ERROR_NULL when buf is NULL, PN_ERROR_RANGE when n
+/// tops PN_BRAHMI_MAX_VALUE, PN_ERROR_BUFFER when buflen is smaller
+/// — and on any failure buf is left untouched.
+/// @param n - the whole number to render
+/// @param buf - where the signs land, with room for the NUL
+/// @param buflen - bytes of room at buf
+/// @param error - where to hang the note on failure.
+/// @returns true on success, false with a note in @param error.
+bool pn_brahmi_render(uint64_t n, char *_Nonnull buf, size_t buflen,
+                      pn_error *_Nullable *_Nullable error);
 
-/*  Parse a rendered Brahmi string — the inverse of pn_brahmi_render.
-  *  Strict canonical form: the twenty number signs and the joiner, in
-  *  at most four descending terms — thousands, hundreds, tens, ones —
-  *  each term at most once, no separators:
-  *
-  *      𑁤𑁿𑁓𑁟𑁗  ->  256     (𑁤 𑁿 𑁓 = 200 ligatured, 𑁟 = 50, 𑁗 = 6)
-  *      𑁤𑁕              ->  104     (additive component: 100 then 4)
-  *      𑁥𑁒              ->  1001    (thousand then a bare one)
-  *
-  *  Round-trip law, exact: parsing buf after a successful render
-  *  recovers n.  An empty buffer (buflen == 0) parses as 0 — the blank
-  *  reads back as the nothing it was.  The grammar admits no value past
-  *  PN_BRAHMI_MAX_VALUE, so overflow needs no check.  Violations are
-  *  pn_err_syntax the way 𓏤.. bottom-up was: a second term of one
-  *  slot, an ascending term, a joiner doubled or leading or trailing or
-  *  joining anything but a multiplier after its power sign, a ligatured
-  *  multiplier of 1 (𑁥𑁿𑁒 — write 𑁥 bare), a ligature left unligated
-  *  (𑁤𑁕𑁕 would read 100+4+4: no slot allows the second 𑁕), any other
-  *  byte, a sign cut off short.  On error *out is untouched.
-  *
-  *  Errors: pn_err_null, pn_err_syntax. */
-pn_status pn_brahmi_parse(const char *buf, size_t buflen, uint64_t *out);
+/// Read back a rendered Brahmi string — the exact inverse of
+/// pn_brahmi_render.    Strict canonical form: the twenty number
+/// signs and the joiner, in at most four terms climbing down —
+/// thousands, hundreds, tens, ones — each term at most once, with
+/// nothing between them:
+///
+///     hundred join two fifty six ->   256   (two hundreds ligatured, then 50, 6)
+///     hundred four               ->   104   (additive: 100 then 4)
+///     thousand one               ->  1001   (the thousand then a bare one)
+///
+/// The round trip is exact: parsing the string after a successful
+/// render recovers n.    An empty buffer (buflen == 0) reads back as
+/// 0 — the blank reads back as the nothing it was.  The grammar lets
+/// in no value past PN_BRAHMI_MAX_VALUE, so overflow needs no check.
+/// Everything off the path gives PN_ERROR_SYNTAX: a second term of
+/// one slot, an ascending term, a joiner doubled, leading, trailing,
+/// or joining anything but a multiplier after its power sign, a
+/// ligatured multiplier of 1 (write the power sign bare), a ligature
+/// left unligated ("hundred four four" would read 100+4+4 and no slot
+/// allows the second four), any other byte, or a sign cut off short.
+/// On any failure *out is left untouched.
+/// @param buf - the string to read
+/// @param buflen - bytes to read at buf
+/// @param out - where the number lands on success
+/// @param error - where to hang the note on failure.
+/// @returns true on success, false with a note in @param error.
+bool pn_brahmi_parse(const char *_Nullable buf, size_t buflen,
+                     uint64_t *_Nullable out,
+                     pn_error *_Nullable *_Nullable error);
 
 /* ------------------------------------------------------------------------
  *  Mayan bar-and-dot numerals over pn_vigesimal — the renderer.
