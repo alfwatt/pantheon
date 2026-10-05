@@ -53,6 +53,28 @@ Consume the library with `-Iinclude build/libpantheon.a` and a single
 - [x] [Quipu notation](https://en.wikipedia.org/wiki/Quipu)
 -       positional decimal knots in UTF-8: simple knots (bullets) above the units line, the figure-eight and long-knot turns at it, zero the absence of a knot, 0..10^19-1
 
+### Worked examples
+
+Every rendering below came out of the library itself
+(`pn_*_render`, `pn_*_format`), not off a chart; `U+2423 OPEN BOX`
+shows a real trailing place-boundary space the cords, boards and
+rows keep — it is part of the rendering.
+
+```
+    1  sex60 1    cuneiform 𒁹    vigesimal 1    mayan 𝋡    egyptian 𓏤    hanzi 一    rods 𝍠    brahmi 𑁒    quipu ∞
+    2  sex60 2    cuneiform 𒁹𒁹    vigesimal 2    mayan 𝋢    egyptian 𓏤𓏤    hanzi 二    rods 𝍡    brahmi 𑁓    quipu ∞∞
+    3  sex60 3    cuneiform 𒁹𒁹𒁹    vigesimal 3    mayan 𝋣    egyptian 𓏤𓏤𓏤    hanzi 三    rods 𝍢    brahmi 𑁔    quipu ∞∞∞
+    4  sex60 4    cuneiform 𒁹𒁹𒁹𒁹    vigesimal 4    mayan 𝋤    egyptian 𓏤𓏤𓏤𓏤    hanzi 四    rods 𝍣    brahmi 𑁕    quipu ∞∞∞∞
+    5  sex60 5    cuneiform 𒁹𒁹𒁹𒁹𒁹    vigesimal 5    mayan 𝋥    egyptian 𓏤𓏤𓏤𓏤𓏤    hanzi 五    rods 𝍤    brahmi 𑁖    quipu ∞∞∞∞∞
+    6  sex60 6    cuneiform 𒁹𒁹𒁹𒁹𒁹𒁹    vigesimal 6    mayan 𝋦    egyptian 𓏤𓏤𓏤𓏤𓏤𓏤    hanzi 六    rods 𝍥    brahmi 𑁗    quipu ∞∞∞∞∞∞
+    7  sex60 7    cuneiform 𒁹𒁹𒁹𒁹𒁹𒁹𒁹    vigesimal 7    mayan 𝋧    egyptian 𓏤𓏤𓏤𓏤𓏤𓏤𓏤    hanzi 七    rods 𝍦    brahmi 𑁘    quipu ∞∞∞∞∞∞∞
+    8  sex60 8    cuneiform 𒁹𒁹𒁹𒁹𒁹𒁹𒁹𒁹    vigesimal 8    mayan 𝋨    egyptian 𓏤𓏤𓏤𓏤𓏤𓏤𓏤𓏤    hanzi 八    rods 𝍧    brahmi 𑁙    quipu ∞∞∞∞∞∞∞∞
+    9  sex60 9    cuneiform 𒁹𒁹𒁹𒁹𒁹𒁹𒁹𒁹𒁹    vigesimal 9    mayan 𝋩    egyptian 𓏤𓏤𓏤𓏤𓏤𓏤𓏤𓏤𓏤    hanzi 九    rods 𝍨    brahmi 𑁚    quipu ∞∞∞∞∞∞∞∞∞
+   # the structural values: blanks, shells, grouping
+   10  sex60 10    cuneiform 𒌋    vigesimal 10    mayan 𝋪    egyptian 𓎆    hanzi 一十    rods 𝍩␣    brahmi 𑁛    quipu •␣
+  100  sex60 1,40    cuneiform 𒁹␣𒌋𒌋𒌋𒌋    vigesimal 5,0    mayan 𝋥␣𝋠    egyptian 𓍢    hanzi 一百    rods 𝍠␣␣    brahmi 𑁤    quipu •␣␣
+ 1000  sex60 16,40    cuneiform 𒌋𒁹𒁹𒁹𒁹𒁹𒁹␣𒌋𒌋𒌋𒌋    vigesimal 2,10,0    mayan 𝋢␣𝋪␣𝋠    egyptian 𓆼    hanzi 一千    rods 𝍩␣␣␣    brahmi 𑁥    quipu •␣␣␣
+```
 ### Mathematics
 
 #### Greek
