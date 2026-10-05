@@ -373,7 +373,7 @@ bool pn_sex60_from_double(double x, uint8_t frac_places,
 /* Exact number of bytes (excluding the NUL) pn_babylonian_render will
  * write for a well-formed v.  Pure and total — it never fails; on a
  * malformed v its answer is simply meaningless, since render rejects
- * such values with pn_err_domain. */
+ * such values with a PN_ERROR_DOMAIN note. */
 size_t pn_babylonian_render_size(pn_sex60 v);
 
 /// Write @param v in positional cuneiform style into @param buf as
@@ -987,35 +987,50 @@ pn_status pn_brahmi_parse(const char *buf, size_t buflen, uint64_t *out);
  *  the terminating NUL: one sign per place and one space per place
  *  boundary, plus a '-' when neg.  Pure and total — it never fails; on
  *  a malformed v its answer is simply meaningless, since render rejects
- *  such values with pn_err_domain. */
+ *  such values with a PN_ERROR_DOMAIN note. */
 size_t pn_mayan_render_size(pn_vigesimal v);
 
-/*  Render v as Maya bar-and-dot numerals into buf as UTF-8,
- *  NUL-terminated.  One sign per place; zero places write the shell,
- *  not a gap.  Errors: pn_err_null, pn_err_domain (malformed v:
- *  n_places == 0 or > PN_VIGESIMAL_MAX_PLACES, a place > 19,
- *  radix > n_places), pn_err_buffer (buflen <= render_size(v)).  On
- *  error buf is untouched. */
-pn_status pn_mayan_render(pn_vigesimal v, char *buf, size_t buflen);
+/// Write @param v as Maya bar-and-dot numerals into @param buf as
+/// UTF-8, ending with a NUL: one sign per place, one space per
+/// boundary.  A zero place writes the shell, not a gap.
+/// @param v - the value to render
+/// @param buf - where the signs land, with room for the NUL
+/// @param buflen - bytes of room at buf
+/// @param error - where to hang the note on failure: PN_ERROR_NULL
+///     when buf is NULL, PN_ERROR_DOMAIN when v is malformed
+///     (n_places == 0 or past the max, a place above 19, radix past
+///     n_places), PN_ERROR_BUFFER when buflen does not beat
+///     pn_mayan_render_size(v).  On any failure buf is left
+///     untouched.
+/// @returns true on success, false with a note in @param error.
+bool pn_mayan_render(pn_vigesimal v, char *_Nonnull buf, size_t buflen,
+                     pn_error *_Nullable *_Nullable error);
 
-/*  Parse a rendered bar-and-dot string — the inverse of
- *  pn_mayan_render.  buf holds exactly buflen bytes of UTF-8 using
- *  '-', the twenty signs, and separating single spaces; the grammar is
- *  '-? (sign ' ')* sign', strict: a leading, trailing or doubled space,
- *  two signs touching in one row, any foreign byte (the block's void
- *  past U+1D2F3 included — U+1D2F4..1D2FF are unassigned and never
- *  parse), and a sign cut off mid-UTF-8 are pn_err_syntax; more than
- *  PN_VIGESIMAL_MAX_PLACES places is pn_err_range, the page overrun,
- *  not bad grammar (the ruling the scribe's fifteenth row gets).  An
- *  empty buffer (buflen == 0) is syntax, not zero: the shell is zero's
- *  one true spelling, the way an empty tablet is not a number.
- *  Round-trip law: parsing buf after a successful render recovers v's
- *  places exactly (parsed radix == n_places: period style — the carved
- *  stack carries no point the reader could place back).
- *
- *  Errors: pn_err_null, pn_err_syntax, pn_err_range.  On error *out is
- *  untouched. */
-pn_status pn_mayan_parse(const char *buf, size_t buflen, pn_vigesimal *out);
+/// Read back a rendered bar-and-dot string — the exact inverse of
+/// pn_mayan_render.   ,@param buf holds @param buflen bytes of UTF-8
+/// using '-', the twenty signs, and single joining spaces; the
+/// grammar is '-? (sign ' ')* sign' and it is strict: a leading,
+/// trailing or doubled space, two signs touching inside one row, or
+/// any foreign byte (the block's void past U+1D2F3 included —
+/// U+1D2F4..1D2FF carry no sign and never parse), or a sign cut off
+/// in the middle of its UTF-8 is PN_ERROR_SYNTAX.  More rows than
+/// PN_VIGESIMAL_MAX_PLACES is the page overrun — PN_ERROR_RANGE, the
+/// ruling the scribe's fifteenth row gets — not bad grammar.  An
+/// empty string (buflen == 0) is syntax, not zero: the shell is
+/// zero's one true spelling, the way an empty tablet is no number.
+/// The round trip law holds: parsing buf after a successful render
+/// recovers v's places exactly (the parsed radix == n_places: period
+/// style — a carved stack carries no point a reader could place
+/// back).
+/// @param buf - the string to read
+/// @param buflen - bytes to read at buf
+/// @param out - where the value lands on success; untouched on any
+///     failure
+/// @param error - where to hang the note on failure.
+/// @returns true on success, false with a note in @param error.
+bool pn_mayan_parse(const char *_Nullable buf, size_t buflen,
+                    pn_vigesimal *_Nullable out,
+                    pn_error *_Nullable *_Nullable error);
 
 /* ------------------------------------------------------------------------
  *  Inca quipu — positional decimal knot notation, transcribed in UTF-8.
