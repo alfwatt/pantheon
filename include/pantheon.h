@@ -1348,23 +1348,38 @@ bool pn_greek_parse(const char *_Nullable buf, size_t buflen,
  *  live row (DCCC, XXX, VIII...).  n == 0 renders the empty cord. */
 size_t pn_roman_render_size(uint64_t n);
 
-/*  Render n (0 .. PN_ROMAN_MAX_VALUE) in the canonical tallied form:
- *  the thousands run, the hundreds row, the tens row, the units row,
- *  NUL-terminated.  Needs pn_roman_render_size(n) + 1 bytes.
- *  Errors: pn_err_null, pn_err_range (n > PN_ROMAN_MAX_VALUE),
- *  pn_err_buffer.  On error buf is untouched. */
-pn_status pn_roman_render(uint64_t n, char *buf, size_t buflen);
+/// Write @param n (1 .. PN_ROMAN_MAX_VALUE) as canonical Roman
+/// letters into @param buf, ending with a NUL: the thousands run,
+/// the hundreds row, the tens row, the units row — subtractive
+/// digraphs where the canon puts them (IV IX XL XC CD CM, once per
+/// digit).    0 renders the empty string.
+/// @param n - the whole number to render
+/// @param buf - where the letters land, with room for the NUL
+/// @param buflen - bytes of room at buf
+/// @param error - where to hang the note on failure: PN_ERROR_NULL
+///     when buf is NULL, PN_ERROR_RANGE when n tops
+///     PN_ROMAN_MAX_VALUE, PN_ERROR_BUFFER when buflen cannot hold
+///     pn_roman_render_size(n) plus the NUL.  On any failure buf is
+///     left untouched.
+/// @returns true on success, false with a note in @param error.
+bool pn_roman_render(uint64_t n, char *_Nonnull buf, size_t buflen,
+                     pn_error *_Nullable *_Nullable error);
 
-/*  Parse a canonical numeral — the exact inverse, bijective over the
- *  domain.  Strict canonical form: runs of I, X, C, M at most three;
- *  each subtractive digraph (IV, IX, XL, XC, CD, CM) at most once and
- *  only as its digit's spelling; the tokens in descending value.
- *  Anything else is pn_err_syntax: a fourth I/X/C/M (IIII, the clock
- *  maker's heresy), a subtractive digraph out of its digit (IL, IC,
- *  VX, XM), tokens out of order (IX before V), a lowercase letter,
- *  a space, a NUL, any non-ASCII byte.  The empty cord is Bede's
- *  nulla: buflen == 0 parses as 0.  On error *out is untouched. */
-pn_status pn_roman_parse(const char *buf, size_t buflen, uint64_t *out);
+/// Read canonical Roman letters back — the exact inverse of
+/// pn_roman_render.    The walk is greedy over the canon table, and
+/// whatever it accepts must render back to itself byte for byte:
+/// IIII, IL, VX, XCX, MDCCCCLXXXXVIIII, lowercase, spaces, embedded
+/// NULs and any non-ASCII byte all fail with PN_ERROR_SYNTAX.  An
+/// empty string (buflen == 0) reads back as 0.
+/// @param buf - the letters to read
+/// @param buflen - bytes to read at buf
+/// @param out - where the number lands on success; untouched on any
+///     failure
+/// @param error - where to hang the note on failure.
+/// @returns true on success, false with a note in @param error.
+bool pn_roman_parse(const char *_Nullable buf, size_t buflen,
+                    uint64_t *_Nullable out,
+                    pn_error *_Nullable *_Nullable error);
 
 /* --- early mathematical theory (Elements VII-IX, the sieve of
      Eratosthenes, the gnomon figures) ---------------------------------
