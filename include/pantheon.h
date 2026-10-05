@@ -978,6 +978,92 @@ pn_status pn_greek_render(uint64_t n, char *buf, size_t buflen);
  *  buflen == 0 parses as 0.  On error *out is untouched. */
 pn_status pn_greek_parse(const char *buf, size_t buflen, uint64_t *out);
 
+/* ------------------------------------------------------------------------
+ *  Roman numerals — the canonical form, in ordinary ASCII letters.
+ *
+ *  No zero, no place values: the ledger kept seven capital letters —
+ *   I (1), V (5), X (10), L (50), C (100), D (500), M (1000) — and the
+ *  subtractive habits of the Middle Ages: a unit written BEFORE the
+ *  sign it undershoots stands for the gap — IV is 5 less 1, IX is 10
+ *  less 1.  The grammar this module renders and reads is the tallied
+ *  canonical form — the per-digit rows of thousands, hundreds, tens
+ *  and units, always in full: 3888 is MMMDCCCLXXXVIII, the longest
+ *  numeral there is, and 1999 is MCMXCIX — never the shortcuts the
+ *  clocks and ink allowed (IIII for 4, IC for 99, VX, and the
+ *  overlined vincula that meant 5000 would be other cultures'
+ *  invention; the abacist editors settled on these letters alone).
+ *
+ *  A canonical numeral is the ONLY spelling of its value: the rows
+ *  descend, each run of I, X, C or M holds at most three, the six
+ *  subtractive digraphs IV IX XL XC CD CM appear at most once and
+ *  belong to their digit — that descent is forced, the same way the
+ *  Greek run's is, so a numeral reads back exactly one number.  The
+ *  culture's own proofs agree: the same year is MCMXCIX in every
+ *  inscription that spells it full.
+ *
+ *  The article's table, worked through this transcription:
+ *
+ *    I                ->   1
+ *    IV               ->   4
+ *    V                ->   5
+ *    IX               ->   9
+ *    XIV              ->   14
+ *    XLIV             ->   44
+ *    XC               ->   90
+ *    CD               ->   400
+ *    CM               ->   900
+ *    M                ->   1000
+ *    MCMXCIX          ->   1999
+ *    MMMDCCCLXXXVIII  ->   3888
+ *    MMMCMXCIX        ->   3999
+ *
+ *   (3999 = MMM | CM | XC | IX, the ceiling; the Romans wrote larger
+ *  with overlines and fresh marks no standard survived.)
+ *
+ *  Zero had no letter (the ledger counted what was there — Bede's
+ *  abbey later wrote nulla, the nothing, in its place); like the
+ *  Egyptian blank, the rods' gap, the unstrung cord and the silent
+ *  keraia, n == 0 renders the empty string and buflen == 0 reads
+ *  back as 0 — this section follows the uint64-direct rule book.
+ *
+ *  Lowercase letters, Greek, whacked-out spaced variants and every
+ *  foreign byte are pn_err_syntax — a numeral in the abacist's sense
+ *  is capital ASCII letters only.
+ *
+ *  References: https://en.wikipedia.org/wiki/Roman_numerals
+ * ------------------------------------------------------------------------ */
+
+#define PN_ROMAN_MAX_VALUE 3999ull /* MMM CM XC IX: three thousands and
+                                      the alphabet's full hundreds-tens-
+                                      units row — vinculum numbers had no
+                                      standard to keep them */
+
+#define PN_ROMAN_FORMAT_MAX_LEN 16 /* 15 letters — the canon of 3888 —
+                                      plus the NUL                   */
+
+/*  Exact number of bytes (excluding the NUL) pn_roman_render will
+ *  write: the letters of the four per-digit rows, at most four per
+ *  live row (DCCC, XXX, VIII...).  n == 0 renders the empty cord. */
+size_t pn_roman_render_size(uint64_t n);
+
+/*  Render n (0 .. PN_ROMAN_MAX_VALUE) in the canonical tallied form:
+ *  the thousands run, the hundreds row, the tens row, the units row,
+ *  NUL-terminated.  Needs pn_roman_render_size(n) + 1 bytes.
+ *  Errors: pn_err_null, pn_err_range (n > PN_ROMAN_MAX_VALUE),
+ *  pn_err_buffer.  On error buf is untouched. */
+pn_status pn_roman_render(uint64_t n, char *buf, size_t buflen);
+
+/*  Parse a canonical numeral — the exact inverse, bijective over the
+ *  domain.  Strict canonical form: runs of I, X, C, M at most three;
+ *  each subtractive digraph (IV, IX, XL, XC, CD, CM) at most once and
+ *  only as its digit's spelling; the tokens in descending value.
+ *  Anything else is pn_err_syntax: a fourth I/X/C/M (IIII, the clock
+ *  maker's heresy), a subtractive digraph out of its digit (IL, IC,
+ *  VX, XM), tokens out of order (IX before V), a lowercase letter,
+ *  a space, a NUL, any non-ASCII byte.  The empty cord is Bede's
+ *  nulla: buflen == 0 parses as 0.  On error *out is untouched. */
+pn_status pn_roman_parse(const char *buf, size_t buflen, uint64_t *out);
+
 #ifdef __cplusplus
 }
 #endif
