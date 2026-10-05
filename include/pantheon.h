@@ -1238,36 +1238,45 @@ bool pn_quipu_parse(const char *_Nullable buf, size_t buflen,
  *  empty cord. */
 size_t pn_greek_render_size(uint64_t n);
 
-/*  Render n (0 .. PN_GREEK_MAX_VALUE) as a Milesian numeral: the low
- *  keraia ͵ then the thousands run when n >= 1000, then — when both
- *  runs are live — the separating space, then the units run, then the
- *  trailing keraia ʹ; every run descending, no sign twice within a
- *  run, NUL-terminated.  Needs pn_greek_render_size(n) + 1 bytes.
- *  Errors: pn_err_null, pn_err_range (n > PN_GREEK_MAX_VALUE),
- *  pn_err_buffer.  On error buf is untouched. */
-pn_status pn_greek_render(uint64_t n, char *buf, size_t buflen);
+/// Write @param n (1 .. PN_GREEK_MAX_VALUE) as a Milesian cord into
+/// @param buf as UTF-8, ending with a NUL: low keraia and thousands
+/// run when @param n has them, one separating space when both runs
+/// are alive, the units run, always the trailing keraia.     0 renders
+/// the empty cord.
+/// @param n - the whole number to render
+/// @param buf - where the cord lands, with room for the NUL
+/// @param buflen - bytes of room at buf
+/// @param error - where to hang the note on failure: PN_ERROR_NULL
+///     when buf is NULL, PN_ERROR_RANGE when n tops
+///     PN_GREEK_MAX_VALUE, PN_ERROR_BUFFER when buflen cannot hold
+///     pn_greek_render_size(n) plus the NUL.  On any failure buf is
+///     left untouched.
+/// @returns true on success, false with a note in @param error.
+bool pn_greek_render(uint64_t n, char *_Nonnull buf, size_t buflen,
+                     pn_error *_Nullable *_Nullable error);
 
-/*  Parse a rendered numeral — the exact inverse, verified bijective
- *  over the whole domain.  Strict canonical form: the cord ends in
- *  the trailing keraia (its canonical CD B4 bytes; the NFC twin
- *  U+02B9 is a foreign byte) and nowhere else; at most one low keraia
- *  leads the cord and it may appear nowhere else; between them the
- *  signs split on at most ONE space into two runs, each a legal
- *  descending run — one sign per row, rows H > T > U, never backward,
- *  no sign twice; the space is legal only between two live runs
- *  (none touching either end, none doubled) and its left run counts
- *  thousands, its right run units; a cord WITHOUT the space and
- *  WITHOUT the low keraia is a bare units run below 1000; with the
- *  low keraia and no space it is whole thousands.  All else is
- *  pn_err_syntax: doubled sign within a run, backward pair (θ before
- *  ι, α before ρ when no space or row-change separates them),
- *  capitals, the lunate ϲ, the final ς, the digamma ϝ, the tonos,
- *  U+02B9, Latin and Roman letters, any cut-off 2-byte sequence.  A
- *  low keraia with no run under it and a lone trailing keraia are no
- *  number: pn_err_syntax.  No legal cord exceeds PN_GREEK_MAX_VALUE,
- *  so overflow needs no table; like the other blanks it honors,
- *  buflen == 0 parses as 0.  On error *out is untouched. */
-pn_status pn_greek_parse(const char *buf, size_t buflen, uint64_t *out);
+/// Read back a rendered cord — the exact inverse of
+/// pn_greek_render.    The reading is strict about the canonical
+/// form: the trailing keraia at the very end and nowhere else, the
+/// low keraia at the very front at most once, at most one separating
+/// space, never touching an edge, and only under the low keraia.
+/// Each run walks its rows strictly downward — at most one sign of
+/// the hundreds row, then one of the tens, then one of the units.
+/// A code point with no table entry (capitals, the lunate sigma, the
+/// final sigma, the digamma, the tonos, the prime twin of the dexia,
+/// any ASCII byte including an embedded NUL, a byte sequence whose
+/// UTF-8 shape is wrong) is PN_ERROR_SYNTAX — the culture's own
+/// verdict on a misspelled number.  An empty cord (buflen == 0)
+/// reads back as 0.
+/// @param buf - the cord to read
+/// @param buflen - bytes to read at buf
+/// @param out - where the number lands on success; untouched on any
+///     failure
+/// @param error - where to hang the note on failure.
+/// @returns true on success, false with a note in @param error.
+bool pn_greek_parse(const char *_Nullable buf, size_t buflen,
+                    uint64_t *_Nullable out,
+                    pn_error *_Nullable *_Nullable error);
 
 /* ------------------------------------------------------------------------
  *  Roman numerals — the canonical form, in ordinary ASCII letters.
