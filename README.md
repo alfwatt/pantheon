@@ -62,27 +62,29 @@ Consume the library with `-Iinclude build/libpantheon.a` and a single
 Every rendering below came out of the library itself
 (`pn_*_render`, `pn_*_format`), not off a chart; the U+2423 OPEN
 BOX shows a real place-boundary space the cords, boards and rows
-keep — it is part of the rendering.  Columns sit narrow-to-wide:
-the longest strings are furthest right.
+keep — it is part of the rendering.  The two conversion cores
+(`pn_sex60`, `pn_vigesimal`) sit beside the base-ten value; the
+rendered notations follow narrow-to-wide, longest furthest right.
 
 ```
-   n    brahmi  greek  hanzi  sex60  mayan  rods   vigesimal  egyptian   quipu      cuneiform
-   ----------------------------------------------------------------------------------------------
-    1   𑁒  αʹ   一    1      𝋡      𝍠     1       𓏤          ∞          𒁹
-    2   𑁓  βʹ   二    2      𝋢      𝍡     2       𓏤𓏤         ∞∞         𒁹𒁹
-    3   𑁔  γʹ   三    3      𝋣      𝍢     3       𓏤𓏤𓏤        ∞∞∞        𒁹𒁹𒁹
-    4   𑁕  δʹ   四    4      𝋤      𝍣     4       𓏤𓏤𓏤𓏤       ∞∞∞∞       𒁹𒁹𒁹𒁹
-    5   𑁖  εʹ   五    5      𝋥      𝍤     5       𓏤𓏤𓏤𓏤𓏤      ∞∞∞∞∞      𒁹𒁹𒁹𒁹𒁹
-    6   𑁗  ϛʹ   六    6      𝋦      𝍥     6       𓏤𓏤𓏤𓏤𓏤𓏤     ∞∞∞∞∞∞     𒁹𒁹𒁹𒁹𒁹𒁹
-    7   𑁘  ζʹ   七    7      𝋧      𝍦     7       𓏤𓏤𓏤𓏤𓏤𓏤𓏤    ∞∞∞∞∞∞∞    𒁹𒁹𒁹𒁹𒁹𒁹𒁹
-    8   𑁙  ηʹ   八    8      𝋨      𝍧     8       𓏤𓏤𓏤𓏤𓏤𓏤𓏤𓏤   ∞∞∞∞∞∞∞∞   𒁹𒁹𒁹𒁹𒁹𒁹𒁹𒁹
-    9   𑁚  θʹ   九    9      𝋩      𝍨     9       𓏤𓏤𓏤𓏤𓏤𓏤𓏤𓏤𓏤  ∞∞∞∞∞∞∞∞∞  𒁹𒁹𒁹𒁹𒁹𒁹𒁹𒁹𒁹
+   n    sex60  vigesimal  brahmi  greek  hanzi  mayan  rods   egyptian   quipu      cuneiform
+    ----------------------------------------------------------------------------------------------
+    1   1      1          𑁒       αʹ     一     𝋡      𝍠     𓏤          ∞          𒁹
+    2   2      2          𑁓       βʹ     二     𝋢      𝍡     𓏤𓏤         ∞∞         𒁹𒁹
+    3   3      3          𑁔       γʹ     三     𝋣      𝍢     𓏤𓏤𓏤        ∞∞∞        𒁹𒁹𒁹
+    4   4      4          𑁕       δʹ     四     𝋤      𝍣     𓏤𓏤𓏤𓏤       ∞∞∞∞       𒁹𒁹𒁹𒁹
+    5   5      5          𑁖       εʹ     五     𝋥      𝍤     𓏤𓏤𓏤𓏤𓏤      ∞∞∞∞∞      𒁹𒁹𒁹𒁹𒁹
+    6   6      6          𑁗       ϛʹ     六     𝋦      𝍥     𓏤𓏤𓏤𓏤𓏤𓏤     ∞∞∞∞∞∞     𒁹𒁹𒁹𒁹𒁹𒁹
+    7   7      7          𑁘       ζʹ     七     𝋧      𝍦     𓏤𓏤𓏤𓏤𓏤𓏤𓏤    ∞∞∞∞∞∞∞    𒁹𒁹𒁹𒁹𒁹𒁹𒁹
+    8   8      8          𑁙       ηʹ     八     𝋨      𝍧     𓏤𓏤𓏤𓏤𓏤𓏤𓏤𓏤   ∞∞∞∞∞∞∞∞   𒁹𒁹𒁹𒁹𒁹𒁹𒁹𒁹
+    9   9      9          𑁚       θʹ     九     𝋩      𝍨     𓏤𓏤𓏤𓏤𓏤𓏤𓏤𓏤𓏤  ∞∞∞∞∞∞∞∞∞  𒁹𒁹𒁹𒁹𒁹𒁹𒁹𒁹𒁹
 
       the structural values: blanks, shells, grouping
+         (n stays base ten; the rest wear their own bases)
 
-   10   𑁛  ιʹ   一十  10     𝋪      𝍩␣    10      𓎆          •␣         𒌋
-  100   𑁤  ρʹ   一百  1,40   𝋥␣𝋠    𝍠␣␣   5,0     𓍢          •␣␣        𒁹␣𒌋𒌋𒌋𒌋
- 1000   𑁥  ͵αʹ  一千  16,40  𝋢␣𝋪␣𝋠  𝍩␣␣␣  2,10,0  𓆼          •␣␣␣       𒌋𒁹𒁹𒁹𒁹𒁹𒁹␣𒌋𒌋𒌋𒌋
+   10   10     10         𑁛       ιʹ     一十   𝋪      𝍩␣    𓎆          •␣         𒌋
+  100   1,40   5,0        𑁤       ρʹ     一百   𝋥␣𝋠    𝍠␣␣   𓍢          •␣␣        𒁹␣𒌋𒌋𒌋𒌋
+ 1000   16,40  2,10,0     𑁥       ͵αʹ    一千   𝋢␣𝋪␣𝋠  𝍩␣␣␣  𓆼          •␣␣␣       𒌋𒁹𒁹𒁹𒁹𒁹𒁹␣𒌋𒌋𒌋𒌋
 ```
 
 ### Mathematics
