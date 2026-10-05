@@ -31,7 +31,7 @@
 static void render_ok(uint64_t n, char *buf, size_t buflen)
 {
 	size_t need = pn_rods_render_size(n);
-	CHECK_ST(pn_rods_render(n, buf, need + 1), pn_ok);
+	CHECK_OK(pn_rods_render(n, buf, need + 1, &err_), err_);
 	CHECK(strlen(buf) == need);
 	(void)buflen;
 }
@@ -41,16 +41,16 @@ static void roundtrip(uint64_t n)
 {
 	char buf[256];
 	size_t need = pn_rods_render_size(n);
-	CHECK_ST(pn_rods_render(n, buf, need + 1), pn_ok);
+	CHECK_OK(pn_rods_render(n, buf, need + 1, &err_), err_);
 	CHECK(strlen(buf) == need);
 	uint64_t back = 0;
-	CHECK_ST(pn_rods_parse(buf, strlen(buf), &back), pn_ok);
+	CHECK_OK(pn_rods_parse(buf, strlen(buf), &back, &err_), err_);
 	CHECK(back == n);
 }
 
-static pn_status parse_str(const char *text, uint64_t *out)
+static bool parse_str(const char *text, uint64_t *out, pn_error **error)
 {
-	return pn_rods_parse(text, strlen(text), out);
+	return pn_rods_parse(text, strlen(text), out, error);
 }
 
 int main(void)
@@ -113,37 +113,33 @@ int main(void)
 
 				/* --- render error cases ------------------------------------------ */
 
-	CHECK_ST(pn_rods_render(1u, NULL, 10), pn_err_null);
+	CHECK_ERROR(pn_rods_render(1u, pn_nothing(), 10, &err_), err_, PN_ERROR_NULL);
 	render_ok(23u, buf, sizeof buf);
-	CHECK_ST(pn_rods_render(23u, buf, pn_rods_render_size(23u)),
-			pn_err_buffer);                          /* the exact-minus-NUL cut */
-	CHECK_ST(pn_rods_render(10000000000000000000ull, buf, sizeof buf),
-			pn_err_range);                            /* 10^19: a twentieth column */
-	CHECK_ST(pn_rods_render(UINT64_MAX, buf, sizeof buf), pn_err_range);
+	CHECK_ERROR(pn_rods_render(23u, buf, pn_rods_render_size(23u), &err_), err_, PN_ERROR_BUFFER);                          /* the exact-minus-NUL cut */
+	CHECK_ERROR(pn_rods_render(10000000000000000000ull, buf, sizeof buf, &err_), err_, PN_ERROR_RANGE);                            /* 10^19: a twentieth column */
+	CHECK_ERROR(pn_rods_render(UINT64_MAX, buf, sizeof buf, &err_), err_, PN_ERROR_RANGE);
 
 				/* --- parse error cases ------------------------------------------- */
 
-	CHECK_ST(pn_rods_parse(NULL, 0, &v), pn_err_null);
-	CHECK_ST(pn_rods_parse(buf, 3, NULL), pn_err_null);
+	CHECK_ERROR(pn_rods_parse(pn_nothing(), 0, &v, &err_), err_, PN_ERROR_NULL);
+	CHECK_ERROR(pn_rods_parse(buf, 3, pn_nothing(), &err_), err_, PN_ERROR_NULL);
 
 	uint64_t probe;
-	CHECK_ST(parse_str("", &probe), pn_ok);            /* the empty board is 0 */
+	CHECK_OK(parse_str("", &probe, &err_), err_);            /* the empty board is 0 */
 	CHECK(probe == 0u);
-	CHECK_ST(parse_str(" " U1, &probe), pn_err_syntax);         /* leading space    */
-	CHECK_ST(parse_str("   ", &probe), pn_err_syntax);          /* all spaces        */
-	CHECK_ST(parse_str(T1 U1, &probe), pn_err_syntax);          /* no joiner         */
-	CHECK_ST(parse_str(U1 " " U1, &probe), pn_err_syntax);      /* 11 in the wrong
+	CHECK_ERROR(parse_str(" " U1, &probe, &err_), err_, PN_ERROR_SYNTAX);         /* leading space    */
+	CHECK_ERROR(parse_str("   ", &probe, &err_), err_, PN_ERROR_SYNTAX);          /* all spaces        */
+	CHECK_ERROR(parse_str(T1 U1, &probe, &err_), err_, PN_ERROR_SYNTAX);          /* no joiner         */
+	CHECK_ERROR(parse_str(U1 " " U1, &probe, &err_), err_, PN_ERROR_SYNTAX);      /* 11 in the wrong
 	 	 	 	 	 	 	 	 	 	 	 	 	 		* columns: the tens rod must
 	 	 	 	 	 	 	 	 	 	 	 	 	 		* come from the tens set       */
-	CHECK_ST(parse_str(T1 " " T1, &probe), pn_err_syntax);      /* units rod in the
+	CHECK_ERROR(parse_str(T1 " " T1, &probe, &err_), err_, PN_ERROR_SYNTAX);      /* units rod in the
 	 	 	 	 	 	 	 	 	 	 	 	 	 		* tens set                     */
-	CHECK_ST(parse_str("\xF0\x9D\x8D", &probe), pn_err_syntax); /* rod cut off short */
-	CHECK_ST(parse_str("\xF0\x9D\x8D\xB2", &probe),
-			pn_err_syntax);                            /* the tally mark is no rod */
-	CHECK_ST(parse_str("\xF0\x92\x81\xB9", &probe),
-			pn_err_syntax);                            /* cuneiform DISH is no rod */
-	CHECK_ST(parse_str(QUEN, &probe), pn_err_syntax);           /* 〇: not our zero  */
-	CHECK_ST(parse_str("1", &probe), pn_err_syntax);            /* ASCII              */
+	CHECK_ERROR(parse_str("\xF0\x9D\x8D", &probe, &err_), err_, PN_ERROR_SYNTAX); /* rod cut off short */
+	CHECK_ERROR(parse_str("\xF0\x9D\x8D\xB2", &probe, &err_), err_, PN_ERROR_SYNTAX);                            /* the tally mark is no rod */
+	CHECK_ERROR(parse_str("\xF0\x92\x81\xB9", &probe, &err_), err_, PN_ERROR_SYNTAX);                            /* cuneiform DISH is no rod */
+	CHECK_ERROR(parse_str(QUEN, &probe, &err_), err_, PN_ERROR_SYNTAX);           /* 〇: not our zero  */
+	CHECK_ERROR(parse_str("1", &probe, &err_), err_, PN_ERROR_SYNTAX);            /* ASCII              */
 
 				/* a well-spaced twentieth place: beyond the board, not bad grammar */
 
@@ -158,7 +154,7 @@ int main(void)
 			w += 4;
 		}
 		long_str[w] = '\0';
-		CHECK_ST(pn_rods_parse(long_str, w, &probe), pn_err_range);
+		CHECK_ERROR(pn_rods_parse(long_str, w, &probe, &err_), err_, PN_ERROR_RANGE);
 	}
 
 				/* --- round-trip sweep -------------------------------------------- */

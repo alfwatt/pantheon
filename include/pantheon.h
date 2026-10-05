@@ -807,39 +807,54 @@ bool pn_hanzi_parse(const char *_Nullable buf, size_t buflen,
 	*  pn_err_range.  render_size(0) == 0: the empty board. */
 size_t pn_rods_render_size(uint64_t n);
 
-/*  Render n in rod numerals into buf as UTF-8, NUL-terminated: one rod
-	*  glyph per nonzero digit (unit set at even places, tens set at odd),
-	*  most significant first; every place boundary from the top place
-	*  down to the units writes exactly one space — joiner between
-	*  adjacent columns, blank for empty ones (trailing blanks included).
-	*  n == 0 renders the empty string.  Needs exactly
-	*  pn_rods_render_size(n) bytes + NUL; a smaller buffer gives
-	*  pn_err_buffer and leaves buf untouched.
-	*
-	*  Errors: pn_err_null, pn_err_range (n > PN_ROD_MAX_VALUE),
-	*  pn_err_buffer.  On error buf is untouched. */
-pn_status pn_rods_render(uint64_t n, char *buf, size_t buflen);
+/// Write @param n as rod numerals into @param buf as UTF-8, ending
+/// with a NUL: one rod glyph per nonzero digit (unit set at even
+/// places, tens set at odd ones), most significant first.  Each
+/// place boundary from the top place down to the units writes
+/// exactly one space — it joins columns that touch and stands as the
+/// blank for columns that are empty (trailing blanks included).
+/// @param n == 0 renders the empty string; the write needs exactly
+/// pn_rods_render_size(@param n) bytes plus the NUL.  The old error
+/// block above says which notes come back; kept here in short:
+/// PN_ERROR_NULL when buf is NULL, PN_ERROR_RANGE when n tops
+/// PN_ROD_MAX_VALUE, PN_ERROR_BUFFER when buflen is smaller than the
+/// exact byte count — and on any failure buf is left untouched.
+/// @param n - the whole number to render
+/// @param buf - where the board lands, with room for the NUL
+/// @param buflen - bytes of room at buf
+/// @param error - where to hang the note on failure.
+/// @returns true on success, false with a note in @param error.
+bool pn_rods_render(uint64_t n, char *_Nonnull buf, size_t buflen,
+                    pn_error *_Nullable *_Nullable error);
 
-/*  Parse a rendered rod string — the inverse of pn_rods_render.  The
-	*  string is exactly the two rod sets and spaces, in canonical
-	*  spacing: it never starts with a space, holds at least one glyph,
-	*  and the total count of spaces is one less than the number of
-	*  places the value needs — the parser sets places = spaces + 1,
-	*  reads the leftmost glyph at place places − 1, and each run of r
-	*  spaces advances the place by r:
-	*
-	*         𝍪 𝍢       ->    23
-	*         𝍠  𝍠      ->    101      (the blank tens column)
-	*         𝍩             ->    10       (the blank units column)
-	*
-	*  Round-trip law, exact: parsing buf after a successful render
-	*  recovers n.  An empty buffer (buflen == 0) parses as 0.  Errors:
-	*  pn_err_null, pn_err_syntax (leading space, all spaces, two glyphs
-	*  with no space between, a glyph whose set contradicts its place's
-	*  parity, any other byte, a sign cut off short), pn_err_range (more
-	*  than PN_ROD_MAX_PLACES places: spaces + 1 > 19).  On error *out is
-	*  untouched. */
-pn_status pn_rods_parse(const char *buf, size_t buflen, uint64_t *out);
+/// Read back a rendered rod string — the exact inverse of
+/// pn_rods_render.    The string is just the two rod sets and spaces,
+/// in canonical spacing: it never starts with a space, it holds at
+/// least one glyph, and the spaces in it count exactly one less than
+/// the number of places the value needs.  The parser sets places =
+/// spaces + 1, reads the leftmost glyph at place places - 1, and each
+/// run of r spaces moves the place along by r:
+///
+///     rod-nine space rod-three ->  23
+///     rod-one  two spaces rod-one -> 101   (the blank tens column)
+///     rod-tens-one        ->     10        (the blank units column)
+///
+/// The round trip is exact: parsing the string after a successful
+/// render recovers n.    An empty buffer (buflen == 0) reads back
+/// as 0.  PN_ERROR_NULL when buf or out is NULL; PN_ERROR_SYNTAX for
+/// a leading space, all spaces, two glyphs with no space between, a
+/// glyph whose set argues with its place's parity, any other byte, or
+/// a sign cut off short; PN_ERROR_RANGE for more than
+/// PN_ROD_MAX_PLACES places (spaces + 1 > 19).  On any failure *out
+/// is left untouched.
+/// @param buf - the board to read
+/// @param buflen - bytes to read at buf
+/// @param out - where the number lands on success
+/// @param error - where to hang the note on failure.
+/// @returns true on success, false with a note in @param error.
+bool pn_rods_parse(const char *_Nullable buf, size_t buflen,
+                   uint64_t *_Nullable out,
+                   pn_error *_Nullable *_Nullable error);
 
 /* ------------------------------------------------------------------------
   *  Indian Brahmi numerals (UTF-8 rendering).
