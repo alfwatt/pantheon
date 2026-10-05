@@ -1,7 +1,7 @@
 # libPantheon — plain-C build.  Tested with GNU Make 3.81 (Apple's bundled
 # make) and Apple clang.  Artifacts live in build/ and are never committed.
 
-CC  ?= cc
+CC  ?= clang
 AR  ?= ar
 OPT ?= -O2 -g
 
@@ -9,8 +9,16 @@ OPT ?= -O2 -g
 # the classic double -> uint8_t slips.  Fix call sites; never silence it.
 # -Wmissing-prototypes forces every public function into pantheon.h.
 WARN = -Wall -Wextra -Wpedantic -Werror -Wconversion -Wshadow \
-       -Wcast-qual -Wwrite-strings -Wmissing-prototypes \
-       -Wstrict-prototypes -Wold-style-definition
+        -Wcast-qual -Wwrite-strings -Wmissing-prototypes \
+        -Wstrict-prototypes -Wold-style-definition
+
+# clang is the required compiler: the public header uses the nullability
+# _Nullable/_Nonnull spelling.  clang counts them as a language extension
+# and -Wpedantic turns that note into an error, so silence exactly this
+# one diagnostic here (house rule: only the Makefile may carry a -Wno-).
+ifeq ($(findstring clang,$(CC)),clang)
+WARN += -Wno-nullability-extension
+endif
 
 CFLAGS   += -std=c11 $(OPT) $(WARN)
 CPPFLAGS += -Iinclude -MMD -MP
