@@ -1064,6 +1064,96 @@ pn_status pn_roman_render(uint64_t n, char *buf, size_t buflen);
  *  nulla: buflen == 0 parses as 0.  On error *out is untouched. */
 pn_status pn_roman_parse(const char *buf, size_t buflen, uint64_t *out);
 
+/* --- early mathematical theory (Elements VII-IX, the sieve of
+     Eratosthenes, the gnomon figures) ---------------------------------
+ *
+ *  The reckoning that sat underneath the numerals: Euclid's ladder
+ *  of remainders, the papyrus of struck rows, the Pythagoreans'
+ *  triples, the abacist's ledger of factors.  Nothing here renders a
+ *  notation — these are the working functions of the culture, on the
+ *  whole uint64 ledger 0..18446744073709551615.
+ *
+ *  Primality is proved, never merely probable: below 2^32 Euclid's
+ *  own trial division by the sieve's unstruck rows is the complete
+ *  argument, and above it Miller's seven certified witnesses (2,
+ *  325, 9375, 28178, 450775, 9780504, 1795265022) decide every case
+ *  of the ledger before the water clock runs out.
+ */
+
+#define PN_MATH_SIEVE_MAX_VALUE         1000000ull
+#define PN_MATH_M_MAX_VALUE             65535ull
+#define PN_MATH_SIDE_MAX_VALUE          4294967295ull
+#define PN_MATH_MAX_FACTORS             64u
+
+/*  The papyrus of Eratosthenes.  pn_math_sieve_size answers pi(limit),
+ *  the count of primes from 2 to limit; it answers 0 when limit < 2
+ *  or passes PN_MATH_SIEVE_MAX_VALUE = 1000000, the last row of the
+ *  papyrus.  pi(100) = 25, pi(1000) = 168, pi(1000000) =
+ *  78498.  pn_math_sieve lays the board in ascending order and
+ *  reports the rows it set in *count: sieve(30) ends at 29,
+ *  sieve(1000000) at 999983.  Errors like the other ledgers:
+ *  pn_err_null, pn_err_range, pn_err_buffer (cap short of the count;
+ *  the caller's rows and *count keep their word). */
+size_t pn_math_sieve_size(uint64_t limit);
+
+pn_status pn_math_sieve(uint64_t limit, uint64_t *out, size_t cap,
+                        size_t *count);
+
+/*  Euclid's ladder (Elements VII.1-2): the greatest common measure.
+ *  gcd(1071, 462) = 21; gcd(0, 0) = 0 by the abacist's
+ *  convention.  lcm(1071, 462) = 23562; a blank row makes the ratio
+ *  blank: lcm(0, n) = 0.  A product past the ledger top is
+ *  pn_err_range.  Both answer pn_err_null on a NULL out. */
+pn_status pn_math_gcd(uint64_t a, uint64_t b, uint64_t *out);
+
+pn_status pn_math_lcm(uint64_t a, uint64_t b, uint64_t *out);
+
+/*  The Pythagoreans' gnomon figures.  is_square(999950884) is true —
+ *  the square of 31622.  is_prime(561) answers false: Siegel's
+ *  number, the Carmichael fool that fools the Fermat test alone.
+ *  next_prime is inclusive, the culture counting the number itself
+ *  when it is already prime: next_prime(1) = 2, next_prime(2) =
+ *  2, next_prime(46340) = 46349; past the last prime of the
+ *  ledger it answers pn_err_range. */
+pn_status pn_math_is_square(uint64_t n, bool *out);
+
+pn_status pn_math_is_prime(uint64_t n, bool *out);
+
+pn_status pn_math_next_prime(uint64_t n, uint64_t *out);
+
+/*  The abacist's ledger of factors: n = f[0] x f[1] x ... ascending,
+ *  repeats kept — the culture wrote 90 as 2 x 3 x 3 x 5 and 649 as 11 x 59.
+ *  The blank and the unit are the empty product:
+ *  factorize_size(0) = factorize_size(1) = 0.  The longest braid on
+ *  the ledger is 63 twos (2^63), so PN_MATH_MAX_FACTORS = 64 rows
+ *  always hold.  A cap short of the count is pn_err_buffer; on any
+ *  error the caller's rows and *count keep their word. */
+size_t pn_math_factorize_size(uint64_t n);
+
+pn_status pn_math_factorize(uint64_t n, uint64_t *out, size_t cap,
+                            size_t *count);
+
+/*  The numbers equal to their own parts (Elements IX.36): 6 = 1 + 2
+ *  + 3, 28, 496, 8128 — the even form Euclid built and Euler proved
+ *  necessary.  The culture weighed proper divisors from 1 up, so the
+ *  blank and the unit sit out of the domain: perfect_check(0) is
+ *  pn_err_range, while perfect_check(90) answers pn_ok with false. */
+pn_status pn_math_perfect_check(uint64_t n, bool *out);
+
+/*  The Plimpton tablet's loom (Elements X.29): from m > n >= 1 with
+ *  m <= PN_MATH_M_MAX_VALUE = 65535, the legs are m*m - n*n and
+ *  2*m*n and the hypotenuse m*m + n*n.  m = 2, n = 1 weaves 3,
+ *  4, 5; m = 12, n = 5 weaves 119, 120, 169.
+ *  Any side past PN_MATH_SIDE_MAX_VALUE = 4294967295 (the rod's own
+ *  foot) is pn_err_range.  pythagorean_check weighs the rod: (119,
+ *  120, 169) stands; sides out of the rod's foot are pn_err_range. */
+pn_status pn_math_pythagorean_triple(uint64_t m, uint64_t n,
+                                     uint64_t *leg1, uint64_t *leg2,
+                                     uint64_t *hypotenuse);
+
+pn_status pn_math_pythagorean_check(uint64_t x, uint64_t y, uint64_t z,
+                                    bool *out);
+
 #ifdef __cplusplus
 }
 #endif
