@@ -30,7 +30,7 @@ static int count_sigs(const char *buf, const char *sig)
 static void render_ok(pn_sex60 v, char *buf, size_t buflen)
 {
 	size_t need = pn_babylonian_render_size(v);
-	CHECK_ST(pn_babylonian_render(v, buf, need + 1), pn_ok);
+	CHECK_OK(pn_babylonian_render(v, buf, need + 1, &err_), err_);
 	CHECK(strlen(buf) == need);
 	(void)buflen;
 }
@@ -132,28 +132,28 @@ int main(void)
 	/* --- errors -------------------------------------------------------- */
 
 	/* NULL buffer. */
-	CHECK_ST(pn_babylonian_render(mk(one, 1, 1), NULL, 16), pn_err_null);
+	CHECK_ERROR(pn_babylonian_render(mk(one, 1, 1), pn_nothing(), 16, &err_), err_, PN_ERROR_NULL);
 
 	/* Buffer one byte short of need + NUL fails and leaves buf alone. */
 	pn_sex60 v1 = mk(one, 1, 1);
 	memset(buf, 'x', 8);
-	CHECK_ST(pn_babylonian_render(v1, buf, 4), pn_err_buffer);
+	CHECK_ERROR(pn_babylonian_render(v1, buf, 4, &err_), err_, PN_ERROR_BUFFER);
 	CHECK(memcmp(buf, "xxxx", 4) == 0);
 
 	/* Malformed values must not print wedges. */
 	pn_sex60 bad = mk(one, 1, 1);
 	bad.n_places = 0;
 	memset(buf, 'x', 8);
-	CHECK_ST(pn_babylonian_render(bad, buf, sizeof buf), pn_err_domain);
+	CHECK_ERROR(pn_babylonian_render(bad, buf, sizeof buf, &err_), err_, PN_ERROR_DOMAIN);
 	CHECK(memcmp(buf, "xxxx", 4) == 0);
 
 	bad = mk(one, 1, 1);
 	bad.places[0] = 60;
-	CHECK_ST(pn_babylonian_render(bad, buf, sizeof buf), pn_err_domain);
+	CHECK_ERROR(pn_babylonian_render(bad, buf, sizeof buf, &err_), err_, PN_ERROR_DOMAIN);
 
 	bad = mk(one_zero, 2, 2);
 	bad.radix = 3;                          /* radix > n_places */
-	CHECK_ST(pn_babylonian_render(bad, buf, sizeof buf), pn_err_domain);
+	CHECK_ERROR(pn_babylonian_render(bad, buf, sizeof buf, &err_), err_, PN_ERROR_DOMAIN);
 
 	/* render_size is total: a zero-place value still measures. */
 	static const uint8_t zero[] = { 0 };
@@ -187,15 +187,14 @@ int main(void)
 			v.neg = neg != 0;
 			char rendered[4096];
 			size_t need = pn_babylonian_render_size(v);
-			CHECK_ST(pn_babylonian_render(v, rendered, need + 1), pn_ok);
+			CHECK_OK(pn_babylonian_render(v, rendered, need + 1, &err_), err_);
 			pn_sex60 w;
-			CHECK_ST(pn_babylonian_parse(rendered, strlen(rendered), &w),
-					pn_ok);
+			CHECK_OK(pn_babylonian_parse(rendered, strlen(rendered), &w, &err_), err_);
 			CHECK(w.n_places == rt_lens[c] && w.neg == v.neg);
 			CHECK(memcmp(w.places, rts[c], rt_lens[c]) == 0);
 			CHECK(w.radix == rt_lens[c]);       /* period-style reading */
 			/* the length-based call, NUL not included */
-			CHECK_ST(pn_babylonian_parse(rendered, need, &w), pn_ok);
+			CHECK_OK(pn_babylonian_parse(rendered, need, &w, &err_), err_);
 			CHECK(w.n_places == rt_lens[c]);
 		}
 	}
@@ -207,7 +206,7 @@ int main(void)
 			DISH DISH " "
 			U U DISH DISH DISH " "
 			DISH DISH DISH;
-	CHECK_ST(pn_babylonian_parse(tablet, strlen(tablet), &read), pn_ok);
+	CHECK_OK(pn_babylonian_parse(tablet, strlen(tablet), &read, &err_), err_);
 	CHECK(read.n_places == 3 && read.radix == 3 && !read.neg);
 	CHECK(memcmp(read.places, expect_8583, sizeof expect_8583) == 0);
 
@@ -225,23 +224,22 @@ int main(void)
 	for (size_t i = 0; i < sizeof bad_strings / sizeof bad_strings[0]; i++) {
 		read = mk(one, 1, 1);
 		read.n_places = 7;                     /* sentinel */
-		CHECK_ST(pn_babylonian_parse(bad_strings[i], strlen(bad_strings[i]),
-				&read), pn_err_syntax);
+		CHECK_ERROR(pn_babylonian_parse(bad_strings[i], strlen(bad_strings[i]),
+				&read, &err_), err_, PN_ERROR_SYNTAX);
 		CHECK(read.n_places == 7);             /* untouched */
 	}
 
 	/* Six U signs overflow one place: that is range, not grammar. */
 	read = mk(one, 1, 1);
 	read.n_places = 7;
-	CHECK_ST(pn_babylonian_parse(U U U U U U, sizeof(U U U U U U) - 1,
-			&read), pn_err_range);
+	CHECK_ERROR(pn_babylonian_parse(U U U U U U, sizeof(U U U U U U) - 1,
+			&read, &err_), err_, PN_ERROR_RANGE);
 	CHECK(read.n_places == 7);
 
 	/* Ten DISH signs overflow one place too: range, not grammar. */
 	read = mk(one, 1, 1);
 	read.n_places = 7;
-	CHECK_ST(pn_babylonian_parse(TEN_DISH, sizeof(TEN_DISH) - 1, &read),
-				pn_err_range);
+	CHECK_ERROR(pn_babylonian_parse(TEN_DISH, sizeof(TEN_DISH) - 1, &read, &err_), err_, PN_ERROR_RANGE);
 	CHECK(read.n_places == 7);
 
 	/* Seventeen places: too deep a tablet. */
@@ -254,23 +252,22 @@ int main(void)
 			*dp++ = ' ';
 		}
 	*dp = '\0';
-	CHECK_ST(pn_babylonian_parse(deep, (size_t)(dp - deep), &read),
-			pn_err_range);
+	CHECK_ERROR(pn_babylonian_parse(deep, (size_t)(dp - deep), &read, &err_), err_, PN_ERROR_RANGE);
 
 	/* Nulls. */
-	CHECK_ST(pn_babylonian_parse(NULL, 4, &read), pn_err_null);
-	CHECK_ST(pn_babylonian_parse(DISH, 4, NULL), pn_err_null);
+	CHECK_ERROR(pn_babylonian_parse(pn_nothing(), 4, &read, &err_), err_, PN_ERROR_NULL);
+	CHECK_ERROR(pn_babylonian_parse(DISH, 4, pn_nothing(), &err_), err_, PN_ERROR_NULL);
 
 	/* A cut-off sign (3 of DISH's 4 bytes) is not a sign. */
-	CHECK_ST(pn_babylonian_parse(DISH, 3, &read), pn_err_syntax);
+	CHECK_ERROR(pn_babylonian_parse(DISH, 3, &read, &err_), err_, PN_ERROR_SYNTAX);
 
 	/* A negative round-trips its sign. */
 	pn_sex60 neg_zero = mk(rt6, 1, 1);
 	neg_zero.neg = true;
 	char neg_rendered[16];
 	size_t neg_need = pn_babylonian_render_size(neg_zero);
-	CHECK_ST(pn_babylonian_render(neg_zero, neg_rendered, neg_need + 1), pn_ok);
-	CHECK_ST(pn_babylonian_parse(neg_rendered, neg_need, &read), pn_ok);
+	CHECK_OK(pn_babylonian_render(neg_zero, neg_rendered, neg_need + 1, &err_), err_);
+	CHECK_OK(pn_babylonian_parse(neg_rendered, neg_need, &read, &err_), err_);
 	CHECK(read.neg && read.n_places == 1 && read.places[0] == 0);
 
 	return CHECK_RUN();

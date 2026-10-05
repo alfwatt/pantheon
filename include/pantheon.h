@@ -214,90 +214,134 @@ typedef struct pn_sex60 {
  * 1;24,51,10 — though no Babylonian tablet ever wrote one.
  * -------------------------------------------------------------------- */
 
-/* Parse a modern transcription: optional '-', then one or more places of
- * one or two decimal digits (each 0..59) separated by ',', ':' or ';'.
- * At most one ';' is allowed, and it records the radix position:
- *
- *     "1,24,51,10"  -> places {1,24,51,10}, radix 4  (period-style integer)
- *     "1;24,51,10"  -> same places, radix 1          (about 1.414...)
- *     "0;45"          -> places {0,45}, radix 1  (= 3/4; parse takes the 0 literally)
- *
- * Strict: no whitespace, no empty places, no trailing separator.  Note
- * that an unbroken "3599" is NOT decimal 3599 — it is the places 35 and
- * 99, so it fails on 99 > 59.  Enter ordinary integers with
- * pn_sex60_from_u64 instead.
- *
- * Errors: pn_err_null, pn_err_syntax (grammar), pn_err_range (a place
- * > 59, more than 2 digits per place, or more than PN_SEX60_MAX_PLACES
- * places).  On error *out is untouched. */
-pn_status pn_sex60_parse(const char *text, pn_sex60 *out);
+/// Read a modern transcription of a sexagesimal value: an optional
+/// '-', then one or more places of one or two decimal digits (each
+/// 0 to 59) joined by ',' ':' or ';'.  At most one ';' may appear,
+/// and it marks where the radix point sits:
+///
+///      "1,24,51,10"  -> places {1,24,51,10}, radix 4(period-style whole number)
+///      "1;24,51,10"  -> the same places, radix 1(about 1.414...)
+///      "0;45"        -> places {0,45}, radix 1(equals 3/4; the 0 is read literally)
+///
+/// The reading is strict: no spaces, no empty places, no trailing
+/// separator.  One trap: an unbroken "3599" is NOT the decimal number
+/// 3599 — it reads as the places 35 and 99, and 99 is above 59, so it
+/// is refused.  Bring ordinary whole numbers in through
+/// pn_sex60_from_u64 instead.
+/// @param text - the transcription to read
+/// @param out - where the value lands on success; untouched on any
+///     failure
+/// @param error - where to hang the note on failure: PN_ERROR_NULL
+///     when text or out is NULL, PN_ERROR_SYNTAX when the grammar is
+///     broken, PN_ERROR_RANGE when a place tops 59, a place wears
+///     more than 2 digits, or the value grows past
+///     PN_SEX60_MAX_PLACES places.
+/// @returns true on success, false with a note in @param error.
+bool pn_sex60_parse(const char *text, pn_sex60 *_Nullable out,
+                    pn_error *_Nullable *_Nullable error);
 
-/* Format back to a transcription.  sep must be ',', ':' or ';'.  Places
- * are written as two digits — only the first place drops its leading
- * zero — joined with sep, except the radix boundary, which is always
- * ';' when 0 < radix < n_places:
- *
- * 	 {1,24,51,10} radix 1  with sep ','   ->    "1;24,51,10"
- * 	 {2,23,3}     radix 3  with sep ','   ->    "2,23,03"
- *
- * Caveat: with sep ';' and 0 < radix < n_places the output carries two
- * ';' and will not parse back — use ',' or ':' when you need a round
- * trip.  A negative value gets a leading '-'.  Writes a NUL; needs at
- * most PN_SEX60_FORMAT_MAX_LEN bytes; a smaller buffer gives
- * pn_err_buffer and leaves buf untouched.  Errors: pn_err_null,
- * pn_err_buffer, pn_err_syntax (bad sep), pn_err_domain (malformed
- * value). */
+/// Write the value back out as a transcription.  @param sep must be
+/// ',' ':' or ';'.  Places are written with two digits — only the
+/// first place drops its leading zero — joined with @param sep,
+/// except the radix boundary, which always writes ';' when
+/// 0 < radix < n_places:
+///
+///       {1,24,51,10} radix 1  with sep ','   ->     "1;24,51,10"
+///       {2,23,3}     radix 3  with sep ','   ->     "2,23,03"
+///
+/// One caveat: with sep ';' and an interior radix the output carries
+/// two ';' and will not parse back — use ',' or ':' when the string
+/// has to survive the round trip.  A negative value grows a leading
+/// '-'.  The write ends with a NUL and needs at most
+/// PN_SEX60_FORMAT_MAX_LEN bytes.
+/// @param v - the value to write out
+/// @param sep - the joiner between places: ',' ':' or ';'
+/// @param buf - where the text lands, with room for the NUL
+/// @param buflen - bytes of room at buf
+/// @param error - where to hang the note on failure: PN_ERROR_NULL
+///     when buf is NULL, PN_ERROR_SYNTAX when sep is not one of the
+///     three joiners or (with ';' and an interior radix) the output
+///     would wear two radix points, PN_ERROR_DOMAIN when v is
+///     malformed, PN_ERROR_BUFFER when buflen is too small.  On any
+///     failure buf is left untouched.
+/// @returns true on success, false with a note in @param error.
 #define PN_SEX60_FORMAT_MAX_LEN (1 + 3 * PN_SEX60_MAX_PLACES + 1) /* '-' + places+seps + NUL */
-pn_status pn_sex60_format(pn_sex60 v, char sep, char *buf, size_t buflen);
+bool pn_sex60_format(pn_sex60 v, char sep, char *_Nonnull buf,
+                     size_t buflen, pn_error *_Nullable *_Nullable error);
 
 /* --- conversion to / from ordinary numbers ------------------------------ */
 
-/* Ordinary unsigned integer -> sexagesimal by repeated division by 60:
- *
- *     8583 -> places {2,23,3}, radix 3   (8583 = 2*60^2 + 23*60 + 3;
- *                                         Wikipedia's worked example)
- *     0    -> one place {0}
- *
- * Errors: pn_err_null, pn_err_range (more than PN_SEX60_MAX_PLACES
- * places; in practice unreachable, since 2^64 needs only 11 places). */
-pn_status pn_sex60_from_u64(uint64_t n, pn_sex60 *out);
+/// Turn an ordinary unsigned integer into sexagesimal places by
+/// dividing by 60 again and again:
+///
+///        8583 -> places {2,23,3}, radix 3    (8583 = 2*60^2 + 23*60 + 3;
+///                                           Wikipedia's worked example)
+///        0     -> a single place {0}
+/// @param n - the whole number to convert
+/// @param out - where the value lands on success
+/// @param error - where to hang the note on failure: PN_ERROR_NULL
+///     when out is NULL, PN_ERROR_RANGE when the number would need
+///     more than PN_SEX60_MAX_PLACES places (in practice unreachable:
+///     2^64 needs only 11 places).
+/// @returns true on success, false with a note in @param error.
+bool pn_sex60_from_u64(uint64_t n, pn_sex60 *_Nullable out,
+                       pn_error *_Nullable *_Nullable error);
 
-/* Sexagesimal integer -> ordinary unsigned integer by Horner's scheme
- * (acc = acc*60 + place).  Requires radix == n_places.
- *
- * Errors: pn_err_null, pn_err_domain (any fractional place, i.e.
- * radix != n_places, or a malformed value incl. a place > 59),
- * pn_err_range (overflow of uint64_t). */
-pn_status pn_sex60_to_u64(pn_sex60 v, uint64_t *out);
+/// Turn a sexagesimal whole number back into an ordinary unsigned
+/// integer with Horner's scheme (acc = acc*60 + place).  The value
+/// must have radix == n_places, that is: no fraction.
+/// @param v - the value to convert; it must be well-formed
+/// @param out - where the number lands on success
+/// @param error - where to hang the note on failure: PN_ERROR_NULL
+///     when out is NULL, PN_ERROR_DOMAIN when v is malformed or
+///     carries any fractional place (a place above 59 counts as
+///     malformed too), PN_ERROR_RANGE when the value does not fit a
+///     uint64_t.
+/// @returns true on success, false with a note in @param error.
+bool pn_sex60_to_u64(pn_sex60 v, uint64_t *_Nullable out,
+                     pn_error *_Nullable *_Nullable error);
 
-/* Sexagesimal -> double.  Evaluation folds right-to-left,
- * val = (val + place) / 60, so integer values are exact while the
- * integer part fits 2^53 (radix <= 8, since 60^8 ~ 1.7e14).
- *
- * Like every conversion to binary floating point this cannot preserve
- * every sexagesimal value: 0;20 (= 1/3) has no finite binary expansion,
- * and beyond 2^53 results are correctly rounded but not exact.
- *
- * Errors: pn_err_null, pn_err_domain (malformed value). */
-pn_status pn_sex60_to_double(pn_sex60 v, double *out);
+/// Turn a sexagesimal value into a double.  The fold runs
+/// right-to-left, val = (val + place) / 60, so whole values stay
+/// exact while the whole part fits inside 2^53 (radix <= 8, because
+/// 60^8 ~ 1.7e14).
+/// Like every jump to binary floating point this cannot keep every
+/// sexagesimal value: 0;20 (which is 1/3) has no finite binary
+/// expansion, and past 2^53 answers are correctly rounded yet not
+/// exact.
+/// @param v - the value to convert; it must be well-formed
+/// @param out - where the double lands on success
+/// @param error - where to hang the note on failure: PN_ERROR_NULL
+///     when out is NULL, PN_ERROR_DOMAIN when v is malformed.
+/// @returns true on success, false with a note in @param error.
+bool pn_sex60_to_double(pn_sex60 v, double *_Nullable out,
+                        pn_error *_Nullable *_Nullable error);
 
-/* double -> sexagesimal with exactly frac_places fractional places
- * (0..PN_SEX60_MAX_PLACES), rounded half-away-from-zero at the last kept
- * place with carries propagated left.  Trailing zero places are KEPT,
- * not trimmed, so results are deterministic:
- *
- *     0.75 with 1 frac place -> {45}      radix 0   (0;45 = 3/4)
- *     1.5  with 1 frac place -> {1,30}    radix 1   (1;30)
- *
- * The Babylonians themselves would have dropped trailing empty places —
- * and could afford to, since context told the reader the magnitude
- * anyway.  NaN and infinity are rejected; see pn_sex60_to_double for
- * the general exactness caveats.
- *
- * Errors: pn_err_null, pn_err_domain (NaN/inf, frac_places > max),
- * pn_err_range (integer part needs more than PN_SEX60_MAX_PLACES
- * places). */
-pn_status pn_sex60_from_double(double x, uint8_t frac_places, pn_sex60 *out);
+/// Turn a double into sexagesimal places with exactly
+/// @param frac_places fractional places (0 to PN_SEX60_MAX_PLACES),
+/// rounded half away from zero at the last kept place with carries
+/// walking left.  Trailing zero places are KEPT, never trimmed, so
+/// every answer is reproducible:
+///
+///        0.75 with 1 frac place  ->  {45}      radix 0    (0;45 = 3/4)
+///        1.5  with 1 frac place  ->  {1,30}    radix 1    (1;30)
+///
+/// The Babylonians would have dropped trailing empty places — and
+/// could afford to, since context told the reader the size anyway.
+/// NaN and infinity are refused; see pn_sex60_to_double for the
+/// general exactness caveats.
+/// @param x - the number to convert
+/// @param frac_places - how many fractional places to keep
+/// @param out - where the value lands on success
+/// @param error - where to hang the note on failure: PN_ERROR_NULL
+///     when out is NULL, PN_ERROR_DOMAIN for NaN, infinity, or
+///     frac_places above the maximum, PN_ERROR_RANGE when the whole
+///     part or the rounded result needs more than
+///     PN_SEX60_MAX_PLACES places.
+/// @returns true on success, false with a note in @param error.
+bool pn_sex60_from_double(double x, uint8_t frac_places,
+                          pn_sex60 *_Nullable out,
+                          pn_error *_Nullable *_Nullable error);
 
 // MARK: - Cuneiform Numbers
 
@@ -332,45 +376,60 @@ pn_status pn_sex60_from_double(double x, uint8_t frac_places, pn_sex60 *out);
  * such values with pn_err_domain. */
 size_t pn_babylonian_render_size(pn_sex60 v);
 
-/* Render v in positional cuneiform style into buf as UTF-8, NUL-
- * terminated.  Each place is a group of (d/10) U signs + (d%10) DISH
- * signs; groups are separated by one space; a zero place is two spaces
- * (the historical gap); negatives get a leading '-', an anachronism.
- * Any well-formed v renders — the caller decides which places are
- * "really" there; a radix point is not drawn (no Babylonian tablet had
- * one), but fractional places render the same as integer ones.
- *
- * Errors: pn_err_null, pn_err_buffer (buflen <= render_size(v)),
- * pn_err_domain (malformed value: n_places == 0, n_places > max, a
- * place > 59, or radix > n_places).  On error buf is untouched. */
-pn_status pn_babylonian_render(pn_sex60 v, char *buf, size_t buflen);
+/// Write @param v in positional cuneiform style into @param buf as
+/// UTF-8, ending with a NUL.  Each place becomes a group of (d/10) U
+/// signs plus (d%10) DISH signs; groups sit one space apart; a place
+/// of zero is the two-space gap the scribes left; a negative value
+/// grows a leading '-', which is an anachronism.  Any well-formed
+/// value renders — the caller decides which places are "really"
+/// there.  No radix point is drawn (no tablet ever wore one), and
+/// fractional places render exactly like whole ones.
+/// @param v - the value to render
+/// @param buf - where the cuneiform lands, with room for the NUL
+/// @param buflen - bytes of room at buf
+/// @param error - where to hang the note on failure: PN_ERROR_NULL
+///     when buf is NULL, PN_ERROR_DOMAIN when v is malformed
+///     (n_places == 0 or above the max, a place past 59, or radix
+///     past n_places), PN_ERROR_BUFFER when buflen does not beat
+///     pn_babylonian_render_size(v).  On any failure buf is left
+///     untouched.
+/// @returns true on success, false with a note in @param error.
+bool pn_babylonian_render(pn_sex60 v, char *_Nonnull buf, size_t buflen,
+                          pn_error *_Nullable *_Nullable error);
 
-/* Parse a rendered cuneiform string — the inverse of
- * pn_babylonian_render.  buf holds exactly buflen bytes of UTF-8 using
- * only '-', the two signs, and separating spaces:
- *
- * 	     𒁹𒁹 𒌋𒌋𒁹𒁹𒁹 𒁹𒁹𒁹              ->   {2,23,3}
- *
- * A place group is (d/10) U signs then (d%10) DISH signs; groups join
- * with one space, and the two-space gap of a zero place parses back as
- * a zero place.  The spacing is strict — between signs it must run 1,
- * 4, 7, … spaces (3k+1: joiner plus k gaps); leading and trailing runs
- * are multiples of 3; an all-space string has length 3k-1.  Any other
- * spacing, and any other byte, is malformed.  Round-trip law:
- *
- * 	     pn_babylonian_parse(buf, strlen(buf), &w) after a successful
- * 	     pn_babylonian_render(v, buf, …) recovers v's places exactly.
- *
- * The cuneiform itself carries no radix point ('-' notwithstanding),
- * so the parsed value gets the period-style reading: radix ==
- * n_places.  A lone 𒁹 parses as 1 — whether the scribe meant 60 or
- * 1/60, only context knew.
- *
- * Errors: pn_err_null, pn_err_syntax (any other byte, bad spacing,
- * empty string, a DISH before a U in one group), pn_err_range (more
- * than 5 U or 9 DISH signs in a group, or more than
- * PN_SEX60_MAX_PLACES places).  On error *out is untouched. */
-pn_status pn_babylonian_parse(const char *buf, size_t buflen, pn_sex60 *out);
+// Parse a rendered cuneiform string — the inverse of
+// pn_babylonian_render.  @param buf holds exactly @param buflen bytes
+// of UTF-8 built from '-', the two signs, and separating spaces:
+//
+//          𒁹𒁹 𒌋𒌋𒁹𒁹𒁹 𒁹𒁹𒁹             ->    {2,23,3}
+//
+// A place group is (d/10) U signs then (d%10) DISH signs; groups join
+// with one space, and the two-space gap of a zero place reads back as
+// a zero place.  The spacing is strict — between signs it must run 1,
+// 4, 7, … spaces (3k+1: joiner plus k gaps); leading and trailing
+// runs are multiples of 3; an all-space string has length 3k-1.  Any
+// other spacing, and any other byte, is malformed.  Round-trip law:
+// pn_babylonian_parse(buf, strlen(buf), &w, &err) after a successful
+// pn_babylonian_render(v, buf, …) recovers v's places exactly.
+//
+// The cuneiform itself carries no radix point ('-' notwithstanding),
+// so the parsed value gets the period-style reading: radix ==
+// n_places.  A lone 𒁹 parses as 1 — whether the scribe meant 60 or
+// 1/60, only context knew.
+/// @param buf - the rendered cuneiform to read
+/// @param buflen - bytes to read at buf
+/// @param out - where the value lands on success; untouched on any
+///     failure
+/// @param error - where to hang the note on failure: PN_ERROR_NULL
+///     when buf or out is NULL, PN_ERROR_SYNTAX for any foreign byte
+///     or illegal spacing, including an empty string and a DISH
+///     before a U in one group, PN_ERROR_RANGE for a group with more
+///     than 5 U or 9 DISH signs, or for a value past
+///     PN_SEX60_MAX_PLACES places.
+/// @returns true on success, false with a note in @param error.
+bool pn_babylonian_parse(const char *_Nullable buf, size_t buflen,
+                         pn_sex60 *_Nullable out,
+                         pn_error *_Nullable *_Nullable error);
 
 // MARK: - Vigesimal
 
@@ -408,67 +467,109 @@ typedef struct pn_vigesimal {
 	                                         carry no sign */
 } pn_vigesimal;
 
-/* --- vigesimal strings (modern scholarly transcription) -----------------
- *
- *  The same reading convention as the sexagesimal transcriptions above:
- *  comma- or colon-separated decimal places, at most one ';' marking
- *  the radix point.  No Maya scribe wrote any of it.
- *
- *      "1,2,0,0"   -> places {1,2,0,0}, radix 4   (period-style = 8800)
- *      "1;12,9"    -> same places, radix 1        (= 1 + 12/20 + 9/400)
- *      "0;5"       -> places {0,5}, radix 1       (= 1/4; parse takes the 0 literally)
- *
- *  Strict: no whitespace, no empty places, no trailing separator.  An
- *  unbroken "399" is NOT decimal 399 — it is read three digits deep and
- *  rejected as out of range (a longer run is range too).  Enter ordinary
- *  integers with pn_vigesimal_from_u64 instead.
- *
- *  Errors: pn_err_null, pn_err_syntax (grammar), pn_err_range (a place
- *  > 19, more than 2 digits per place, or more than
- *  PN_VIGESIMAL_MAX_PLACES places).  On error *out is untouched. */
-pn_status pn_vigesimal_parse(const char *text, pn_vigesimal *out);
+/// Read a modern transcription of a vigesimal value — the same
+/// reading convention as the sexagesimal transcriptions above:
+/// decimal places joined by ',' or ':', with at most one ';' marking
+/// where the radix point sits.  No Maya scribe ever wrote any of it.
+///
+///        "1,2,0,0"   -> places {1,2,0,0}, radix 4  (period-style = 8800)
+///        "1;12,9"    -> the same places, radix 1   (= 1 + 12/20 + 9/400)
+///        "0;5"       -> places {0,5}, radix 1      (= 1/4; the 0 is
+///                                                   read literally)
+///
+/// The reading is strict: no spaces, no empty places, no trailing
+/// separator.  One trap: an unbroken "399" is NOT the decimal number
+/// 399 — it reads three digits deep and is refused as out of range
+/// (a longer run of digits is refused the same way).  Bring ordinary
+/// whole numbers in through pn_vigesimal_from_u64 instead.
+/// @param text - the transcription to read
+/// @param out - where the value lands on success; untouched on any
+///     failure
+/// @param error - where to hang the note on failure: PN_ERROR_NULL
+///     when text or out is NULL, PN_ERROR_SYNTAX when the grammar is
+///     broken, PN_ERROR_RANGE when a place tops 19, a place wears
+///     more than 2 digits, or the value grows past
+///     PN_VIGESIMAL_MAX_PLACES places.
+/// @returns true on success, false with a note in @param error.
+bool pn_vigesimal_parse(const char *text, pn_vigesimal *_Nullable out,
+                        pn_error *_Nullable *_Nullable error);
 
 #define PN_VIGESIMAL_FORMAT_MAX_LEN (1 + 3 * PN_VIGESIMAL_MAX_PLACES + 1) /* '-' + places+seps + NUL */
 
-/*  Format v with sep (',' or ':'; the radix boundary writes ';' when the
- *  radix is interior).  Output is NUL-terminated and at most
- *  PN_VIGESIMAL_FORMAT_MAX_LEN bytes; a smaller buffer gives
- *  pn_err_buffer.
- *
- *  Errors: pn_err_null, pn_err_syntax (bad sep), pn_err_domain
- *  (malformed v: n_places == 0 or > max, a place > 19, radix >
- *  n_places), pn_err_buffer.  On error buf is untouched. */
-pn_status pn_vigesimal_format(pn_vigesimal v, char sep, char *buf, size_t buflen);
+/// Write @param v out as a transcription joined with @param sep
+/// (',' or ':'; the radix boundary itself writes ';' whenever the
+/// radix sits in the middle of the value).  The write ends with a
+/// NUL and stays within PN_VIGESIMAL_FORMAT_MAX_LEN bytes.
+/// @param v - the value to write out
+/// @param sep - the joiner between places
+/// @param buf - where the text lands, with room for the NUL
+/// @param buflen - bytes of room at buf
+/// @param error - where to hang the note on failure: PN_ERROR_NULL
+///     when buf is NULL, PN_ERROR_SYNTAX when sep is not one of the
+///     allowed joiners, PN_ERROR_DOMAIN when v is malformed
+///     (n_places == 0 or past the max, a place above 19, radix past
+///     n_places), PN_ERROR_BUFFER when buflen is too small.  On any
+///     failure buf is left untouched.
+/// @returns true on success, false with a note in @param error.
+bool pn_vigesimal_format(pn_vigesimal v, char sep, char *_Nonnull buf,
+                         size_t buflen, pn_error *_Nullable *_Nullable error);
 
-/*  Exactly how sexagesimal's from_u64 works, rebased: peel 20s off the
- *  bottom, reverse.  0 becomes one place of 0.
- *
- *  Errors: pn_err_null, pn_err_range (unreachable: UINT64_MAX takes 15
- *  places). */
-pn_status pn_vigesimal_from_u64(uint64_t n, pn_vigesimal *out);
+/// Turn an ordinary unsigned integer into vigesimal places exactly
+/// how the sexagesimal from_u64 does it, rebased: peel 20s off the
+/// bottom and flip the order.   @param n == 0 becomes a single place
+/// of 0.
+/// @param n - the whole number to convert
+/// @param out - where the value lands on success
+/// @param error - where to hang the note on failure: PN_ERROR_NULL
+///     when out is NULL, PN_ERROR_RANGE when the number would need
+///     more than PN_VIGESIMAL_MAX_PLACES places (in practice
+///     unreachable: UINT64_MAX takes 15 places).
+/// @returns true on success, false with a note in @param error.
+bool pn_vigesimal_from_u64(uint64_t n, pn_vigesimal *_Nullable out,
+                           pn_error *_Nullable *_Nullable error);
 
-/*  Reassemble with Horner's scheme.
- *
- *  Errors: pn_err_null, pn_err_domain (malformed v, or radix !=
- *  n_places: not an integer), pn_err_range (the value does not fit a
- *  uint64_t — 16 maxed places = 20^16 − 1 would not). */
-pn_status pn_vigesimal_to_u64(pn_vigesimal v, uint64_t *out);
+/// Build a vigesimal whole number back up with Horner's scheme.
+/// @param v - the value to convert; well-formed and whole
+/// @param out - where the number lands on success
+/// @param error - where to hang the note on failure: PN_ERROR_NULL
+///     when out is NULL, PN_ERROR_DOMAIN when v is malformed or its
+///     radix is not n_places (that is: not a whole number),
+///     PN_ERROR_RANGE when the value does not fit a uint64_t
+///     (16 places maxed out = 20^16 - 1 would not).
+/// @returns true on success, false with a note in @param error.
+bool pn_vigesimal_to_u64(pn_vigesimal v, uint64_t *_Nullable out,
+                         pn_error *_Nullable *_Nullable error);
 
-/*  Integer part by Horner in exact uint64_t while it fits, then one
- *  correctly-rounded division F / 20^k while k <= 14 — results are
- *  exact whenever a double can hold them at all.  (A 15-place purely
- *  fractional v falls to the iterated division loop; harmless.)
- *
- *  Errors: pn_err_null, pn_err_domain (malformed v). */
-pn_status pn_vigesimal_to_double(pn_vigesimal v, double *out);
+/// Turn a vigesimal value into a double: the whole part runs through
+/// Horner's scheme in exact uint64_t arithmetic while it fits, then
+/// one correctly-rounded division F / 20^k while k <= 14.  Results
+/// are exact whenever a double can hold them at all.   (A value that
+/// is purely fractional past 14 places drops to the iterated
+/// division loop; harmless.)
+/// @param v - the value to convert; it must be well-formed
+/// @param out - where the double lands on success
+/// @param error - where to hang the note on failure: PN_ERROR_NULL
+///     when out is NULL, PN_ERROR_DOMAIN when v is malformed.
+/// @returns true on success, false with a note in @param error.
+bool pn_vigesimal_to_double(pn_vigesimal v, double *_Nullable out,
+                            pn_error *_Nullable *_Nullable error);
 
-/*  Round half-away-from-zero at the frac_places-th vigesimal place
- *  (each 0..19), like pn_sex60_from_double: trailing kept places are
- *  zeros, 0.98 at one place rounds onto a whole 1, NaN/inf rejected.
- *
- *  Errors: pn_err_null, pn_err_domain (NaN, inf, frac_places >
- *  PN_VIGESIMAL_MAX_PLACES), pn_err_range (carried past 16 places). */
-pn_status pn_vigesimal_from_double(double x, uint8_t frac_places, pn_vigesimal *out);
+/// Turn a double into vigesimal places, rounding half away from zero
+/// at the @param frac_places-th place (each place 0..19), just like
+/// pn_sex60_from_double: places kept past the rounding are zeros,
+/// 0.98 rounded at one place steps up to a whole 1, NaN and infinity
+/// are refused.
+/// @param x - the number to convert
+/// @param frac_places - how many fractional places to keep
+/// @param out - where the value lands on success
+/// @param error - where to hang the note on failure: PN_ERROR_NULL
+///     when out is NULL, PN_ERROR_DOMAIN for NaN, infinity, or
+///     frac_places past PN_VIGESIMAL_MAX_PLACES, PN_ERROR_RANGE when
+///     the carries grow the value past 16 places.
+/// @returns true on success, false with a note in @param error.
+bool pn_vigesimal_from_double(double x, uint8_t frac_places,
+                              pn_vigesimal *_Nullable out,
+                              pn_error *_Nullable *_Nullable error);
 
 /* ------------------------------------------------------------------------
  * Egyptian hieroglyphic numerals (UTF-8 rendering).

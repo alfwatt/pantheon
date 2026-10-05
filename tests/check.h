@@ -26,9 +26,11 @@ static int pn_checks, pn_fails;
     refuses to compile a test that hands one a plain NULL on purpose —
     and those tests exist precisely to prove the null check works.
     Hand these to the call instead: the compiler cannot look inside
-    strstr, and what the function under test receives is still a null
-    pointer.   */
-static void *pn_nothing(void)
+    the volatile load below, and what the function under test
+    receives is still a null pointer.  A test file that never uses
+    this still compiles: the unused attribute keeps -Wunused-function
+    quiet where it is not called.   */
+__attribute__((unused)) static void *pn_nothing(void)
 {
     /* A volatile load is opaque to the optimizer, so no constant
       folder here or in the caller can prove the result is null.   */
