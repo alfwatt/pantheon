@@ -20,6 +20,22 @@
 extern "C" {
 #endif
 
+typedef enum pn_status {
+    pn_ok = 0,
+    pn_err_null,   /* a pointer argument was NULL                   */
+    pn_err_syntax, /* malformed input string                        */
+    pn_err_range,  /* too many places, a place > 59, or the value
+                      does not fit the target type                  */
+    pn_err_domain, /* value not representable in the requested form
+                      (e.g. fractional places converted to integer) */
+    pn_err_buffer, /* caller's buffer too small                     */
+} pn_status;
+
+/* Error text for printf("%s", pn_strerror(st)).  Never NULL. */
+const char *pn_strerror(pn_status st);
+
+// MARK: - Sexagesimal
+
 /* ------------------------------------------------------------------------
  * Babylonian sexagesimal (base-60) values.
  *
@@ -57,20 +73,6 @@ typedef struct pn_sex60 {
     bool    neg;                          /* modern nicety; Old Babylonian texts
                                              carry no sign */
 } pn_sex60;
-
-typedef enum pn_status {
-    pn_ok = 0,
-    pn_err_null,   /* a pointer argument was NULL                   */
-    pn_err_syntax, /* malformed input string                        */
-    pn_err_range,  /* too many places, a place > 59, or the value
-                      does not fit the target type                  */
-    pn_err_domain, /* value not representable in the requested form
-                      (e.g. fractional places converted to integer) */
-    pn_err_buffer, /* caller's buffer too small                     */
-} pn_status;
-
-/* Error text for printf("%s", pn_strerror(st)).  Never NULL. */
-const char *pn_strerror(pn_status st);
 
 /* --- sexagesimal strings (modern scholarly transcription) --------------
  *
@@ -166,6 +168,8 @@ pn_status pn_sex60_to_double(pn_sex60 v, double *out);
  * places). */
 pn_status pn_sex60_from_double(double x, uint8_t frac_places, pn_sex60 *out);
 
+// MARK: - Cuneiform Numbers
+
 /* --- Babylonian cuneiform numerals (UTF-8 rendering) --------------------
  *
  * The two positional signs of the Neo-Babylonian system, per the
@@ -236,6 +240,8 @@ pn_status pn_babylonian_render(pn_sex60 v, char *buf, size_t buflen);
  * than 5 U or 9 DISH signs in a group, or more than
  * PN_SEX60_MAX_PLACES places).  On error *out is untouched. */
 pn_status pn_babylonian_parse(const char *buf, size_t buflen, pn_sex60 *out);
+
+// MARK: - Vigesimal
 
 /* ------------------------------------------------------------------------
  *  Vigesimal — the base-20 core value: places, radix, conversions.
@@ -368,6 +374,8 @@ pn_status pn_vigesimal_from_double(double x, uint8_t frac_places, pn_vigesimal *
  * hobbles + two strokes, largest first, as any scribe would carve it.
  * ---------------------------------------------------------------------- */
 
+// MARK: - Egyptian Numerals
+
 #define PN_EGYPTIAN_STROKE     0x133E4u  /* 𓏤 single stroke   = 1          */
 #define PN_EGYPTIAN_HOBBLE     0x13386u  /* 𓎆 cattle hobble   = 10         */
 #define PN_EGYPTIAN_COIL       0x13362u  /* 𓍢 coil of rope    = 100        */
@@ -416,6 +424,8 @@ pn_status pn_egyptian_render(uint64_t n, char *buf, size_t buflen);
  * of one sign — ten strokes are written as one hobble, so that string
  * is not a canonical number).  On error *out is untouched. */
 pn_status pn_egyptian_parse(const char *buf, size_t buflen, uint64_t *out);
+
+// MARK: - Hanzi Numerals
 
 /* ------------------------------------------------------------------------
 	*  Chinese hanzi numerals (UTF-8 rendering).
@@ -542,6 +552,8 @@ pn_status pn_hanzi_parse(const char *buf, size_t buflen, uint64_t *out);
 	*  written — a zero is a blank, as on the counting board.
 	* ---------------------------------------------------------------------- */
 
+// MARK: - Rod Numerals
+
 #define PN_ROD_UNIT_DIGIT_ONE 0x1D360u /* …through U+1D368 (digit d: +d-1)  */
 #define PN_ROD_TENS_DIGIT_ONE  0x1D369u /* …through U+1D371 (digit d: +d-1) */
 #define PN_ROD_MAX_PLACES 19           /* 10^19 − 1 still fits uint64_t     */
@@ -631,6 +643,8 @@ pn_status pn_rods_parse(const char *buf, size_t buflen, uint64_t *out);
   *    𑁥𑁿𑁚𑁤𑁿𑁚𑁣𑁚 = 9999  (the full set; 𑁚 appears three times, in three
   *                          slots — slots, not sign identity, rule)
   * ---------------------------------------------------------------------- */
+
+// MARK: - Brahmi Numerals
 
 #define PN_BRAHMI_NUMBER_ONE       0x11052u /* 𑁒 …through U+1105A NINE  = 1..9 */
 #define PN_BRAHMI_NUMBER_TEN         0x1105Bu /* 𑁛 …through U+11063 NINETY = 10..90 */
@@ -725,6 +739,8 @@ pn_status pn_brahmi_parse(const char *buf, size_t buflen, uint64_t *out);
  *  https://en.wikipedia.org/wiki/Vigesimal
  * ------------------------------------------------------------------------ */
 
+// MARK: - Mayan Numerals
+
 #define PN_MAYAN_DIGIT_ZERO 0x1D2E0u /* SHELL …through U+1D2F3 (digit d: +d) */
 
 /*  Bytes needed to render v as bar-and-dot Maya numerals, NOT counting
@@ -812,6 +828,8 @@ pn_status pn_mayan_parse(const char *buf, size_t buflen, pn_vigesimal *out);
  *  Locke, The Ancient Quipu or Peruvian Knot Record (1912);
  *  Ascher & Ascher, Mathematics of the Incas: Code of the Quipu (1997).
  * ------------------------------------------------------------------------ */
+
+// MARK: - Quipu Numerals
 
 #define PN_QUIPU_SIMPLE_KNOT     0x2022u   /*   BULLET  UTF-8: E2 80 A2         */
 #define PN_QUIPU_LONG_KNOT       0x221Eu   /* ∞ INFINITY UTF-8: E2 88 9E         */
@@ -936,6 +954,8 @@ pn_status pn_quipu_parse(const char *buf, size_t buflen, uint64_t *out);
  *  https://en.wikipedia.org/wiki/Keraia
  * ------------------------------------------------------------------------ */
 
+// MARK: - Greek Numerals
+
 #define PN_GREEK_MAX_VALUE 999999ull /* two full runs, 999 of 1000 over
                                         999 — written millions needed
                                         fresh marks no standard survived */
@@ -1033,6 +1053,8 @@ pn_status pn_greek_parse(const char *buf, size_t buflen, uint64_t *out);
  *  References: https://en.wikipedia.org/wiki/Roman_numerals
  * ------------------------------------------------------------------------ */
 
+// MARK: - Roman Numerals
+
 #define PN_ROMAN_MAX_VALUE 3999ull /* MMM CM XC IX: three thousands and
                                       the alphabet's full hundreds-tens-
                                       units row — vinculum numbers had no
@@ -1079,6 +1101,8 @@ pn_status pn_roman_parse(const char *buf, size_t buflen, uint64_t *out);
  *  325, 9375, 28178, 450775, 9780504, 1795265022) decide every case
  *  of the ledger before the water clock runs out.
  */
+
+// MARK: - Math
 
 #define PN_MATH_SIEVE_MAX_VALUE         1000000ull
 #define PN_MATH_M_MAX_VALUE             65535ull
@@ -1139,6 +1163,8 @@ pn_status pn_math_factorize(uint64_t n, uint64_t *out, size_t cap,
  *  blank and the unit sit out of the domain: perfect_check(0) is
  *  pn_err_range, while perfect_check(90) answers pn_ok with false. */
 pn_status pn_math_perfect_check(uint64_t n, bool *out);
+
+// MARK: - Pythagoreas
 
 /*  The Plimpton tablet's loom (Elements X.29): from m > n >= 1 with
  *  m <= PN_MATH_M_MAX_VALUE = 65535, the legs are m*m - n*n and
