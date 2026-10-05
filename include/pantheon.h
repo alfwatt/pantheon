@@ -1,14 +1,25 @@
 /*  pantheon.h — libPantheon: on beyond math.h.
- *
- *  Well-documented implementations of functions from the history of
- *  mathematics and science, efficient enough for demanding applications:
- *  no heap allocation, small by-value types, straight-line code.
- *
- *  This revision: Babylonian sexagesimal (base-60) arithmetic and
- *  cuneiform numerals; Egyptian hieroglyphic numerals; Chinese hanzi
-	*  numerals and counting rods; Indian Brahmi numerals.  See README.md
- *  for the roadmap.
- */
+
+    Documented functions from the history of mathematics and science,
+    efficient enough for demanding applications.
+
+    Success costs nothing: no heap allocation, small by-value types,
+    straight-line code.  A failure is the one moment the library
+    allocates: it hangs a pn_error note on the caller's error slot,
+    and the caller frees the note when done reading it.
+
+    Every function that can fail takes a 'pn_error **error' slot as
+    its last argument and returns true on success.  Before calling,
+    the caller sets its own 'pn_error *' variable to NULL.  On
+    success the slot stays NULL and the result lands in the out
+    parameters.  On failure the function returns false, the note
+    lands in the slot, and the out parameters keep their old values.
+
+    This revision: Babylonian sexagesimal (base-60) arithmetic and
+    cuneiform numerals; Egyptian hieroglyphic numerals; Chinese hanzi
+    numerals and counting rods; Indian Brahmi numerals.  See README.md
+    for the roadmap.
+*/
 #ifndef PANTHEON_H
 #define PANTHEON_H
 
@@ -20,18 +31,138 @@
 extern "C" {
 #endif
 
+#if !defined(__clang__) || !__has_feature(nullability)
+#define _Nullable
+#define _Nonnull
+#endif
+
+#if defined(__clang__) || defined(__GNUC__)
+#define PN_FORMAT_STRING(fmt_idx, first_vararg)                                 \
+    __attribute__((format(printf, fmt_idx, first_vararg)))
+#else
+#define PN_FORMAT_STRING(fmt_idx, first_vararg)
+#endif
+
+// MARK: - Errors
+
+/*
+  A failed call leaves behind a note that explains itself.  The note
+  carries three things: a code that names the kind of failure, a
+  message that explains it in a sentence a person can read, and a
+  pointer to the earlier note that caused it, when there was one.
+
+  Callers never build notes by hand.  A function that fails calls
+  pn_error_set (or pn_error_prepend, when an inner failure deserves a
+  second sentence on top), which allocates the note for the caller.
+  A caller reads the note with pn_error_is or pn_error_describe and
+  hands it back with pn_error_free or pn_error_clear.
+*/
+
+/// @enum `pn_error_code`: the five ways a call can fail
+typedef enum pn_error_code {
+    PN_ERROR_NULL,   /* a pointer argument arrived NULL              */
+    PN_ERROR_SYNTAX, /* an input string breaks the writing rules     */
+    PN_ERROR_RANGE,  /* a number is too big for this number system   */
+    PN_ERROR_DOMAIN, /* a number of the wrong kind for this job      */
+    PN_ERROR_BUFFER, /* the caller's buffer is too small             */
+} pn_error_code;
+
+/// @struct `pn_error`: the note a failed call leaves behind
+/// @field code - the error code, one of the `PN_ERROR_` values above
+/// @field message - a human readable sentence describing the error,
+///     may be NULL when the code alone says everything
+/// @field prior - a pointer to a prior error that caused this error,
+///     may be NULL
+typedef struct pn_error {
+    pn_error_code    code;
+    char            *_Nullable message;
+    struct pn_error *_Nullable prior;
+} pn_error;
+
+/// @returns a new, writable `pn_error` with the
+/// @param code provided,
+/// @param message copied into the note (or with no message when the
+///     @param message is NULL), and no prior note.
+/// Aborts when memory runs out: a failure to report a failure has no
+/// second way to speak.  Free the result with pn_error_free.
+pn_error *_Nonnull pn_error_init(pn_error_code code,
+                                 const char *_Nullable message);
+
+/// @returns a new note that reads "this happened, because that
+/// happened": the @param code and @param message provided, with the
+/// @param prior note — whatever caused this failure — chained behind
+/// it.  The new note owns @param prior and frees it together with
+/// itself.  Free the result with pn_error_free.
+pn_error *_Nonnull pn_error_prepend_note(pn_error *_Nullable prior,
+                                         pn_error_code code,
+                                         const char *_Nullable message);
+
+/// Attaches a fresh note to the caller's @param location and tells
+/// the caller the call failed.  The note carries the @param code and
+/// a message built from the @param format string and its arguments,
+/// printf-style.  Passing a NULL @param location is legal: the
+/// message is then simply not kept.  A note already sitting in
+/// @param location is freed first, so only the newest note survives.
+/// @returns false, always, so a failing function can end with
+///     'return pn_error_set(...);'.
+bool pn_error_set(pn_error *_Nullable *_Nullable location,
+                  pn_error_code code,
+                  const char *_Nonnull format,
+                  ...) PN_FORMAT_STRING(3, 4);
+
+/// Moves the @param cause note (built by inner code, typically a
+/// tokenizer naming the exact byte and position) into the caller's
+/// @param location as a new note with the @param code and a message
+/// built from the @param format string and its arguments, printf
+/// style.  The new note owns @param cause and frees it together with
+/// itself.  A note already in @param location is freed first; a NULL
+/// @param location simply drops both sentences.
+/// @returns false, always, so a failing function can end with
+///     'return pn_error_prepend(...);'.
+bool pn_error_prepend(pn_error *_Nullable *_Nullable location,
+                      pn_error *_Nullable cause,
+                      pn_error_code code,
+                      const char *_Nonnull format,
+                      ...) PN_FORMAT_STRING(4, 5);
+
+/// Frees the @param error and every note chained behind it.  Passing
+/// NULL is legal and does nothing.
+void pn_error_free(pn_error *_Nullable error);
+
+/// @returns true when the @param error exists and carries exactly
+/// the @param code, false otherwise — including when @param error is
+/// NULL.  This is how callers ask what went wrong without reading
+/// prose.
+bool pn_error_is(const pn_error *_Nullable error, pn_error_code code);
+
+/// A printable sentence for printf("%s", ...) and for test output.
+/// @returns the @param error's own message when it has one, the
+/// name of the code (like "range") when it has none, and "no error"
+/// when the @param error is NULL.  Never NULL; the sentence stays
+/// alive exactly as long as the @param error does, so read it before
+/// freeing.
+const char *_Nonnull pn_error_describe(const pn_error *_Nullable error);
+
+/// Frees any note sitting in the caller's @param location and
+/// leaves NULL behind.  Passing a NULL @param location is legal and
+/// does nothing.
+void pn_error_clear(pn_error *_Nullable *_Nullable location);
+
+/*  Legacy status codes still used by the numeral modules being
+    converted this revision; each module that adopts pn_error drops
+    its share.  Error text for printf("%s", pn_strerror(st)).  Never
+    NULL.  */
 typedef enum pn_status {
     pn_ok = 0,
-    pn_err_null,   /* a pointer argument was NULL                   */
-    pn_err_syntax, /* malformed input string                        */
-    pn_err_range,  /* too many places, a place > 59, or the value
-                      does not fit the target type                  */
-    pn_err_domain, /* value not representable in the requested form
-                      (e.g. fractional places converted to integer) */
-    pn_err_buffer, /* caller's buffer too small                     */
+    pn_err_null,    /* a pointer argument was NULL                    */
+    pn_err_syntax,  /* malformed input string                         */
+    pn_err_range,   /* too many places, a place > 59, or the value
+                       does not fit the target type                   */
+    pn_err_domain,  /* value not representable in the requested form
+                       (e.g. fractional places converted to integer)  */
+    pn_err_buffer,  /* caller's buffer too small                      */
 } pn_status;
 
-/* Error text for printf("%s", pn_strerror(st)).  Never NULL. */
 const char *pn_strerror(pn_status st);
 
 // MARK: - Sexagesimal
@@ -385,45 +516,53 @@ pn_status pn_vigesimal_from_double(double x, uint8_t frac_places, pn_vigesimal *
 #define PN_EGYPTIAN_HEH        0x13068u  /* 𓁨 Heh god         = 1 000 000  */
 #define PN_EGYPTIAN_MAX_VALUE  9999999ull /* nine of each sign: the scribe's full set */
 
-/* Exact number of bytes (excluding the NUL) pn_egyptian_render will
- * write: four per sign drawn, i.e. 4 * (sum of decimal digits) for
- * n <= PN_EGYPTIAN_MAX_VALUE.  Pure and total — it never fails; for
- * n > PN_EGYPTIAN_MAX_VALUE its answer is simply meaningless, since
- * render rejects such values with pn_err_range.  render_size(0) == 0:
- * the scribe's blank. */
+/// Count the bytes pn_egyptian_render will write for @param n, not
+/// counting the NUL: four per sign drawn, which is 4 times the sum of
+/// the decimal digits for @param n up to PN_EGYPTIAN_MAX_VALUE.  This
+/// answer never fails; past the maximum the number is only
+/// meaningless, because render turns down such values with a
+/// PN_ERROR_RANGE note anyway.  @param n == 0 gives 0: the blank.
 size_t pn_egyptian_render_size(uint64_t n);
 
-/* Render n in hieroglyphic numerals into buf as UTF-8, NUL-terminated:
- * for each decimal digit d at 10^k, d copies of that power's sign, runs
- * written in descending powers (10^6 first) with no separators.  n == 0
- * renders the empty string — the faithful blank.  Needs exactly
- * pn_egyptian_render_size(n) bytes + NUL; a smaller buffer gives
- * pn_err_buffer and leaves buf untouched.
- *
- * Errors: pn_err_null, pn_err_range (n > PN_EGYPTIAN_MAX_VALUE),
- * pn_err_buffer.  On error buf is untouched. */
-pn_status pn_egyptian_render(uint64_t n, char *buf, size_t buflen);
+/// Render @param n in hieroglyphic numerals into @param buf as UTF-8,
+/// ending with a NUL: for each decimal digit d at 10^k, write d copies
+/// of that power's sign, with the runs stepping down in power (10^6
+/// first) and no separators between them.  @param n == 0 renders the
+/// empty string — the faithful blank.  The buffer needs exactly
+/// pn_egyptian_render_size(n) bytes plus the NUL.
+/// @param buf - where the numeral is written; must not be NULL
+/// @param buflen - bytes of room at buf; must exceed the render size
+/// @param error - where to hang the note on failure: PN_ERROR_NULL
+///     when buf is NULL, PN_ERROR_RANGE when n is past the scribe's
+///     full set, PN_ERROR_BUFFER when buflen is too small.  On any
+///     failure buf is left untouched.
+/// @returns true on success, false with a note in @param error.
+bool pn_egyptian_render(uint64_t n, char *_Nonnull buf, size_t buflen,
+                        pn_error *_Nullable *_Nullable error);
 
-/* Parse a rendered hieroglyphic string — the inverse of
- * pn_egyptian_render.  buf holds exactly buflen bytes of UTF-8 made of
- * the seven signs only, grouped in canonical form: one contiguous run
- * per sign, runs strictly descending in power, each run 1..9 copies.
- * The value is the sum of every sign's worth, so the round-trip law is
- * exact:
- *
- *      pn_egyptian_parse(buf, strlen(buf), &n) after a successful
- *      pn_egyptian_render(n, buf, ...) recovers n.
- *
- * An empty buffer (buflen == 0) parses as 0 — the blank reads back as
- * the nothing it was.  Any other byte, a run out of descending order or
- * the same sign written in two runs, is malformed; no sign was ever
- * written bottom-up on a temple wall.
- *
- * Errors: pn_err_null, pn_err_syntax (any other byte, a cut-off sign,
- * ascending or split runs), pn_err_range (a run of ten or more copies
- * of one sign — ten strokes are written as one hobble, so that string
- * is not a canonical number).  On error *out is untouched. */
-pn_status pn_egyptian_parse(const char *buf, size_t buflen, uint64_t *out);
+/// Read back a rendered hieroglyphic string — the exact inverse of
+/// pn_egyptian_render.  @param buf holds @param buflen bytes of UTF-8
+/// built from the seven signs only, in canonical form: one unbroken
+/// run per sign, the runs stepping down in power, each run holding 1
+/// to 9 copies.  The value is the sum of what every sign is worth, so
+/// the round trip is exact:  @param n = 0 (an empty string) reads back
+/// as the nothing it was.  Any byte that is not a sign, a run that
+/// climbs instead of steps down, or one sign split into two runs is
+/// malformed — no sign was ever carved bottom-up on a temple wall.
+/// @param buf - the string to read; NULL is refused with a note
+/// @param buflen - bytes to read at buf
+/// @param out - where the number lands on success; left untouched on
+///     any failure
+/// @param error - where to hang the note on failure: PN_ERROR_NULL
+///     when buf or out is NULL, PN_ERROR_SYNTAX for a foreign byte,
+///     a cut-off sign, or runs out of order, PN_ERROR_RANGE for a run
+///     of ten or more copies of one sign — a scribe would have
+///     carried to the next power, so that string is no canonical
+///     number.
+/// @returns true on success, false with a note in @param error.
+bool pn_egyptian_parse(const char *_Nullable buf, size_t buflen,
+                       uint64_t *_Nullable out,
+                       pn_error *_Nullable *_Nullable error);
 
 // MARK: - Hanzi Numerals
 

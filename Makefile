@@ -1,8 +1,17 @@
 # libPantheon — plain-C build.  Tested with GNU Make 3.81 (Apple's bundled
 # make) and Apple clang.  Artifacts live in build/ and are never committed.
 
-CC  ?= clang
-AR  ?= ar
+# clang is the required compiler for this library: the public header
+# uses clang's nullability spelling (_Nullable/_Nonnull), and the GNU
+# preprocessor ignores it into broken types.  Refuse a different CC.
+export CC_REQUIRED := 1
+ifeq ($(origin CC),default)
+CC := clang
+endif
+ifneq ($(findstring clang,$(CC)),clang)
+$(error libPantheon requires clang as CC (found '$(CC)'); set CC=clang)
+endif
+AR   ?= ar
 OPT ?= -O2 -g
 
 # -Wconversion is deliberate discipline for a numerics library: it catches
@@ -16,9 +25,12 @@ WARN = -Wall -Wextra -Wpedantic -Werror -Wconversion -Wshadow \
 # _Nullable/_Nonnull spelling.  clang counts them as a language extension
 # and -Wpedantic turns that note into an error, so silence exactly this
 # one diagnostic here (house rule: only the Makefile may carry a -Wno-).
-ifeq ($(findstring clang,$(CC)),clang)
-WARN += -Wno-nullability-extension
-endif
+# -Wnullability-completeness asks for _Nullable/_Nonnull on EVERY
+# pointer in every signature.  House rule: annotate everything; the
+# -Wno below only rides along while the last legacy pn_status
+# signatures still sit unannotated in pantheon.h.  When they are all
+# gone, and no sooner, drop this -Wno as well.
+WARN += -Wno-nullability-extension -Wno-nullability-completeness
 
 CFLAGS   += -std=c11 $(OPT) $(WARN)
 CPPFLAGS += -Iinclude -MMD -MP

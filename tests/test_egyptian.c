@@ -58,7 +58,7 @@ static size_t digit_sum_bytes(uint64_t n)
 static void render_ok(uint64_t n, char *buf, size_t buflen)
 {
 	size_t need = pn_egyptian_render_size(n);
-	CHECK_ST(pn_egyptian_render(n, buf, need + 1), pn_ok);
+	CHECK_OK(pn_egyptian_render(n, buf, need + 1, &err_), err_);
 	CHECK(strlen(buf) == need);
 	(void)buflen;
 }
@@ -127,24 +127,24 @@ int main(void)
 	/* render_size(0) == 0 and render(0) is the empty string. */
 	CHECK(pn_egyptian_render_size(0u) == 0);
 	memset(buf, 'x', 4);
-	CHECK_ST(pn_egyptian_render(0u, buf, 1), pn_ok);
+	CHECK_OK(pn_egyptian_render(0u, buf, 1, &err_), err_);
 	CHECK(buf[0] == '\0');
 
 	/* --- errors ------------------------------------------------------------- */
 
 	/* NULL buffer. */
-	CHECK_ST(pn_egyptian_render(1u, NULL, 16), pn_err_null);
+	CHECK_ERROR(pn_egyptian_render(1u, pn_nothing(), 16, &err_), err_, PN_ERROR_NULL);
 
 	/* One past the scribe's full set is range, not silence. */
 	memset(buf, 'x', 8);
-	CHECK_ST(pn_egyptian_render(PN_EGYPTIAN_MAX_VALUE + 1u, buf,
-			sizeof buf), pn_err_range);
+	CHECK_ERROR(pn_egyptian_render(PN_EGYPTIAN_MAX_VALUE + 1u, buf,
+			sizeof buf, &err_), err_, PN_ERROR_RANGE);
 	CHECK(memcmp(buf, "xxxx", 4) == 0);
-	CHECK_ST(pn_egyptian_render(UINT64_MAX, buf, sizeof buf), pn_err_range);
+	CHECK_ERROR(pn_egyptian_render(UINT64_MAX, buf, sizeof buf, &err_), err_, PN_ERROR_RANGE);
 
 	/* Buffer one byte short of need + NUL fails and leaves buf alone. */
 	memset(buf, 'x', 8);
-	CHECK_ST(pn_egyptian_render(1u, buf, 4), pn_err_buffer);
+	CHECK_ERROR(pn_egyptian_render(1u, buf, 4, &err_), err_, PN_ERROR_BUFFER);
 	CHECK(memcmp(buf, "xxxx", 4) == 0);
 
 	/* --- parsing -------------------------------------------------------------
@@ -155,13 +155,13 @@ int main(void)
 	for (uint64_t n = 0; n <= PN_EGYPTIAN_MAX_VALUE; n++) {
 		char rendered[7 * 9 * 4 + 1];
 		size_t need = pn_egyptian_render_size(n);
-		CHECK_ST(pn_egyptian_render(n, rendered, need + 1), pn_ok);
+		CHECK_OK(pn_egyptian_render(n, rendered, need + 1, &err_), err_);
 		CHECK(strlen(rendered) == digit_sum_bytes(n));
 		uint64_t back = UINT64_MAX;
-		CHECK_ST(pn_egyptian_parse(rendered, strlen(rendered), &back), pn_ok);
+		CHECK_OK(pn_egyptian_parse(rendered, strlen(rendered), &back, &err_), err_);
 		CHECK(back == n);
 		back = UINT64_MAX;
-		CHECK_ST(pn_egyptian_parse(rendered, need, &back), pn_ok);
+		CHECK_OK(pn_egyptian_parse(rendered, need, &back, &err_), err_);
 		CHECK(back == n);
 		if (pn_fails)
 			break;   /* the first failure names n; no need to drown in 10^7 */
@@ -174,12 +174,12 @@ int main(void)
 			COIL COIL COIL COIL COIL COIL
 			HOBBLE HOBBLE
 			STROKE STROKE;
-	CHECK_ST(pn_egyptian_parse(karnak, strlen(karnak), &read), pn_ok);
+	CHECK_OK(pn_egyptian_parse(karnak, strlen(karnak), &read, &err_), err_);
 	CHECK(read == 4622u);
 
 	/* The blank reads back as the nothing it was. */
 	read = UINT64_MAX;
-	CHECK_ST(pn_egyptian_parse("", 0, &read), pn_ok);
+	CHECK_OK(pn_egyptian_parse("", 0, &read, &err_), err_);
 	CHECK(read == 0u);
 
 	/* Errors: the strict canonical form.  (Each leaves *out untouched —
@@ -197,37 +197,36 @@ int main(void)
 	};
 	for (size_t i = 0; i < sizeof bad_strings / sizeof bad_strings[0]; i++) {
 		read = 4622u;                         /* sentinel */
-		CHECK_ST(pn_egyptian_parse(bad_strings[i], strlen(bad_strings[i]),
-				&read), pn_err_syntax);
+		CHECK_ERROR(pn_egyptian_parse(bad_strings[i], strlen(bad_strings[i]),
+				&read, &err_), err_, PN_ERROR_SYNTAX);
 		CHECK(read == 4622u);                 /* untouched */
 		}
 
 	/* Ten strokes overflow one run: that is arithmetic, not grammar —
 	 * ten strokes are a hobble, scribe. */
 	read = 4622u;
-	CHECK_ST(pn_egyptian_parse(TEN_STROKES, sizeof(TEN_STROKES) - 1, &read),
-			pn_err_range);
+	CHECK_ERROR(pn_egyptian_parse(TEN_STROKES, sizeof(TEN_STROKES) - 1, &read, &err_), err_, PN_ERROR_RANGE);
 	CHECK(read == 4622u);
 
 	/* A run of nine is legal; the tenth copy is what fails. */
 	read = 0u;
-	CHECK_ST(pn_egyptian_parse(STROKE STROKE STROKE STROKE STROKE
+	CHECK_OK(pn_egyptian_parse(STROKE STROKE STROKE STROKE STROKE
 			STROKE STROKE STROKE, sizeof(STROKE STROKE STROKE STROKE STROKE
-			STROKE STROKE STROKE) - 1, &read), pn_ok);
+			STROKE STROKE STROKE) - 1, &read, &err_), err_);
 	CHECK(read == 8u);
 
 	/* Nulls. */
-	CHECK_ST(pn_egyptian_parse(NULL, 4, &read), pn_err_null);
-	CHECK_ST(pn_egyptian_parse(STROKE, 4, NULL), pn_err_null);
+	CHECK_ERROR(pn_egyptian_parse(pn_nothing(), 4, &read, &err_), err_, PN_ERROR_NULL);
+	CHECK_ERROR(pn_egyptian_parse(STROKE, 4, pn_nothing(), &err_), err_, PN_ERROR_NULL);
 
 	/* A cut-off sign (3 of the stroke's 4 bytes) is not a sign. */
 	read = 4622u;
-	CHECK_ST(pn_egyptian_parse(STROKE, 3, &read), pn_err_syntax);
+	CHECK_ERROR(pn_egyptian_parse(STROKE, 3, &read, &err_), err_, PN_ERROR_SYNTAX);
 	CHECK(read == 4622u);
 
 	/* A sign glued after a cut-off run: the tail byte is foreign. */
 	read = 4622u;
-	CHECK_ST(pn_egyptian_parse(STROKE "\x41", 5, &read), pn_err_syntax);
+	CHECK_ERROR(pn_egyptian_parse(STROKE "\x41", 5, &read, &err_), err_, PN_ERROR_SYNTAX);
 	CHECK(read == 4622u);
 
 	return CHECK_RUN();
