@@ -853,6 +853,109 @@ pn_status pn_quipu_render(uint64_t n, char *buf, size_t buflen);
  *  untouched. */
 pn_status pn_quipu_parse(const char *buf, size_t buflen, uint64_t *out);
 
+/* ------------------------------------------------------------------------
+ *  Greek alphabetic numerals — the Milesian (Ionic) system, in UTF-8.
+ *
+ *  No place values, no zero: the market and the chancery took the
+ *  alphabet itself as the digit set — the first three letters of each
+ *  row are its unit: α (1), ι (10), ρ (100) — and filled the gaps with
+ *  three letters the classical alphabet had lost but the numerals
+ *  kept: ϛ stigma (6), ϟ koppa (90), ϡ sampi (900).  Above 999 the
+ *  thousands get their own run of the same signs, announced by the
+ *  low keraia ͵ (U+0375) in front of them, and the whole number wears
+ *  the trailing keraia ʹ (U+0374) behind it — the horn-mark of the
+ *  stenographers, a keraia being to Greek numerals what the decimal
+ *  point is to ours: the reader's proof that a number is being read.
+ *  So every nonempty rendering carries exactly one ʹ at the end, and
+ *  the parser demands it where the culture did.
+ *
+ *  A spelling is one descending SCALE RUN — at most one sign from the
+ *  hundreds row ρ σ τ υ φ χ ψ ω ϡ, then the tens row ι κ λ μ ν ξ ο π
+ *  ϟ, then the units row α β γ δ ε ϛ ζ η θ — nothing backward, no
+ *  sign twice: 999 is never ροο and 150 is never νρ, for exactly the
+ *  reason no scribe stacked nine 𓏥 coils.  Two runs share the cord
+ *  under one low keraia — thousands first, then units, each run
+ *  descending — and the split is unique, for a run that could stretch
+ *  further in order could not legally leave one behind: 2019 splits
+ *  β | ιθ (β is 2 thousands, ιθ is 19 units), and 200,000 is ͵σʹ alone
+ *  (σ is 200 of thousands; χρ would be two hundreds-row signs, no
+ *  run).  The article's table, worked through this transcription:
+ *
+ *   αʹ           ->  1
+ *   ιθʹ          ->  19
+ *   σνϛʹ         ->  256
+ *   χϛʹ          ->  606
+ *   ϡϟθʹ         ->  999
+ *   ͵αʹ          ->  1000
+ *   ͵βιθʹ        ->  2019
+ *   ͵ϡϟθϡϟθʹ     ->  999999
+ *
+ *  (999999 = 999 thousands over 999 units; two runs under one low
+ *  keraia — the culture wrote no millions in these signs.)
+ *
+ *  The majuscule of printed editions (͵ΒΙΘʹ for 2019) is typography,
+ *  not notation: this module renders and parses lowercase only, and
+ *  capitals are pn_err_syntax, like every foreign letter — Roman I V
+ *  X among them (the Roman numerals have their own block U+2160.. and
+ *  their own module).
+ *
+ *  One trap before normalising these cords: the trailing keraia
+ *  U+0374 is NFC-UNSTABLE — NFD unfolds it to U+02B9 MODIFIER LETTER
+ *  PRIME and NFC never brings it back.  The module writes the
+ *  canonical CD B4 bytes and accepts nothing else: the prime, the
+ *  tonos ΄ U+0384 and the dakia are near-miss impostors —
+ *  pn_err_syntax, like the Mayan dot on a quipu cord.
+ *
+ *  6/90/900 take the archaic ϛ ϟ ϡ (U+03DB, U+03DF, U+03E1, Coptic
+ *  block, NFC-stable); 200 takes plain σ U+03C3 — the lunate ϲ of
+ *  Byzantine hands and the final ς of living Greek are BOTH refused,
+ *  the final sigma being a sandhi rule of the language, not a numeral
+ *  sign.
+ *
+ *  Zero had no glyph (the culture counted what was there); like the
+ *  Egyptian scribe's blank, the rods' empty column and the unstrung
+ *  quipu cord, n == 0 renders the empty string and buflen == 0 reads
+ *  back as 0 — this section follows the uint64-direct rule book.
+ *
+ *  References: https://en.wikipedia.org/wiki/Greek_numerals ,
+ *  https://en.wikipedia.org/wiki/Keraia
+ * ------------------------------------------------------------------------ */
+
+#define PN_GREEK_MAX_VALUE 999999ull /* the full low-keraia cord: 999 of
+                                        1000 over 999 — written millions
+                                        needed fresh marks that no
+                                        standard survived */
+
+/*  Exact number of bytes (excluding the NUL) pn_greek_render will
+ *  write: TWO per sign — every sign here is a 2-byte BMP code point
+ *  (Greek-and-Coptic rows), both keraia included.  n == 0 renders the
+ *  empty cord. */
+size_t pn_greek_render_size(uint64_t n);
+
+/*  Render n (0 .. PN_GREEK_MAX_VALUE) as a Milesian numeral: the low
+ *  keraia ͵ then the thousands run when n >= 1000, then the units
+ *  run, then the trailing keraia ʹ — every row descending, no sign
+ *  twice, NUL-terminated.  Needs pn_greek_render_size(n) + 1 bytes.
+ *  Errors: pn_err_null, pn_err_range (n > PN_GREEK_MAX_VALUE),
+ *  pn_err_buffer.  On error buf is untouched. */
+pn_status pn_greek_render(uint64_t n, char *buf, size_t buflen);
+
+/*  Parse a rendered numeral — the exact inverse.  Strict canonical
+ *  form: the cord ends in the trailing keraia (its canonical CD B4
+ *  bytes; the NFC twin U+02B9 is a foreign byte), at most one low
+ *  keraia leads it, and the signs between split into descending scale
+ *  runs — hundreds-row signs first, then tens-row, then units-row,
+ *  never backward, never the same sign twice.  A doubled sign, a
+ *  backward pair (ι before β with no row change), more than one
+ *  run-pair switch, capitals, the lunate ϲ, the final ς, the digamma
+ *  ϝ, the tonos, a stray letter, or any cut-off 2-byte sequence is
+ *  pn_err_syntax.  A low keraia with no thousands run under it (the
+ *  sign alone before the units) and a lone trailing keraia are no
+ *  number: pn_err_syntax.  No legal cord exceeds PN_GREEK_MAX_VALUE,
+ *  so overflow needs no table; like the other blanks it honors,
+ *  buflen == 0 parses as 0.  On error *out is untouched. */
+pn_status pn_greek_parse(const char *buf, size_t buflen, uint64_t *out);
+
 #ifdef __cplusplus
 }
 #endif
