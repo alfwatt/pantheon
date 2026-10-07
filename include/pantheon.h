@@ -37,7 +37,7 @@ extern "C" {
 #endif
 
 #if defined(__clang__) || defined(__GNUC__)
-#define PN_FORMAT_STRING(fmt_idx, first_vararg)                                 \
+#define PN_FORMAT_STRING(fmt_idx, first_vararg) \
     __attribute__((format(printf, fmt_idx, first_vararg)))
 #else
 #define PN_FORMAT_STRING(fmt_idx, first_vararg)
@@ -46,94 +46,48 @@ extern "C" {
 // MARK: - Errors
 
 /*
-  A failed call leaves behind a note that explains itself.  The note
-  carries three things: a code that names the kind of failure, a
-  message that explains it in a sentence a person can read, and a
-  pointer to the earlier note that caused it, when there was one.
+  A failed call leaves behind an error report that explains itself.
+  The report carries three things: a code that names the kind of failure,
+  a message that explains it in a sentence a person can read.
 
-  Callers never build notes by hand.  A function that fails calls
-  pn_error_set (or pn_error_prepend, when an inner failure deserves a
-  second sentence on top), which allocates the note for the caller.
-  A caller reads the note with pn_error_is or pn_error_describe and
-  hands it back with pn_error_free or pn_error_clear.
+  A caller reads the report with pn_error_describe and hands it
+  back with pn_error_free.
 */
 
 /// @enum `pn_error_code`: the five ways a call can fail
 typedef enum pn_error_code {
-    PN_ERROR_NULL,   /* a pointer argument arrived NULL              */
-    PN_ERROR_SYNTAX, /* an input string breaks the writing rules     */
-    PN_ERROR_RANGE,  /* a number is too big for this number system   */
-    PN_ERROR_DOMAIN, /* a number of the wrong kind for this job      */
-    PN_ERROR_BUFFER, /* the caller's buffer is too small             */
+    PN_ERROR_NULL,   /* a pointer argument arrived NULL               */
+    PN_ERROR_SYNTAX, /* an input string breaks the writing rules      */
+    PN_ERROR_RANGE,  /* a number is too big for this number system    */
+    PN_ERROR_DOMAIN, /* a number of the wrong kind for this job       */
+    PN_ERROR_BUFFER, /* the caller's buffer is too small              */
 } pn_error_code;
 
-/// @struct `pn_error`: the note a failed call leaves behind
+/// @struct `pn_error`: the report a failed call leaves behind
 /// @field code - the error code, one of the `PN_ERROR_` values above
 /// @field message - a human readable sentence describing the error,
 ///     may be NULL when the code alone says everything
 /// @field prior - a pointer to a prior error that caused this error,
 ///     may be NULL
 typedef struct pn_error {
-    pn_error_code    code;
-    char            *_Nullable message;
-    struct pn_error *_Nullable prior;
+    pn_error_code code;
+    char* _Nullable message;
+    struct pn_error* _Nullable prior;
 } pn_error;
 
-/// @returns a new, writable `pn_error` with the
-/// @param code provided,
-/// @param message copied into the note (or with no message when the
-///     @param message is NULL), and no prior note.
-/// Aborts when memory runs out: a failure to report a failure has no
-/// second way to speak.  Free the result with pn_error_free.
-pn_error *_Nonnull pn_error_init(pn_error_code code,
-                                 const char *_Nullable message);
-
-/// @returns a new note that reads "this happened, because that
-/// happened": the @param code and @param message provided, with the
-/// @param prior note — whatever caused this failure — chained behind
-/// it.  The new note owns @param prior and frees it together with
-/// itself.  Free the result with pn_error_free.
-pn_error *_Nonnull pn_error_prepend_note(pn_error *_Nullable prior,
-                                         pn_error_code code,
-                                         const char *_Nullable message);
-
-/// Attaches a fresh note to the caller's @param location and tells
-/// the caller the call failed.  The note carries the @param code and
+/// Attaches a fresh report to the caller's @param location and tells
+/// the caller the call failed.  The report carries the @param code and
 /// a message built from the @param format string and its arguments,
 /// printf-style.  Passing a NULL @param location is legal: the
-/// message is then simply not kept.  A note already sitting in
-/// @param location is freed first, so only the newest note survives.
+/// message is then simply not kept.  A report already sitting in
+/// @param location is freed first, so only the newest report survives.
 /// @returns false, always, so a failing function can end with
 ///     'return pn_error_set(...);'.
-bool pn_error_set(pn_error *_Nullable *_Nullable location,
-                  pn_error_code code,
-                  const char *_Nonnull format,
-                  ...) PN_FORMAT_STRING(3, 4);
+bool pn_error_set(pn_error_code code, const char* _Nonnull format, ...) PN_FORMAT_STRING(3, 4);
 
-/// Moves the @param cause note (built by inner code, typically a
-/// tokenizer naming the exact byte and position) into the caller's
-/// @param location as a new note with the @param code and a message
-/// built from the @param format string and its arguments, printf
-/// style.  The new note owns @param cause and frees it together with
-/// itself.  A note already in @param location is freed first; a NULL
-/// @param location simply drops both sentences.
-/// @returns false, always, so a failing function can end with
-///     'return pn_error_prepend(...);'.
-bool pn_error_prepend(pn_error *_Nullable *_Nullable location,
-                      pn_error *_Nullable cause,
-                      pn_error_code code,
-                      const char *_Nonnull format,
-                      ...) PN_FORMAT_STRING(4, 5);
-
-/// Frees the @param error and every note chained behind it.  Passing
+/// Frees the @param error and every report chained behind it.  Passing
 /// NULL is legal and does nothing.
-void pn_error_free(pn_error *_Nullable error);
-
-/// @returns true when the @param error exists and carries exactly
-/// the @param code, false otherwise — including when @param error is
-/// NULL.  This is how callers ask what went wrong without reading
-/// prose.
-bool pn_error_is(const pn_error *_Nullable error, pn_error_code code);
+void pn_error_free(pn_error* _Nullable error);
 
 /// A printable sentence for printf("%s", ...) and for test output.
 /// @returns the @param error's own message when it has one, the
@@ -141,12 +95,7 @@ bool pn_error_is(const pn_error *_Nullable error, pn_error_code code);
 /// when the @param error is NULL.  Never NULL; the sentence stays
 /// alive exactly as long as the @param error does, so read it before
 /// freeing.
-const char *_Nonnull pn_error_describe(const pn_error *_Nullable error);
-
-/// Frees any note sitting in the caller's @param location and
-/// leaves NULL behind.  Passing a NULL @param location is legal and
-/// does nothing.
-void pn_error_clear(pn_error *_Nullable *_Nullable location);
+const char* _Nonnull pn_error_describe(const pn_error* _Nullable error);
 
 // MARK: - Sexagesimal
 
@@ -170,15 +119,15 @@ void pn_error_clear(pn_error *_Nullable *_Nullable location);
    beyond the exact range of a double.
 */
 
-#define PN_SEX60_MAX_PLACES 16  /* 60^16 ~ 2.8e28: plenty; keeps the struct tiny */
+#define PN_SEX60_MAX_PLACES 16 /* 60^16 ~ 2.8e28: plenty; keeps the struct tiny */
 
 typedef struct pn_sex60 {
     uint8_t places[PN_SEX60_MAX_PLACES]; /* each 0..59, most significant first */
-    uint8_t n_places;                     /* number of significant places, 1..16 */
-    uint8_t radix;                        /* places left of the radix point
+    uint8_t n_places;                    /* number of significant places, 1..16 */
+    uint8_t radix;                       /* places left of the radix point
                                              (a modern addition - the Babylonians
                                              wrote none); 0 means purely fractional */
-    bool    neg;                          /* modern nicety; Old Babylonian texts
+    bool neg;                            /* modern nicety; Old Babylonian texts
                                              carry no sign */
 } pn_sex60;
 
@@ -203,17 +152,15 @@ typedef struct pn_sex60 {
 /// 3599 — it reads as the places 35 and 99, and 99 is above 59, so it
 /// is refused.  Bring ordinary whole numbers in through
 /// pn_sex60_from_u64 instead.
-/// @param text - the transcription to read
-/// @param out - where the value lands on success; untouched on any
-///     failure
-/// @param error - where to hang the note on failure: PN_ERROR_NULL
-///     when text or out is NULL, PN_ERROR_SYNTAX when the grammar is
-///     broken, PN_ERROR_RANGE when a place tops 59, a place wears
-///     more than 2 digits, or the value grows past
-///     PN_SEX60_MAX_PLACES places.
-/// @returns true on success, false with a note in @param error.
-bool pn_sex60_parse(const char *text, pn_sex60 *_Nullable out,
-                    pn_error *_Nullable *_Nullable error);
+///
+/// @returns a pn_sex60 number parsed from the
+/// @param text provided, or null and the
+/// @param error encountered:
+///     PN_ERROR_NULL when text or out is NULL,
+///     PN_ERROR_SYNTAX when the grammar is broken,
+///     PN_ERROR_RANGE when a place tops 59, a place wears more than 2 digits,
+///     or the value grows past PN_SEX60_MAX_PLACES places.
+pn_sex60 pn_sex60_parse(const char* text, pn_error* _Nullable* _Nullable error);
 
 /// Write the value back out as a transcription.  @param sep must be
 /// ',' ':' or ';'.  Places are written with two digits — only the
@@ -241,8 +188,8 @@ bool pn_sex60_parse(const char *text, pn_sex60 *_Nullable out,
 ///     failure buf is left untouched.
 /// @returns true on success, false with a note in @param error.
 #define PN_SEX60_FORMAT_MAX_LEN (1 + 3 * PN_SEX60_MAX_PLACES + 1) /* '-' + places+seps + NUL */
-bool pn_sex60_format(pn_sex60 v, char sep, char *_Nonnull buf,
-                     size_t buflen, pn_error *_Nullable *_Nullable error);
+bool pn_sex60_format(pn_sex60 v, char sep, char* _Nonnull buf, size_t buflen,
+                     pn_error* _Nullable* _Nullable error);
 
 /// Turn an ordinary unsigned integer into sexagesimal places by
 /// dividing by 60 again and again:
@@ -257,8 +204,7 @@ bool pn_sex60_format(pn_sex60 v, char sep, char *_Nonnull buf,
 ///     more than PN_SEX60_MAX_PLACES places (in practice unreachable:
 ///     2^64 needs only 11 places).
 /// @returns true on success, false with a note in @param error.
-bool pn_sex60_from_u64(uint64_t n, pn_sex60 *_Nullable out,
-                       pn_error *_Nullable *_Nullable error);
+bool pn_sex60_from_u64(uint64_t n, pn_sex60* _Nullable out, pn_error* _Nullable* _Nullable error);
 
 /// Turn a sexagesimal whole number back into an ordinary unsigned
 /// integer with Horner's scheme (acc = acc*60 + place).  The value
@@ -271,8 +217,7 @@ bool pn_sex60_from_u64(uint64_t n, pn_sex60 *_Nullable out,
 ///     malformed too), PN_ERROR_RANGE when the value does not fit a
 ///     uint64_t.
 /// @returns true on success, false with a note in @param error.
-bool pn_sex60_to_u64(pn_sex60 v, uint64_t *_Nullable out,
-                     pn_error *_Nullable *_Nullable error);
+bool pn_sex60_to_u64(pn_sex60 v, uint64_t* _Nullable out, pn_error* _Nullable* _Nullable error);
 
 /// Turn a sexagesimal value into a double.  The fold runs
 /// right-to-left, val = (val + place) / 60, so whole values stay
@@ -287,8 +232,7 @@ bool pn_sex60_to_u64(pn_sex60 v, uint64_t *_Nullable out,
 /// @param error - where to hang the note on failure: PN_ERROR_NULL
 ///     when out is NULL, PN_ERROR_DOMAIN when v is malformed.
 /// @returns true on success, false with a note in @param error.
-bool pn_sex60_to_double(pn_sex60 v, double *_Nullable out,
-                        pn_error *_Nullable *_Nullable error);
+bool pn_sex60_to_double(pn_sex60 v, double* _Nullable out, pn_error* _Nullable* _Nullable error);
 
 /// Turn a double into sexagesimal places with exactly
 /// @param frac_places fractional places (0 to PN_SEX60_MAX_PLACES),
@@ -312,9 +256,8 @@ bool pn_sex60_to_double(pn_sex60 v, double *_Nullable out,
 ///     part or the rounded result needs more than
 ///     PN_SEX60_MAX_PLACES places.
 /// @returns true on success, false with a note in @param error.
-bool pn_sex60_from_double(double x, uint8_t frac_places,
-                          pn_sex60 *_Nullable out,
-                          pn_error *_Nullable *_Nullable error);
+bool pn_sex60_from_double(double x, uint8_t frac_places, pn_sex60* _Nullable out,
+                          pn_error* _Nullable* _Nullable error);
 
 // MARK: - Cuneiform Numbers
 
@@ -361,8 +304,8 @@ size_t pn_babylonian_render_size(pn_sex60 v);
 ///     pn_babylonian_render_size(v).  On any failure buf is left
 ///     untouched.
 /// @returns true on success, false with a note in @param error.
-bool pn_babylonian_render(pn_sex60 v, char *_Nonnull buf, size_t buflen,
-                          pn_error *_Nullable *_Nullable error);
+bool pn_babylonian_render(pn_sex60 v, char* _Nonnull buf, size_t buflen,
+                          pn_error* _Nullable* _Nullable error);
 
 // Parse a rendered cuneiform string - the inverse of
 // pn_babylonian_render.  @param buf holds exactly @param buflen bytes
@@ -394,9 +337,8 @@ bool pn_babylonian_render(pn_sex60 v, char *_Nonnull buf, size_t buflen,
 ///     than 5 U or 9 DISH signs, or for a value past
 ///     PN_SEX60_MAX_PLACES places.
 /// @returns true on success, false with a note in @param error.
-bool pn_babylonian_parse(const char *_Nullable buf, size_t buflen,
-                         pn_sex60 *_Nullable out,
-                         pn_error *_Nullable *_Nullable error);
+bool pn_babylonian_parse(const char* _Nullable buf, size_t buflen, pn_sex60* _Nullable out,
+                         pn_error* _Nullable* _Nullable error);
 
 // MARK: - Vigesimal
 
@@ -417,15 +359,15 @@ bool pn_babylonian_parse(const char *_Nullable buf, size_t buflen,
    than sexagesimal's 60^8, because base twenty is half a square.
 */
 
-#define PN_VIGESIMAL_MAX_PLACES 16    /* 20^16 ~ 6.6e20: plenty; keeps the struct tiny */
+#define PN_VIGESIMAL_MAX_PLACES 16 /* 20^16 ~ 6.6e20: plenty; keeps the struct tiny */
 
 typedef struct pn_vigesimal {
-	uint8_t places[PN_VIGESIMAL_MAX_PLACES]; /* each 0..19, most significant first */
-	uint8_t n_places;                     /* number of significant places, 1..16 */
-	uint8_t radix;                        /* places left of the radix point
+    uint8_t places[PN_VIGESIMAL_MAX_PLACES]; /* each 0..19, most significant first */
+    uint8_t n_places;                        /* number of significant places, 1..16 */
+    uint8_t radix;                           /* places left of the radix point
 	                                         (a modern addition - the Maya
 	                                         wrote none); 0 means purely fractional */
-	bool    neg;                          /* modern nicety; the codices
+    bool neg;                                /* modern nicety; the codices
 	                                         carry no sign */
 } pn_vigesimal;
 
@@ -453,10 +395,11 @@ typedef struct pn_vigesimal {
 ///     more than 2 digits, or the value grows past
 ///     PN_VIGESIMAL_MAX_PLACES places.
 /// @returns true on success, false with a note in @param error.
-bool pn_vigesimal_parse(const char *text, pn_vigesimal *_Nullable out,
-                        pn_error *_Nullable *_Nullable error);
+bool pn_vigesimal_parse(const char* text, pn_vigesimal* _Nullable out,
+                        pn_error* _Nullable* _Nullable error);
 
-#define PN_VIGESIMAL_FORMAT_MAX_LEN (1 + 3 * PN_VIGESIMAL_MAX_PLACES + 1) /* '-' + places+seps + NUL */
+#define PN_VIGESIMAL_FORMAT_MAX_LEN \
+    (1 + 3 * PN_VIGESIMAL_MAX_PLACES + 1) /* '-' + places+seps + NUL */
 
 /// Write @param v out as a transcription joined with @param sep
 /// (',' or ':'; the radix boundary itself writes ';' whenever the
@@ -473,8 +416,8 @@ bool pn_vigesimal_parse(const char *text, pn_vigesimal *_Nullable out,
 ///     n_places), PN_ERROR_BUFFER when buflen is too small.  On any
 ///     failure buf is left untouched.
 /// @returns true on success, false with a note in @param error.
-bool pn_vigesimal_format(pn_vigesimal v, char sep, char *_Nonnull buf,
-                         size_t buflen, pn_error *_Nullable *_Nullable error);
+bool pn_vigesimal_format(pn_vigesimal v, char sep, char* _Nonnull buf, size_t buflen,
+                         pn_error* _Nullable* _Nullable error);
 
 /// Turn an ordinary unsigned integer into vigesimal places exactly
 /// how the sexagesimal from_u64 does it, rebased: peel 20s off the
@@ -487,8 +430,8 @@ bool pn_vigesimal_format(pn_vigesimal v, char sep, char *_Nonnull buf,
 ///     more than PN_VIGESIMAL_MAX_PLACES places (in practice
 ///     unreachable: UINT64_MAX takes 15 places).
 /// @returns true on success, false with a note in @param error.
-bool pn_vigesimal_from_u64(uint64_t n, pn_vigesimal *_Nullable out,
-                           pn_error *_Nullable *_Nullable error);
+bool pn_vigesimal_from_u64(uint64_t n, pn_vigesimal* _Nullable out,
+                           pn_error* _Nullable* _Nullable error);
 
 /// Build a vigesimal whole number back up with Horner's scheme.
 /// @param v - the value to convert; well-formed and whole
@@ -499,8 +442,8 @@ bool pn_vigesimal_from_u64(uint64_t n, pn_vigesimal *_Nullable out,
 ///     PN_ERROR_RANGE when the value does not fit a uint64_t
 ///     (16 places maxed out = 20^16 - 1 would not).
 /// @returns true on success, false with a note in @param error.
-bool pn_vigesimal_to_u64(pn_vigesimal v, uint64_t *_Nullable out,
-                         pn_error *_Nullable *_Nullable error);
+bool pn_vigesimal_to_u64(pn_vigesimal v, uint64_t* _Nullable out,
+                         pn_error* _Nullable* _Nullable error);
 
 /// Turn a vigesimal value into a double: the whole part runs through
 /// Horner's scheme in exact uint64_t arithmetic while it fits, then
@@ -513,8 +456,8 @@ bool pn_vigesimal_to_u64(pn_vigesimal v, uint64_t *_Nullable out,
 /// @param error - where to hang the note on failure: PN_ERROR_NULL
 ///     when out is NULL, PN_ERROR_DOMAIN when v is malformed.
 /// @returns true on success, false with a note in @param error.
-bool pn_vigesimal_to_double(pn_vigesimal v, double *_Nullable out,
-                            pn_error *_Nullable *_Nullable error);
+bool pn_vigesimal_to_double(pn_vigesimal v, double* _Nullable out,
+                            pn_error* _Nullable* _Nullable error);
 
 /// Turn a double into vigesimal places, rounding half away from zero
 /// at the @param frac_places-th place (each place 0..19), just like
@@ -529,9 +472,8 @@ bool pn_vigesimal_to_double(pn_vigesimal v, double *_Nullable out,
 ///     frac_places past PN_VIGESIMAL_MAX_PLACES, PN_ERROR_RANGE when
 ///     the carries grow the value past 16 places.
 /// @returns true on success, false with a note in @param error.
-bool pn_vigesimal_from_double(double x, uint8_t frac_places,
-                              pn_vigesimal *_Nullable out,
-                              pn_error *_Nullable *_Nullable error);
+bool pn_vigesimal_from_double(double x, uint8_t frac_places, pn_vigesimal* _Nullable out,
+                              pn_error* _Nullable* _Nullable error);
 
 /*  Egyptian hieroglyphic numerals (UTF-8 rendering).
    The Egyptian system (c. 3000 BCE onward) was decimal but ADDITIVE: a
@@ -565,14 +507,14 @@ bool pn_vigesimal_from_double(double x, uint8_t frac_places,
 
 // MARK: - Egyptian Numerals
 
-#define PN_EGYPTIAN_STROKE     0x133E4u  /* 𓏤 single stroke   = 1          */
-#define PN_EGYPTIAN_HOBBLE     0x13386u  /* 𓎆 cattle hobble   = 10         */
-#define PN_EGYPTIAN_COIL       0x13362u  /* 𓍢 coil of rope    = 100        */
-#define PN_EGYPTIAN_LOTUS      0x131BCu  /* 𓆼 lotus           = 1 000      */
-#define PN_EGYPTIAN_FINGER     0x130ADu  /* 𓂭 bent finger     = 10 000     */
-#define PN_EGYPTIAN_TADPOLE    0x13190u  /* 𓆐 tadpole         = 100 000    */
-#define PN_EGYPTIAN_HEH        0x13068u  /* 𓁨 Heh god         = 1 000 000  */
-#define PN_EGYPTIAN_MAX_VALUE  9999999ull /* nine of each sign: the scribe's full set */
+#define PN_EGYPTIAN_STROKE    0x133E4u   /* 𓏤 single stroke   = 1          */
+#define PN_EGYPTIAN_HOBBLE    0x13386u   /* 𓎆 cattle hobble   = 10         */
+#define PN_EGYPTIAN_COIL      0x13362u   /* 𓍢 coil of rope    = 100        */
+#define PN_EGYPTIAN_LOTUS     0x131BCu   /* 𓆼 lotus           = 1 000      */
+#define PN_EGYPTIAN_FINGER    0x130ADu   /* 𓂭 bent finger     = 10 000     */
+#define PN_EGYPTIAN_TADPOLE   0x13190u   /* 𓆐 tadpole         = 100 000    */
+#define PN_EGYPTIAN_HEH       0x13068u   /* 𓁨 Heh god         = 1 000 000  */
+#define PN_EGYPTIAN_MAX_VALUE 9999999ull /* nine of each sign: the scribe's full set */
 
 /// Count the bytes pn_egyptian_render will write for @param n, not
 /// counting the NUL: four per sign drawn, which is 4 times the sum of
@@ -595,8 +537,8 @@ size_t pn_egyptian_render_size(uint64_t n);
 ///     full set, PN_ERROR_BUFFER when buflen is too small.  On any
 ///     failure buf is left untouched.
 /// @returns true on success, false with a note in @param error.
-bool pn_egyptian_render(uint64_t n, char *_Nonnull buf, size_t buflen,
-                        pn_error *_Nullable *_Nullable error);
+bool pn_egyptian_render(uint64_t n, char* _Nonnull buf, size_t buflen,
+                        pn_error* _Nullable* _Nullable error);
 
 /// Read back a rendered hieroglyphic string — the exact inverse of
 /// pn_egyptian_render.  @param buf holds @param buflen bytes of UTF-8
@@ -618,9 +560,8 @@ bool pn_egyptian_render(uint64_t n, char *_Nonnull buf, size_t buflen,
 ///     carried to the next power, so that string is no canonical
 ///     number.
 /// @returns true on success, false with a note in @param error.
-bool pn_egyptian_parse(const char *_Nullable buf, size_t buflen,
-                       uint64_t *_Nullable out,
-                       pn_error *_Nullable *_Nullable error);
+bool pn_egyptian_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullable out,
+                       pn_error* _Nullable* _Nullable error);
 
 // MARK: - Hanzi Numerals
 
@@ -682,8 +623,8 @@ size_t pn_hanzi_render_size(uint64_t n);
 ///     pn_hanzi_render_size(n).  On any failure buf is left
 ///     untouched.
 /// @returns true on success, false with a note in @param error.
-bool pn_hanzi_render(uint64_t n, char *_Nonnull buf, size_t buflen,
-                     pn_error *_Nullable *_Nullable error);
+bool pn_hanzi_render(uint64_t n, char* _Nonnull buf, size_t buflen,
+                     pn_error* _Nullable* _Nullable error);
 
 /// Read back a canonical hanzi string — the exact inverse of
 /// pn_hanzi_render.    Strict canonical form: terms of
@@ -700,9 +641,8 @@ bool pn_hanzi_render(uint64_t n, char *_Nonnull buf, size_t buflen,
 ///     failure
 /// @param error - where to hang the note on failure.
 /// @returns true on success, false with a note in @param error.
-bool pn_hanzi_parse(const char *_Nullable buf, size_t buflen,
-                    uint64_t *_Nullable out,
-                    pn_error *_Nullable *_Nullable error);
+bool pn_hanzi_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullable out,
+                    pn_error* _Nullable* _Nullable error);
 
 /*  Counting rod numerals (UTF-8 rendering).
    Rod numerals (算筹, in use c. 400 BCE onward in China, Japan,
@@ -738,10 +678,10 @@ bool pn_hanzi_parse(const char *_Nullable buf, size_t buflen,
 
 // MARK: - Rod Numerals
 
-#define PN_ROD_UNIT_DIGIT_ONE 0x1D360u /* …through U+1D368 (digit d: +d-1)  */
-#define PN_ROD_TENS_DIGIT_ONE  0x1D369u /* …through U+1D371 (digit d: +d-1) */
-#define PN_ROD_MAX_PLACES 19           /* 10^19 − 1 still fits uint64_t     */
-	#define PN_ROD_MAX_VALUE 9999999999999999999ull /* 10^19 − 1: nineteen nines   */
+#define PN_ROD_UNIT_DIGIT_ONE 0x1D360u               /* …through U+1D368 (digit d: +d-1)  */
+#define PN_ROD_TENS_DIGIT_ONE 0x1D369u               /* …through U+1D371 (digit d: +d-1) */
+#define PN_ROD_MAX_PLACES     19                     /* 10^19 − 1 still fits uint64_t     */
+#define PN_ROD_MAX_VALUE      9999999999999999999ull /* 10^19 − 1: nineteen nines   */
 
 /*  for a well-formed n: four per rod drawn, plus one space per place
    boundary - i.e. 4*(count of nonzero digits) + (count of digits − 1).
@@ -767,8 +707,8 @@ size_t pn_rods_render_size(uint64_t n);
 /// @param buflen - bytes of room at buf
 /// @param error - where to hang the note on failure.
 /// @returns true on success, false with a note in @param error.
-bool pn_rods_render(uint64_t n, char *_Nonnull buf, size_t buflen,
-                    pn_error *_Nullable *_Nullable error);
+bool pn_rods_render(uint64_t n, char* _Nonnull buf, size_t buflen,
+                    pn_error* _Nullable* _Nullable error);
 
 /// Read back a rendered rod string — the exact inverse of
 /// pn_rods_render.    The string is just the two rod sets and spaces,
@@ -795,9 +735,8 @@ bool pn_rods_render(uint64_t n, char *_Nonnull buf, size_t buflen,
 /// @param out - where the number lands on success
 /// @param error - where to hang the note on failure.
 /// @returns true on success, false with a note in @param error.
-bool pn_rods_parse(const char *_Nullable buf, size_t buflen,
-                   uint64_t *_Nullable out,
-                   pn_error *_Nullable *_Nullable error);
+bool pn_rods_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullable out,
+                   pn_error* _Nullable* _Nullable error);
 
 /*  Indian Brahmi numerals (UTF-8 rendering).
    Brahmi numerals (attested from the 3rd century BCE, on Ashoka's edicts
@@ -837,12 +776,12 @@ bool pn_rods_parse(const char *_Nullable buf, size_t buflen,
 
 // MARK: - Brahmi Numerals
 
-#define PN_BRAHMI_NUMBER_ONE       0x11052u /* 𑁒 …through U+1105A NINE  = 1..9 */
-#define PN_BRAHMI_NUMBER_TEN         0x1105Bu /* 𑁛 …through U+11063 NINETY = 10..90 */
-#define PN_BRAHMI_NUMBER_HUNDRED     0x11064u /* 𑁤 one hundred                 */
-#define PN_BRAHMI_NUMBER_THOUSAND    0x11065u /* 𑁥 one thousand                */
-#define PN_BRAHMI_NUMBER_JOINER      0x1107Fu /* 𑁿 ligature join, numbers only */
-#define PN_BRAHMI_MAX_VALUE          9999u    /* four filled slots: no sign above 𑁥 */
+#define PN_BRAHMI_NUMBER_ONE      0x11052u /* 𑁒 …through U+1105A NINE  = 1..9 */
+#define PN_BRAHMI_NUMBER_TEN      0x1105Bu /* 𑁛 …through U+11063 NINETY = 10..90 */
+#define PN_BRAHMI_NUMBER_HUNDRED  0x11064u /* 𑁤 one hundred                 */
+#define PN_BRAHMI_NUMBER_THOUSAND 0x11065u /* 𑁥 one thousand                */
+#define PN_BRAHMI_NUMBER_JOINER   0x1107Fu /* 𑁿 ligature join, numbers only */
+#define PN_BRAHMI_MAX_VALUE       9999u    /* four filled slots: no sign above 𑁥 */
 
 /*  write for a well-formed n: four per sign drawn, joiner included —
    a thousands or hundreds term costs four bytes with its digit 1
@@ -869,8 +808,8 @@ size_t pn_brahmi_render_size(uint64_t n);
 /// @param buflen - bytes of room at buf
 /// @param error - where to hang the note on failure.
 /// @returns true on success, false with a note in @param error.
-bool pn_brahmi_render(uint64_t n, char *_Nonnull buf, size_t buflen,
-                      pn_error *_Nullable *_Nullable error);
+bool pn_brahmi_render(uint64_t n, char* _Nonnull buf, size_t buflen,
+                      pn_error* _Nullable* _Nullable error);
 
 /// Read back a rendered Brahmi string — the exact inverse of
 /// pn_brahmi_render.    Strict canonical form: the twenty number
@@ -898,9 +837,8 @@ bool pn_brahmi_render(uint64_t n, char *_Nonnull buf, size_t buflen,
 /// @param out - where the number lands on success
 /// @param error - where to hang the note on failure.
 /// @returns true on success, false with a note in @param error.
-bool pn_brahmi_parse(const char *_Nullable buf, size_t buflen,
-                     uint64_t *_Nullable out,
-                     pn_error *_Nullable *_Nullable error);
+bool pn_brahmi_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullable out,
+                     pn_error* _Nullable* _Nullable error);
 
 /*  Mayan bar-and-dot numerals over pn_vigesimal — the renderer.
    The Maya had what no other ancient place-value script here can
@@ -957,8 +895,8 @@ size_t pn_mayan_render_size(pn_vigesimal v);
 ///     pn_mayan_render_size(v).  On any failure buf is left
 ///     untouched.
 /// @returns true on success, false with a note in @param error.
-bool pn_mayan_render(pn_vigesimal v, char *_Nonnull buf, size_t buflen,
-                     pn_error *_Nullable *_Nullable error);
+bool pn_mayan_render(pn_vigesimal v, char* _Nonnull buf, size_t buflen,
+                     pn_error* _Nullable* _Nullable error);
 
 /// Read back a rendered bar-and-dot string — the exact inverse of
 /// pn_mayan_render.   ,@param buf holds @param buflen bytes of UTF-8
@@ -982,9 +920,8 @@ bool pn_mayan_render(pn_vigesimal v, char *_Nonnull buf, size_t buflen,
 ///     failure
 /// @param error - where to hang the note on failure.
 /// @returns true on success, false with a note in @param error.
-bool pn_mayan_parse(const char *_Nullable buf, size_t buflen,
-                    pn_vigesimal *_Nullable out,
-                    pn_error *_Nullable *_Nullable error);
+bool pn_mayan_parse(const char* _Nullable buf, size_t buflen, pn_vigesimal* _Nullable out,
+                    pn_error* _Nullable* _Nullable error);
 
 /*  Inca quipu — positional decimal knot notation, transcribed in UTF-8.
    The quipucamayuq tied numbers onto pendant cords hanging from a
@@ -1031,10 +968,10 @@ bool pn_mayan_parse(const char *_Nullable buf, size_t buflen,
 
 // MARK: - Quipu Numerals
 
-#define PN_QUIPU_SIMPLE_KNOT     0x2022u   /*   BULLET  UTF-8: E2 80 A2         */
-#define PN_QUIPU_LONG_KNOT       0x221Eu   /* ∞ INFINITY UTF-8: E2 88 9E         */
-#define PN_QUIPU_MAX_PLACES      19        /* 10^19 − 1 still fits uint64_t     */
-#define PN_QUIPU_MAX_VALUE 9999999999999999999ull /* nineteen nines               */
+#define PN_QUIPU_SIMPLE_KNOT 0x2022u                /*   BULLET  UTF-8: E2 80 A2         */
+#define PN_QUIPU_LONG_KNOT   0x221Eu                /* ∞ INFINITY UTF-8: E2 88 9E         */
+#define PN_QUIPU_MAX_PLACES  19                     /* 10^19 − 1 still fits uint64_t     */
+#define PN_QUIPU_MAX_VALUE   9999999999999999999ull /* nineteen nines               */
 
 /*  terminating NUL.  Pure and total — it never fails; for n >
    PN_QUIPU_MAX_VALUE its answer simply runs on and is meaningless,
@@ -1057,8 +994,8 @@ size_t pn_quipu_render_size(uint64_t n);
 ///     buflen does not beat pn_quipu_render_size(n).  On any failure
 ///     buf is left untouched.
 /// @returns true on success, false with a note in @param error.
-bool pn_quipu_render(uint64_t n, char *_Nonnull buf, size_t buflen,
-                     pn_error *_Nullable *_Nullable error);
+bool pn_quipu_render(uint64_t n, char* _Nonnull buf, size_t buflen,
+                     pn_error* _Nullable* _Nullable error);
 
 /// Read back a rendered cord — the exact inverse of
 /// pn_quipu_render.    The reading demands the canonical form:
@@ -1082,9 +1019,8 @@ bool pn_quipu_render(uint64_t n, char *_Nonnull buf, size_t buflen,
 ///     failure
 /// @param error - where to hang the note on failure.
 /// @returns true on success, false with a note in @param error.
-bool pn_quipu_parse(const char *_Nullable buf, size_t buflen,
-                    uint64_t *_Nullable out,
-                    pn_error *_Nullable *_Nullable error);
+bool pn_quipu_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullable out,
+                    pn_error* _Nullable* _Nullable error);
 
 /*  Greek alphabetic numerals — the Milesian (Ionic) system, in UTF-8.
    No place values, no zero: the market and the chancery took the
@@ -1160,7 +1096,8 @@ bool pn_quipu_parse(const char *_Nullable buf, size_t buflen,
 
 // MARK: - Greek Numerals
 
-#define PN_GREEK_MAX_VALUE 999999ull /* two full runs, 999 of 1000 over
+#define PN_GREEK_MAX_VALUE \
+    999999ull /* two full runs, 999 of 1000 over
                                         999 - written millions needed
                                         fresh marks no standard survived */
 
@@ -1184,8 +1121,8 @@ size_t pn_greek_render_size(uint64_t n);
 ///     pn_greek_render_size(n) plus the NUL.  On any failure buf is
 ///     left untouched.
 /// @returns true on success, false with a note in @param error.
-bool pn_greek_render(uint64_t n, char *_Nonnull buf, size_t buflen,
-                     pn_error *_Nullable *_Nullable error);
+bool pn_greek_render(uint64_t n, char* _Nonnull buf, size_t buflen,
+                     pn_error* _Nullable* _Nullable error);
 
 /// Read back a rendered cord — the exact inverse of
 /// pn_greek_render.    The reading is strict about the canonical
@@ -1206,9 +1143,8 @@ bool pn_greek_render(uint64_t n, char *_Nonnull buf, size_t buflen,
 ///     failure
 /// @param error - where to hang the note on failure.
 /// @returns true on success, false with a note in @param error.
-bool pn_greek_parse(const char *_Nullable buf, size_t buflen,
-                    uint64_t *_Nullable out,
-                    pn_error *_Nullable *_Nullable error);
+bool pn_greek_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullable out,
+                    pn_error* _Nullable* _Nullable error);
 
 /*  Roman numerals — the canonical form, in ordinary ASCII letters.
    No zero, no place values: the ledger kept seven capital letters -
@@ -1258,12 +1194,14 @@ bool pn_greek_parse(const char *_Nullable buf, size_t buflen,
 
 // MARK: - Roman Numerals
 
-#define PN_ROMAN_MAX_VALUE 3999ull /* MMM CM XC IX: three thousands and
+#define PN_ROMAN_MAX_VALUE \
+    3999ull /* MMM CM XC IX: three thousands and
                                       the alphabet's full hundreds-tens-
                                       units row - vinculum numbers had no
                                       standard to keep them */
 
-#define PN_ROMAN_FORMAT_MAX_LEN 16 /* 15 letters - the canon of 3888 -
+#define PN_ROMAN_FORMAT_MAX_LEN \
+    16 /* 15 letters - the canon of 3888 -
                                       plus the NUL                   */
 
 /*  write: the letters of the four per-digit rows, at most four per
@@ -1284,8 +1222,8 @@ size_t pn_roman_render_size(uint64_t n);
 ///     pn_roman_render_size(n) plus the NUL.  On any failure buf is
 ///     left untouched.
 /// @returns true on success, false with a note in @param error.
-bool pn_roman_render(uint64_t n, char *_Nonnull buf, size_t buflen,
-                     pn_error *_Nullable *_Nullable error);
+bool pn_roman_render(uint64_t n, char* _Nonnull buf, size_t buflen,
+                     pn_error* _Nullable* _Nullable error);
 
 /// Read canonical Roman letters back — the exact inverse of
 /// pn_roman_render.    The walk is greedy over the canon table, and
@@ -1299,9 +1237,8 @@ bool pn_roman_render(uint64_t n, char *_Nonnull buf, size_t buflen,
 ///     failure
 /// @param error - where to hang the note on failure.
 /// @returns true on success, false with a note in @param error.
-bool pn_roman_parse(const char *_Nullable buf, size_t buflen,
-                    uint64_t *_Nullable out,
-                    pn_error *_Nullable *_Nullable error);
+bool pn_roman_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullable out,
+                    pn_error* _Nullable* _Nullable error);
 
 /*  Early mathematical theory (Elements VII-IX, the sieve of
    Eratosthenes, the gnomon figures).
@@ -1319,10 +1256,10 @@ bool pn_roman_parse(const char *_Nullable buf, size_t buflen,
 
 // MARK: - Math
 
-#define PN_MATH_SIEVE_MAX_VALUE         1000000ull
-#define PN_MATH_M_MAX_VALUE             65535ull
-#define PN_MATH_SIDE_MAX_VALUE          4294967295ull
-#define PN_MATH_MAX_FACTORS             64u
+#define PN_MATH_SIEVE_MAX_VALUE 1000000ull
+#define PN_MATH_M_MAX_VALUE     65535ull
+#define PN_MATH_SIDE_MAX_VALUE  4294967295ull
+#define PN_MATH_MAX_FACTORS     64u
 
 size_t pn_math_sieve_size(uint64_t limit);
 
@@ -1338,9 +1275,8 @@ size_t pn_math_sieve_size(uint64_t limit);
 /// @param count - how many primes were written, on success
 /// @param error - where to hang the note on failure.
 /// @returns true on success, false with a note in @param error.
-bool pn_math_sieve(uint64_t limit, uint64_t *_Nullable out, size_t cap,
-                   size_t *_Nullable count,
-                   pn_error *_Nullable *_Nullable error);
+bool pn_math_sieve(uint64_t limit, uint64_t* _Nullable out, size_t cap, size_t* _Nullable count,
+                   pn_error* _Nullable* _Nullable error);
 
 /// Euclid's ladder (Elements VII.1-2): the greatest common measure
 /// of @param a and @param b.  gcd(1071, 462) = 21; gcd(0, 0) = 0 by
@@ -1351,8 +1287,8 @@ bool pn_math_sieve(uint64_t limit, uint64_t *_Nullable out, size_t cap,
 /// @param error - where to hang the note on failure: PN_ERROR_NULL
 ///     when out is NULL.
 /// @returns true on success, false with a note in @param error.
-bool pn_math_gcd(uint64_t a, uint64_t b, uint64_t *_Nullable out,
-                 pn_error *_Nullable *_Nullable error);
+bool pn_math_gcd(uint64_t a, uint64_t b, uint64_t* _Nullable out,
+                 pn_error* _Nullable* _Nullable error);
 
 /// The least common multiple: the smallest number both @param a and
 /// @param b measure.  lcm(1071, 462) = 23562; a blank row makes the
@@ -1363,8 +1299,8 @@ bool pn_math_gcd(uint64_t a, uint64_t b, uint64_t *_Nullable out,
 /// @param out - where the answer lands on success
 /// @param error - where to hang the note on failure.
 /// @returns true on success, false with a note in @param error.
-bool pn_math_lcm(uint64_t a, uint64_t b, uint64_t *_Nullable out,
-                 pn_error *_Nullable *_Nullable error);
+bool pn_math_lcm(uint64_t a, uint64_t b, uint64_t* _Nullable out,
+                 pn_error* _Nullable* _Nullable error);
 
 /// Is @param n a square number?  The Pythagoreans' gnomon figures:
 /// is_square(999950884) is true, the square of 31622.
@@ -1373,8 +1309,7 @@ bool pn_math_lcm(uint64_t a, uint64_t b, uint64_t *_Nullable out,
 /// @param error - where to hang the note on failure: PN_ERROR_NULL
 ///     when out is NULL.
 /// @returns true on success, false with a note in @param error.
-bool pn_math_is_square(uint64_t n, bool *_Nullable out,
-                       pn_error *_Nullable *_Nullable error);
+bool pn_math_is_square(uint64_t n, bool* _Nullable out, pn_error* _Nullable* _Nullable error);
 
 /// Is @param n prime?  Seven Miller-Rabin witnesses answer for the
 /// whole ledger, so Carmichael's fools — is_prime(561) says false —
@@ -1384,8 +1319,7 @@ bool pn_math_is_square(uint64_t n, bool *_Nullable out,
 /// @param error - where to hang the note on failure: PN_ERROR_NULL
 ///     when out is NULL.
 /// @returns true on success, false with a note in @param error.
-bool pn_math_is_prime(uint64_t n, bool *_Nullable out,
-                      pn_error *_Nullable *_Nullable error);
+bool pn_math_is_prime(uint64_t n, bool* _Nullable out, pn_error* _Nullable* _Nullable error);
 
 /// The next prime at or after @param n — inclusive, the culture
 /// counting the number itself when it is already prime:
@@ -1396,8 +1330,7 @@ bool pn_math_is_prime(uint64_t n, bool *_Nullable out,
 ///     when out is NULL, PN_ERROR_RANGE past the last prime of the
 ///     ledger.
 /// @returns true on success, false with a note in @param error.
-bool pn_math_next_prime(uint64_t n, uint64_t *_Nullable out,
-                        pn_error *_Nullable *_Nullable error);
+bool pn_math_next_prime(uint64_t n, uint64_t* _Nullable out, pn_error* _Nullable* _Nullable error);
 
 size_t pn_math_factorize_size(uint64_t n);
 
@@ -1412,9 +1345,8 @@ size_t pn_math_factorize_size(uint64_t n);
 /// @param count - how many factors were written, on success
 /// @param error - where to hang the note on failure.
 /// @returns true on success, false with a note in @param error.
-bool pn_math_factorize(uint64_t n, uint64_t *_Nullable out, size_t cap,
-                       size_t *_Nullable count,
-                       pn_error *_Nullable *_Nullable error);
+bool pn_math_factorize(uint64_t n, uint64_t* _Nullable out, size_t cap, size_t* _Nullable count,
+                       pn_error* _Nullable* _Nullable error);
 
 /// Is @param n equal to its own parts (Elements IX.36)?  6 = 1 + 2
 /// + 3, then 28, 496, 8128 — the even form Euclid built and Euler
@@ -1427,8 +1359,7 @@ bool pn_math_factorize(uint64_t n, uint64_t *_Nullable out, size_t cap,
 /// @param error - where to hang the note on failure: PN_ERROR_NULL
 ///     when out is NULL, PN_ERROR_RANGE when n is below 2.
 /// @returns true on success, false with a note in @param error.
-bool pn_math_perfect_check(uint64_t n, bool *_Nullable out,
-                           pn_error *_Nullable *_Nullable error);
+bool pn_math_perfect_check(uint64_t n, bool* _Nullable out, pn_error* _Nullable* _Nullable error);
 
 // MARK: - Pythagoreas
 
@@ -1447,11 +1378,9 @@ bool pn_math_perfect_check(uint64_t n, bool *_Nullable out,
 ///     generators break 1 <= n < m <= 65535 or any side runs past
 ///     PN_MATH_SIDE_MAX_VALUE.
 /// @returns true on success, false with a note in @param error.
-bool pn_math_pythagorean_triple(uint64_t m, uint64_t n,
-                                uint64_t *_Nullable leg1,
-                                uint64_t *_Nullable leg2,
-                                uint64_t *_Nullable hypotenuse,
-                                pn_error *_Nullable *_Nullable error);
+bool pn_math_pythagorean_triple(uint64_t m, uint64_t n, uint64_t* _Nullable leg1,
+                                uint64_t* _Nullable leg2, uint64_t* _Nullable hypotenuse,
+                                pn_error* _Nullable* _Nullable error);
 
 /// Weigh the rod: does @param x*x + @param y*y equal @param z*z?
 /// (119, 120, 169) stands.  Sides outside the rod's foot earn a
@@ -1464,9 +1393,8 @@ bool pn_math_pythagorean_triple(uint64_t m, uint64_t n,
 ///     when out is NULL, PN_ERROR_RANGE when a side runs under 1 or
 ///     past PN_MATH_SIDE_MAX_VALUE.
 /// @returns true on success, false with a note in @param error.
-bool pn_math_pythagorean_check(uint64_t x, uint64_t y, uint64_t z,
-                               bool *_Nullable out,
-                               pn_error *_Nullable *_Nullable error);
+bool pn_math_pythagorean_check(uint64_t x, uint64_t y, uint64_t z, bool* _Nullable out,
+                               pn_error* _Nullable* _Nullable error);
 
 #ifdef __cplusplus
 }

@@ -1,0 +1,55 @@
+# Derived from the c-style-guide skill (the house style authority).
+# Choices the guide lists that clang-format cannot express — `else`
+# dedent producing outer-level closing braces, blank line before
+# `return`, mandatory braces, ///-doc rhythm — are enforced by review,
+# not here.  See the guide as the source of truth; this file as best
+# effort.
+Language: Cpp
+BasedOnStyle: LLVM
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+
+# K&R for control statements and functions, but `else`/`else if` on
+# its own line at the `if`'s indent.
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterFunction: false
+  AfterControlStatement: false
+  AfterEnum: false
+  AfterStruct: false
+  AfterUnion: false
+  AfterCaseLabel: false
+  BeforeElse: true
+
+# Star binds to the type: pn_error *error -> pn_error* error.
+PointerAlignment: Left
+DerivePointerAlignment: false
+
+# Prose blocks and glyph tables are hand-aligned; leave their breaks.
+ReflowComments: false
+
+ColumnLimit: 100
+
+# #define values align in a column (Guide: Formatting).
+AlignConsecutiveMacros: AcrossComments
+AlignConsecutiveAssignments: None
+AlignConsecutiveDeclarations: None
+AlignEscapedNewlines: Left
+
+# (type) value — the guide's preferred cast spelling.
+SpaceAfterCStyleCast: true
+
+# The house include order (own header, stdlib, POSIX) is deliberate.
+SortIncludes: false
+
+# Keep one-statement bodies on their own line; the guide wants braces
+# added around them, which is a review fix, not a merge.
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Never
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Empty
+
+IndentCaseLabels: false
+KeepEmptyLinesAtTheStartOfBlocks: false
