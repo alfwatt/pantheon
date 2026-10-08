@@ -162,6 +162,12 @@ typedef struct pn_sex60 {
 ///     or the value grows past PN_SEX60_MAX_PLACES places.
 pn_sex60 pn_sex60_parse(const char* text, pn_error* _Nullable* _Nullable error);
 
+/// @returns an allocated null-terminated `char*` formatted with the,
+/// @param value provided, and the
+/// @param place_sep provided, or NULL and the
+/// @param error encountered
+[[nodiscard]] char* _Nullable pn_sex60_format(pn_sex60 value, char place_sep, pn_error* _Nullable* _Nullable error);
+
 /// Write the value back out as a transcription.  @param sep must be
 /// ',' ':' or ';'.  Places are written with two digits — only the
 /// first place drops its leading zero — joined with @param sep,
@@ -176,19 +182,17 @@ pn_sex60 pn_sex60_parse(const char* text, pn_error* _Nullable* _Nullable error);
 /// has to survive the round trip.  A negative value grows a leading
 /// '-'.  The write ends with a NUL and needs at most
 /// PN_SEX60_FORMAT_MAX_LEN bytes.
-/// @param v - the value to write out
-/// @param sep - the joiner between places: ',' ':' or ';'
-/// @param buf - where the text lands, with room for the NUL
-/// @param buflen - bytes of room at buf
-/// @param error - where to hang the note on failure: PN_ERROR_NULL
-///     when buf is NULL, PN_ERROR_SYNTAX when sep is not one of the
-///     three joiners or (with ';' and an interior radix) the output
-///     would wear two radix points, PN_ERROR_DOMAIN when v is
-///     malformed, PN_ERROR_BUFFER when buflen is too small.  On any
-///     failure buf is left untouched.
-/// @returns true on success, false with a note in @param error.
+///
+/// On failure the provided buffer is left untouched.
+///
+/// @returns the caller's `char*` formatted with the
+/// @param value to write out,
+/// @param places_sep to join places, into the
+/// @param buffer provided, with the
+/// @param buflen provided; or NULL and the
+/// @param error encountered
 #define PN_SEX60_FORMAT_MAX_LEN (1 + 3 * PN_SEX60_MAX_PLACES + 1) /* '-' + places+seps + NUL */
-bool pn_sex60_format(pn_sex60 v, char sep, char* _Nonnull buf, size_t buflen,
+char* _Nullable pn_sex60_format_into(pn_sex60 value, char place_sep, char* _Nonnull buffer, size_t buflen,
                      pn_error* _Nullable* _Nullable error);
 
 /// Turn an ordinary unsigned integer into sexagesimal places by
