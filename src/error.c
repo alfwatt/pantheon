@@ -88,10 +88,6 @@ void pn_error_free(pn_error* error) {
     free(error); /* the message rode in the same block */
 }
 
-bool pn_error_is(const pn_error* error, pn_error_code code) {
-    return error != NULL && error->code == code;
-}
-
 /* The note's sentence for printf("%s", ...): its own message when it
    has one, the code's name when it does not, "no error" for a
    missing note.  The sentence belongs to the note: it stays alive

@@ -77,7 +77,7 @@ __attribute__((unused)) static void* pn_nothing(void) {
             fprintf(stderr, "FAIL %s:%d: %s: succeeded, want %s\n", __FILE__, __LINE__, #expr, \
                     #want_);                                                                   \
         }                                                                                      \
-        else if (!pn_error_is(slot, (want_))) {                                                \
+        else if (slot == NULL || slot->code != (want_)) {                                      \
             pn_fails++;                                                                        \
             fprintf(stderr, "FAIL %s:%d: %s: %s\n", __FILE__, __LINE__, #expr,                 \
                     pn_error_describe(slot));                                                  \
