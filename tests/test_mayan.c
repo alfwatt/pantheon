@@ -1,4 +1,4 @@
-/*  test_mayan.c — Maya bar-and-dot rendering over pn_vigesimal.
+/*  test_mayan.c — Maya bar-and-dot rendering over pn_base20.
    The signs are C11 universal character names so this file stays pure
    ASCII:
    SHELL        U+1D2E0  = 0     (the shell: the era's one true zero)
@@ -33,7 +33,7 @@ static const char* const digit_signs[20] = {
    place, most significant first, one space per boundary, '-' when
    neg.  Written without touching the library.
 */
-static void expect_render(pn_vigesimal v, char* out) {
+static void expect_render(pn_base20 v, char* out) {
     char* p = out;
     if (v.neg)
         *p++ = '-';
@@ -47,33 +47,33 @@ static void expect_render(pn_vigesimal v, char* out) {
 }
 
 int main(void) {
-    pn_vigesimal v;
+    pn_base20 v;
     char buf[512];
     char want[512];
 
     /* the codex page's worked examples */
 
-    CHECK_OK(pn_vigesimal_from_u64(23u, &v, &err_), err_);
+    CHECK_OK(pn_base20_from_u64(23u, &v, &err_), err_);
     CHECK_OK(pn_mayan_render(v, buf, sizeof buf, &err_), err_);
     CHECK(strcmp(buf, DOT " " THREE) == 0);
 
-    CHECK_OK(pn_vigesimal_from_u64(33u, &v, &err_), err_);
+    CHECK_OK(pn_base20_from_u64(33u, &v, &err_), err_);
     CHECK_OK(pn_mayan_render(v, buf, sizeof buf, &err_), err_);
     CHECK(strcmp(buf, DOT " " THIRTEEN) == 0);
 
-    CHECK_OK(pn_vigesimal_from_u64(429u, &v, &err_), err_);
+    CHECK_OK(pn_base20_from_u64(429u, &v, &err_), err_);
     CHECK_OK(pn_mayan_render(v, buf, sizeof buf, &err_), err_);
     CHECK(strcmp(buf, DOT " " DOT " " NINE) == 0);
 
     /*  where the Babylonian scribe leaves two blank spaces, the shell
 	   sits: the era's answer to the missing-zero tragedy
 	*/
-    CHECK_OK(pn_vigesimal_from_u64(8800u, &v, &err_), err_);
+    CHECK_OK(pn_base20_from_u64(8800u, &v, &err_), err_);
     CHECK_OK(pn_mayan_render(v, buf, sizeof buf, &err_), err_);
     CHECK(strcmp(buf, DOT " " TWO " " SHELL " " SHELL) == 0);
 
     /* zero is a sign, not a blank: the lone shell */
-    CHECK_OK(pn_vigesimal_from_u64(0u, &v, &err_), err_);
+    CHECK_OK(pn_base20_from_u64(0u, &v, &err_), err_);
     CHECK(pn_mayan_render_size(v) == 4);
     CHECK_OK(pn_mayan_render(v, buf, sizeof buf, &err_), err_);
     CHECK(strcmp(buf, SHELL) == 0);
@@ -109,7 +109,7 @@ int main(void) {
     /* render_size exact against the hand speller, swept */
 
     for (uint64_t n = 0; n < 160000u; n++) {
-        CHECK_OK(pn_vigesimal_from_u64(n, &v, &err_), err_);
+        CHECK_OK(pn_base20_from_u64(n, &v, &err_), err_);
         (void) expect_render(v, want);
         CHECK(pn_mayan_render_size(v) == strlen(want));
         if (pn_fails)
@@ -118,7 +118,7 @@ int main(void) {
 
     /* errors: render — the well_formed rule book */
 
-    CHECK_OK(pn_vigesimal_from_u64(1u, &v, &err_), err_);
+    CHECK_OK(pn_base20_from_u64(1u, &v, &err_), err_);
     CHECK_ERROR(pn_mayan_render(v, pn_nothing(), 64, &err_), err_, PN_ERROR_NULL);
 
     memset(buf, 'x', 8);
@@ -139,7 +139,7 @@ int main(void) {
 
     /* buffer one byte short of need + NUL */
     memset(buf, 'x', 8);
-    CHECK_OK(pn_vigesimal_from_u64(1u, &v, &err_), err_);
+    CHECK_OK(pn_base20_from_u64(1u, &v, &err_), err_);
     CHECK_ERROR(pn_mayan_render(v, buf, 4, &err_), err_, PN_ERROR_BUFFER); /* need is 4 */
     CHECK(memcmp(buf, "xxxx", 4) == 0);
 
@@ -148,12 +148,12 @@ int main(void) {
 	   NUL-terminated and the exact-byte-count spelling.
 	*/
     for (uint64_t n = 0; n < 160000u; n++) {
-        char rendered[5 * PN_VIGESIMAL_MAX_PLACES + 8];
+        char rendered[5 * PN_BASE20_MAX_PLACES + 8];
         size_t need;
-        CHECK_OK(pn_vigesimal_from_u64(n, &v, &err_), err_);
+        CHECK_OK(pn_base20_from_u64(n, &v, &err_), err_);
         need = pn_mayan_render_size(v);
         CHECK_OK(pn_mayan_render(v, rendered, need + 1, &err_), err_);
-        pn_vigesimal back;
+        pn_base20 back;
         memset(&back, 0xEE, sizeof back); /* junk sentinel */
         CHECK_OK(pn_mayan_parse(rendered, need, &back, &err_), err_);
         CHECK(back.n_places == v.n_places && back.radix == v.n_places && !back.neg &&
@@ -166,13 +166,13 @@ int main(void) {
     }
 
     /* the shell alone parses to {0}; period style and exact count both */
-    pn_vigesimal back;
+    pn_base20 back;
     memset(&back, 0xEE, sizeof back);
     CHECK_OK(pn_mayan_parse(SHELL, 4, &back, &err_), err_);
     CHECK(back.n_places == 1 && back.radix == 1 && !back.neg && back.places[0] == 0);
 
     /*  leading shells are kept, not rejected (a value may carry them,
-	   the way pn_vigesimal_parse keeps the 0 of "0;5" literal); three
+	   the way pn_base20_parse keeps the 0 of "0;5" literal); three
 	   whole signs of four bytes each make the exact count 14
 	*/
     CHECK_OK(pn_mayan_parse(SHELL " " DOT " " THREE, 14, &back, &err_), err_);
@@ -238,7 +238,7 @@ int main(void) {
     }
     memset(&back, 0xFF, sizeof back);
     CHECK_OK(pn_mayan_parse(rows, w, &back, &err_), err_); /* 16 rows fit */
-    CHECK(back.n_places == PN_VIGESIMAL_MAX_PLACES);
+    CHECK(back.n_places == PN_BASE20_MAX_PLACES);
     rows[w++] = ' '; /* the seventeenth */
     memcpy(rows + w, DOT, 4);
     w += 4;

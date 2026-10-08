@@ -1,4 +1,4 @@
-/*  mayan.c — libPantheon: Maya bar-and-dot numerals over pn_vigesimal.
+/*  mayan.c — libPantheon: Maya bar-and-dot numerals over pn_base20.
 
     The renderer is thinner on purpose than babylonian.c over the
     same core.  Cuneiform builds each place out of tens-signs and
@@ -46,8 +46,8 @@ static const char* const digit_signs[20] = {
 /* A struct may only be carved from whole rows: every translation
    unit watches its own front door (sex60.c keeps a well_formed,
    babylonian.c keeps one, and so does this file). */
-static int well_formed(pn_vigesimal v) {
-    if (v.n_places == 0 || v.n_places > PN_VIGESIMAL_MAX_PLACES)
+static int well_formed(pn_base20 v) {
+    if (v.n_places == 0 || v.n_places > PN_BASE20_MAX_PLACES)
         return 0;
     if (v.radix > v.n_places)
         return 0;
@@ -73,7 +73,7 @@ static int match_mayan(const char* p, const char* end, unsigned* digit) {
     return -1;
 }
 
-size_t pn_mayan_render_size(pn_vigesimal v) {
+size_t pn_mayan_render_size(pn_base20 v) {
     /*  This answer never fails: '-' when neg, one sign per place, one
   gutter per boundary.  For a well-formed v it is exactly what
   render will write; on a malformed one the count simply runs on
@@ -90,7 +90,7 @@ size_t pn_mayan_render_size(pn_vigesimal v) {
     return n;
 }
 
-bool pn_mayan_render(pn_vigesimal v, char* _Nonnull buf, size_t buflen,
+bool pn_mayan_render(pn_base20 v, char* _Nonnull buf, size_t buflen,
                      pn_error* _Nullable* _Nullable error) {
     if (buf == NULL)
         return pn_error_set(error, PN_ERROR_NULL, "render needs a buffer to write into");
@@ -100,7 +100,7 @@ bool pn_mayan_render(pn_vigesimal v, char* _Nonnull buf, size_t buflen,
                             " %u places, radix %u - places need"
                             " 1 to %u slots, each 0 to 19, and"
                             " the radix cannot pass n_places",
-                            v.n_places, v.radix, PN_VIGESIMAL_MAX_PLACES);
+                            v.n_places, v.radix, PN_BASE20_MAX_PLACES);
 
     /* render_size is exact: buflen has to hold its bytes plus NUL */
     const size_t need = pn_mayan_render_size(v);
@@ -133,9 +133,9 @@ bool pn_mayan_render(pn_vigesimal v, char* _Nonnull buf, size_t buflen,
    the shell exists to spell, and a shell at the front is kept
    exactly as written, since the reader counts rows off the gutters.
    More rows than the codex page holds
-   (PN_VIGESIMAL_MAX_PLACES) is the scribe's page overrun:
+   (PN_BASE20_MAX_PLACES) is the scribe's page overrun:
    PN_ERROR_RANGE, not a grammar fault. */
-bool pn_mayan_parse(const char* _Nullable buf, size_t buflen, pn_vigesimal* _Nullable out,
+bool pn_mayan_parse(const char* _Nullable buf, size_t buflen, pn_base20* _Nullable out,
                     pn_error* _Nullable* _Nullable error) {
     if (buf == NULL || out == NULL)
         return pn_error_set(error, PN_ERROR_NULL,
@@ -149,7 +149,7 @@ bool pn_mayan_parse(const char* _Nullable buf, size_t buflen, pn_vigesimal* _Nul
 
     const char *p = buf, *end = buf + buflen;
 
-    pn_vigesimal v; /* *out keeps its old value unless all works */
+    pn_base20 v; /* *out keeps its old value unless all works */
 
     memset(&v, 0, sizeof v);
 
@@ -174,11 +174,11 @@ bool pn_mayan_parse(const char* _Nullable buf, size_t buflen, pn_vigesimal* _Nul
                                 " two signs touching look"
                                 " the same from here)",
                                 (size_t) (end - p), (size_t) (p - buf));
-        if (k == PN_VIGESIMAL_MAX_PLACES)
+        if (k == PN_BASE20_MAX_PLACES)
             return pn_error_set(error, PN_ERROR_RANGE,
                                 "the row past the page:"
                                 " a codex stack holds %u",
-                                PN_VIGESIMAL_MAX_PLACES);
+                                PN_BASE20_MAX_PLACES);
         v.places[k++] = (uint8_t) digit;
         p += SIGN_BYTES;
         if (p == end)

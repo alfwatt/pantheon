@@ -67,7 +67,7 @@ Every rendering below came out of the library itself
 (`pn_*_render`, `pn_*_format`), not off a chart; the U+2423 OPEN
 BOX shows a real place-boundary space the cords, boards and rows
 keep — it is part of the rendering.  The two conversion cores
-(`pn_base60`, `pn_vigesimal`) sit beside the base-ten value; the
+(`pn_base60`, `pn_base20`) sit beside the base-ten value; the
 rendered notations follow narrow-to-wide, longest furthest right.
 
 ```

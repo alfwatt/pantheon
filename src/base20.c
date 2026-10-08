@@ -1,4 +1,4 @@
-/*  vigesimal.c — libPantheon: the base-twenty core.
+/*  base_20.c — libPantheon: the base-twenty core.
 
     Base-20 places, the scholarly way of writing them, and the roads
     to and from uint64_t and double.  Success allocates nothing: the
@@ -12,7 +12,7 @@
      (0;1, which is 1/20, repeats forever in binary), while 20^12 is
     the last power under 2^53 - a whole row more breathing room than
     60^8, worth remembering by anyone who trusts
-    pn_vigesimal_to_double as the canonical form.
+    pn_base20_to_double as the canonical form.
 
     References: https://en.wikipedia.org/wiki/Maya_numerals ,
     https://en.wikipedia.org/wiki/Vigesimal
@@ -50,8 +50,8 @@ static const uint64_t pow20_exact[] = {
    at most 19, and a radix between 0 and n_places.  A caller who
    pokes at the struct by hand must not be able to push the other
    functions into misbehaving. */
-static int well_formed(pn_vigesimal v) {
-    if (v.n_places == 0 || v.n_places > PN_VIGESIMAL_MAX_PLACES)
+static int well_formed(pn_base20 v) {
+    if (v.n_places == 0 || v.n_places > PN_BASE20_MAX_PLACES)
         return 0;
     if (v.radix > v.n_places)
         return 0;
@@ -61,14 +61,14 @@ static int well_formed(pn_vigesimal v) {
     return 1;
 }
 
-bool pn_vigesimal_parse(const char* text, pn_vigesimal* _Nullable out,
+bool pn_base20_parse(const char* text, pn_base20* _Nullable out,
                         pn_error* _Nullable* _Nullable error) {
     if (text == NULL || out == NULL)
         return pn_error_set(error, PN_ERROR_NULL,
                             "parse needs a string and a place to"
                             " put the value");
 
-    pn_vigesimal v; /* built here; *out keeps its old value unless all works */
+    pn_base20 v; /* built here; *out keeps its old value unless all works */
 
     memset(&v, 0, sizeof v);
 
@@ -106,12 +106,12 @@ bool pn_vigesimal_parse(const char* text, pn_vigesimal* _Nullable out,
                                 " 0 to 19, written with 1 to 2"
                                 " digits",
                                 v.n_places, d);
-        if (v.n_places == PN_VIGESIMAL_MAX_PLACES)
+        if (v.n_places == PN_BASE20_MAX_PLACES)
             return pn_error_set(error, PN_ERROR_RANGE,
                                 "a value holds at most %u places"
                                 " (20^%u runs past what the type"
                                 " stores)",
-                                PN_VIGESIMAL_MAX_PLACES, PN_VIGESIMAL_MAX_PLACES);
+                                PN_BASE20_MAX_PLACES, PN_BASE20_MAX_PLACES);
 
         v.places[v.n_places++] = (uint8_t) d;
 
@@ -141,7 +141,7 @@ bool pn_vigesimal_parse(const char* text, pn_vigesimal* _Nullable out,
     return true;
 }
 
-bool pn_vigesimal_format(pn_vigesimal v, char sep, char* _Nonnull buf, size_t buflen,
+bool pn_base20_format(pn_base20 v, char sep, char* _Nonnull buf, size_t buflen,
                          pn_error* _Nullable* _Nullable error) {
     if (buf == NULL)
         return pn_error_set(error, PN_ERROR_NULL, "format needs a buffer to write into");
@@ -156,7 +156,7 @@ bool pn_vigesimal_format(pn_vigesimal v, char sep, char* _Nonnull buf, size_t bu
                             " %u places, radix %u - places need"
                             " 1 to %u slots, each 0 to 19, and"
                             " the radix cannot pass n_places",
-                            v.n_places, v.radix, PN_VIGESIMAL_MAX_PLACES);
+                            v.n_places, v.radix, PN_BASE20_MAX_PLACES);
 
     /*  Written in scratch space first, so a late failure can never
   leave buf holding half a number.  Worst case: '-' + 16
@@ -170,7 +170,7 @@ bool pn_vigesimal_format(pn_vigesimal v, char sep, char* _Nonnull buf, size_t bu
   digit in Babylonian clothes.  The first place still keeps
   its literal 0 - "0;5" means 1/4.
 */
-    char tmp[PN_VIGESIMAL_FORMAT_MAX_LEN];
+    char tmp[PN_BASE20_FORMAT_MAX_LEN];
     char* q = tmp;
 
     if (v.neg)
@@ -202,14 +202,14 @@ bool pn_vigesimal_format(pn_vigesimal v, char sep, char* _Nonnull buf, size_t bu
    The codices did exactly this on the counting surface - the
    Dresden page arithmetic - and there is no Babylonian-style
    missing-zero tragedy here: the Maya had the shell. */
-bool pn_vigesimal_from_u64(uint64_t n, pn_vigesimal* _Nullable out,
+bool pn_base20_from_u64(uint64_t n, pn_base20* _Nullable out,
                            pn_error* _Nullable* _Nullable error) {
     if (out == NULL)
         return pn_error_set(error, PN_ERROR_NULL,
                             "from_u64 needs a place to put the"
                             " value");
 
-    pn_vigesimal v;
+    pn_base20 v;
 
     memset(&v, 0, sizeof v);
     v.neg = false;
@@ -218,14 +218,14 @@ bool pn_vigesimal_from_u64(uint64_t n, pn_vigesimal* _Nullable out,
     size_t k = 0;
 
     do {
-        if (k == PN_VIGESIMAL_MAX_PLACES)
+        if (k == PN_BASE20_MAX_PLACES)
             return pn_error_set(error, PN_ERROR_RANGE,
                                 "this many base-20 places will"
                                 " not fit the value (the guard"
                                 " reads as unreachable: 2^64"
                                 " needs 15 places, the type"
                                 " holds %u)",
-                                PN_VIGESIMAL_MAX_PLACES);
+                                PN_BASE20_MAX_PLACES);
         p[k++] = (uint8_t) (n % 20u);
         n /= 20u;
     } while (n != 0);
@@ -242,13 +242,13 @@ bool pn_vigesimal_from_u64(uint64_t n, pn_vigesimal* _Nullable out,
     return true;
 }
 
-bool pn_vigesimal_to_u64(pn_vigesimal v, uint64_t* _Nullable out,
+bool pn_base20_to_u64(pn_base20 v, uint64_t* _Nullable out,
                          pn_error* _Nullable* _Nullable error) {
     if (out == NULL)
         return pn_error_set(error, PN_ERROR_NULL,
                             "to_u64 needs a place to put the"
                             " number");
-    if (v.n_places == 0 || v.n_places > PN_VIGESIMAL_MAX_PLACES || v.radix > v.n_places)
+    if (v.n_places == 0 || v.n_places > PN_BASE20_MAX_PLACES || v.radix > v.n_places)
         return pn_error_set(error, PN_ERROR_DOMAIN,
                             "the value is not well-formed:"
                             " %u places, radix %u",
@@ -288,7 +288,7 @@ bool pn_vigesimal_to_u64(pn_vigesimal v, uint64_t* _Nullable out,
    division.  So the answer is exact whenever a double is able to
    hold it at all - and in base twenty "at all" reaches 20^12's
    worth of whole places. */
-bool pn_vigesimal_to_double(pn_vigesimal v, double* _Nullable out,
+bool pn_base20_to_double(pn_base20 v, double* _Nullable out,
                             pn_error* _Nullable* _Nullable error) {
     if (out == NULL)
         return pn_error_set(error, PN_ERROR_NULL,
@@ -348,7 +348,7 @@ bool pn_vigesimal_to_double(pn_vigesimal v, double* _Nullable out,
     return true;
 }
 
-bool pn_vigesimal_from_double(double x, uint8_t frac_places, pn_vigesimal* _Nullable out,
+bool pn_base20_from_double(double x, uint8_t frac_places, pn_base20* _Nullable out,
                               pn_error* _Nullable* _Nullable error) {
     if (out == NULL)
         return pn_error_set(error, PN_ERROR_NULL,
@@ -358,11 +358,11 @@ bool pn_vigesimal_from_double(double x, uint8_t frac_places, pn_vigesimal* _Null
         return pn_error_set(error, PN_ERROR_DOMAIN,
                             "NaN and infinity name no number a"
                             " codex page could hold");
-    if ((int) frac_places > PN_VIGESIMAL_MAX_PLACES)
+    if ((int) frac_places > PN_BASE20_MAX_PLACES)
         return pn_error_set(error, PN_ERROR_DOMAIN,
                             "asked for %u fractional places;"
                             " the value holds %u places total",
-                            (unsigned) frac_places, PN_VIGESIMAL_MAX_PLACES);
+                            (unsigned) frac_places, PN_BASE20_MAX_PLACES);
 
     double mag = fabs(x);
     double ip = floor(mag); /* the whole part */
@@ -374,15 +374,15 @@ bool pn_vigesimal_from_double(double x, uint8_t frac_places, pn_vigesimal* _Null
   is worked out again instead of trusting the pair the
   division hands back.
 */
-    uint8_t ipd[PN_VIGESIMAL_MAX_PLACES];
+    uint8_t ipd[PN_BASE20_MAX_PLACES];
     size_t ki = 0;
 
     while (ip >= 1.0) {
-        if (ki == PN_VIGESIMAL_MAX_PLACES)
+        if (ki == PN_BASE20_MAX_PLACES)
             return pn_error_set(error, PN_ERROR_RANGE,
                                 "the whole part needs more than"
                                 " %u base-20 places",
-                                PN_VIGESIMAL_MAX_PLACES);
+                                PN_BASE20_MAX_PLACES);
         double q = floor(ip / 20.0);
         double r = ip - q * 20.0;
 
@@ -403,16 +403,16 @@ bool pn_vigesimal_from_double(double x, uint8_t frac_places, pn_vigesimal* _Null
   place rounds half away from zero; trailing zeros stay, so
   every answer is reproducible.
 */
-    uint8_t fpd[PN_VIGESIMAL_MAX_PLACES];
+    uint8_t fpd[PN_BASE20_MAX_PLACES];
     size_t kf = frac_places;
 
     for (size_t j = 0; j < kf; j++) {
-        if (ki + j == PN_VIGESIMAL_MAX_PLACES)
+        if (ki + j == PN_BASE20_MAX_PLACES)
             return pn_error_set(error, PN_ERROR_RANGE,
                                 "%u whole places plus this"
                                 " fraction will not share %u"
                                 " slots",
-                                (unsigned) ki, PN_VIGESIMAL_MAX_PLACES);
+                                (unsigned) ki, PN_BASE20_MAX_PLACES);
         fp *= 20.0;
         uint8_t dgt = (uint8_t) fp; /* floor: fp cannot go below 0 */
 
@@ -459,7 +459,7 @@ bool pn_vigesimal_from_double(double x, uint8_t frac_places, pn_vigesimal* _Null
         }
     }
 
-    pn_vigesimal v;
+    pn_base20 v;
 
     memset(&v, 0, sizeof v);
     v.neg = signbit(x) != 0;
@@ -467,13 +467,13 @@ bool pn_vigesimal_from_double(double x, uint8_t frac_places, pn_vigesimal* _Null
     size_t total = ki + kf;
 
     if (carry_out) {
-        if (total == PN_VIGESIMAL_MAX_PLACES)
+        if (total == PN_BASE20_MAX_PLACES)
             return pn_error_set(error, PN_ERROR_RANGE,
                                 "rounding grew the value past"
                                 " its %u places; there is no"
                                 " room for the new leading"
                                 " place",
-                                PN_VIGESIMAL_MAX_PLACES);
+                                PN_BASE20_MAX_PLACES);
         v.places[0] = 1;
         total++; /* all the other places stay zero */
         v.radix = (uint8_t) (ki + 1);

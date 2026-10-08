@@ -31,17 +31,9 @@
 extern "C" {
 #endif
 
-#if !defined(__clang__) || !__has_feature(nullability)
-#define _Nullable
-#define _Nonnull
-#endif
-
-#if defined(__clang__) || defined(__GNUC__)
-#define PN_FORMAT_STRING(fmt_idx, first_vararg) \
-    __attribute__((format(printf, fmt_idx, first_vararg)))
-#else
-#define PN_FORMAT_STRING(fmt_idx, first_vararg)
-#endif
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnullability-extension"
+#pragma clang diagnostic ignored "-Wc23-extensions"
 
 // MARK: - Errors
 
@@ -75,18 +67,14 @@ typedef struct pn_error {
     struct pn_error* _Nullable prior;
 } pn_error;
 
-/// Attaches a fresh report to the caller's @param location and tells
-/// the caller the call failed.  The report carries the @param code and
-/// a message built from the @param format string and its arguments,
-/// printf-style.  Passing a NULL @param location is legal: the
-/// message is then simply not kept.  A report already sitting in
-/// @param location is freed first, so only the newest report survives.
-/// @returns false, always, so a failing function can end with
-///     'return pn_error_set(...);'.
-bool pn_error_set(pn_error_code code, const char* _Nonnull format, ...) PN_FORMAT_STRING(3, 4);
+/// @returns an allocated `pn_error*` with the
+/// @param code provided and
+/// @param format for the error message
+[[nodiscard]]
+pn_error* _Nonnull pn_error_init(pn_error_code code, const char* _Nonnull format, ...);
 
-/// Frees the @param error and every report chained behind it.  Passing
-/// NULL is legal and does nothing.
+/// Frees the
+/// @param error provided
 void pn_error_free(pn_error* _Nullable error);
 
 /// A printable sentence for printf("%s", ...) and for test output.
@@ -97,7 +85,7 @@ void pn_error_free(pn_error* _Nullable error);
 /// freeing.
 const char* _Nonnull pn_error_describe(const pn_error* _Nullable error);
 
-// MARK: - Sexagesimal
+// MARK: - Base 60
 
 /*  Babylonian sexagesimal (base-60) values.
    A value is a string of "places", each holding a digit 0..59, most
@@ -154,19 +142,22 @@ typedef struct pn_base60 {
 /// pn_base60_from_u64 instead.
 ///
 /// @returns a pn_base60 number parsed from the
-/// @param text provided, or null and the
-/// @param error encountered:
-///     PN_ERROR_NULL when text or out is NULL,
+/// @param text provided, or a meaningless value and the
+/// @param error encountered (read the note; a value-returning call
+///     reports failure through the note, not through the value):
+///     PN_ERROR_NULL when text is NULL,
 ///     PN_ERROR_SYNTAX when the grammar is broken,
 ///     PN_ERROR_RANGE when a place tops 59, a place wears more than 2 digits,
 ///     or the value grows past PN_BASE60_MAX_PLACES places.
-pn_base60 pn_base60_parse(const char* text, pn_error* _Nullable* _Nullable error);
+pn_base60 pn_base60_parse(const char* _Nonnull text, pn_error* _Nullable * _Nullable error);
 
-/// @returns an allocated null-terminated `char*` formatted with the,
+/// @returns an allocated null-terminated `char*` formatted with the
 /// @param value provided, and the
 /// @param place_sep provided, or NULL and the
 /// @param error encountered
-[[nodiscard]] char* _Nullable pn_base60_format(pn_base60 value, char place_sep, pn_error* _Nullable* _Nullable error);
+[[nodiscard]]
+char* _Nullable pn_base60_format(pn_base60 value, char place_sep,
+                                               pn_error* _Nullable * _Nullable error);
 
 /// Write the value back out as a transcription.  @param sep must be
 /// ',' ':' or ';'.  Places are written with two digits — only the
@@ -187,13 +178,13 @@ pn_base60 pn_base60_parse(const char* text, pn_error* _Nullable* _Nullable error
 ///
 /// @returns the caller's `char*` formatted with the
 /// @param value to write out,
-/// @param places_sep to join places, into the
+/// @param place_sep to join places, into the
 /// @param buffer provided, with the
 /// @param buflen provided; or NULL and the
 /// @param error encountered
 #define PN_BASE60_FORMAT_MAX_LEN (1 + 3 * PN_BASE60_MAX_PLACES + 1) /* '-' + places+seps + NUL */
-char* _Nullable pn_base60_format_into(pn_base60 value, char place_sep, char* _Nonnull buffer, size_t buflen,
-                     pn_error* _Nullable* _Nullable error);
+char* _Nullable pn_base60_format_into(pn_base60 value, char place_sep, char* _Nonnull buffer,
+                                      size_t buflen, pn_error* _Nullable * _Nullable error);
 
 /// Turn an ordinary unsigned integer into sexagesimal places by
 /// dividing by 60 again and again:
@@ -347,7 +338,7 @@ bool pn_babylonian_parse(const char* _Nullable buf, size_t buflen, pn_base60* _N
 // MARK: - Vigesimal
 
 /*  Vigesimal — the base-20 core value: places, radix, conversions.
-   The pn_vigesimal counterpart of pn_base60: a fixed-size array of
+   The pn_base20 counterpart of pn_base60: a fixed-size array of
    bytes inside a ~20-byte struct passed by value - no allocations,
    safe for real-time and embedded callers.
    value = (-1)^neg * sum_i  places[i] * 20^(radix - 1 - i)
@@ -363,17 +354,17 @@ bool pn_babylonian_parse(const char* _Nullable buf, size_t buflen, pn_base60* _N
    than sexagesimal's 60^8, because base twenty is half a square.
 */
 
-#define PN_VIGESIMAL_MAX_PLACES 16 /* 20^16 ~ 6.6e20: plenty; keeps the struct tiny */
+#define PN_BASE20_MAX_PLACES 16 /* 20^16 ~ 6.6e20: plenty; keeps the struct tiny */
 
-typedef struct pn_vigesimal {
-    uint8_t places[PN_VIGESIMAL_MAX_PLACES]; /* each 0..19, most significant first */
+typedef struct pn_base20 {
+    uint8_t places[PN_BASE20_MAX_PLACES]; /* each 0..19, most significant first */
     uint8_t n_places;                        /* number of significant places, 1..16 */
     uint8_t radix;                           /* places left of the radix point
 	                                         (a modern addition - the Maya
 	                                         wrote none); 0 means purely fractional */
     bool neg;                                /* modern nicety; the codices
 	                                         carry no sign */
-} pn_vigesimal;
+} pn_base20;
 
 /// Read a modern transcription of a vigesimal value — the same
 /// reading convention as the sexagesimal transcriptions above:
@@ -389,7 +380,7 @@ typedef struct pn_vigesimal {
 /// separator.  One trap: an unbroken "399" is NOT the decimal number
 /// 399 — it reads three digits deep and is refused as out of range
 /// (a longer run of digits is refused the same way).  Bring ordinary
-/// whole numbers in through pn_vigesimal_from_u64 instead.
+/// whole numbers in through pn_base20_from_u64 instead.
 /// @param text - the transcription to read
 /// @param out - where the value lands on success; untouched on any
 ///     failure
@@ -397,18 +388,18 @@ typedef struct pn_vigesimal {
 ///     when text or out is NULL, PN_ERROR_SYNTAX when the grammar is
 ///     broken, PN_ERROR_RANGE when a place tops 19, a place wears
 ///     more than 2 digits, or the value grows past
-///     PN_VIGESIMAL_MAX_PLACES places.
+///     PN_BASE20_MAX_PLACES places.
 /// @returns true on success, false with a note in @param error.
-bool pn_vigesimal_parse(const char* text, pn_vigesimal* _Nullable out,
+bool pn_base20_parse(const char* text, pn_base20* _Nullable out,
                         pn_error* _Nullable* _Nullable error);
 
-#define PN_VIGESIMAL_FORMAT_MAX_LEN \
-    (1 + 3 * PN_VIGESIMAL_MAX_PLACES + 1) /* '-' + places+seps + NUL */
+#define PN_BASE20_FORMAT_MAX_LEN \
+    (1 + 3 * PN_BASE20_MAX_PLACES + 1) /* '-' + places+seps + NUL */
 
 /// Write @param v out as a transcription joined with @param sep
 /// (',' or ':'; the radix boundary itself writes ';' whenever the
 /// radix sits in the middle of the value).  The write ends with a
-/// NUL and stays within PN_VIGESIMAL_FORMAT_MAX_LEN bytes.
+/// NUL and stays within PN_BASE20_FORMAT_MAX_LEN bytes.
 /// @param v - the value to write out
 /// @param sep - the joiner between places
 /// @param buf - where the text lands, with room for the NUL
@@ -420,7 +411,7 @@ bool pn_vigesimal_parse(const char* text, pn_vigesimal* _Nullable out,
 ///     n_places), PN_ERROR_BUFFER when buflen is too small.  On any
 ///     failure buf is left untouched.
 /// @returns true on success, false with a note in @param error.
-bool pn_vigesimal_format(pn_vigesimal v, char sep, char* _Nonnull buf, size_t buflen,
+bool pn_base20_format(pn_base20 v, char sep, char* _Nonnull buf, size_t buflen,
                          pn_error* _Nullable* _Nullable error);
 
 /// Turn an ordinary unsigned integer into vigesimal places exactly
@@ -431,10 +422,10 @@ bool pn_vigesimal_format(pn_vigesimal v, char sep, char* _Nonnull buf, size_t bu
 /// @param out - where the value lands on success
 /// @param error - where to hang the note on failure: PN_ERROR_NULL
 ///     when out is NULL, PN_ERROR_RANGE when the number would need
-///     more than PN_VIGESIMAL_MAX_PLACES places (in practice
+///     more than PN_BASE20_MAX_PLACES places (in practice
 ///     unreachable: UINT64_MAX takes 15 places).
 /// @returns true on success, false with a note in @param error.
-bool pn_vigesimal_from_u64(uint64_t n, pn_vigesimal* _Nullable out,
+bool pn_base20_from_u64(uint64_t n, pn_base20* _Nullable out,
                            pn_error* _Nullable* _Nullable error);
 
 /// Build a vigesimal whole number back up with Horner's scheme.
@@ -446,7 +437,7 @@ bool pn_vigesimal_from_u64(uint64_t n, pn_vigesimal* _Nullable out,
 ///     PN_ERROR_RANGE when the value does not fit a uint64_t
 ///     (16 places maxed out = 20^16 - 1 would not).
 /// @returns true on success, false with a note in @param error.
-bool pn_vigesimal_to_u64(pn_vigesimal v, uint64_t* _Nullable out,
+bool pn_base20_to_u64(pn_base20 v, uint64_t* _Nullable out,
                          pn_error* _Nullable* _Nullable error);
 
 /// Turn a vigesimal value into a double: the whole part runs through
@@ -460,7 +451,7 @@ bool pn_vigesimal_to_u64(pn_vigesimal v, uint64_t* _Nullable out,
 /// @param error - where to hang the note on failure: PN_ERROR_NULL
 ///     when out is NULL, PN_ERROR_DOMAIN when v is malformed.
 /// @returns true on success, false with a note in @param error.
-bool pn_vigesimal_to_double(pn_vigesimal v, double* _Nullable out,
+bool pn_base20_to_double(pn_base20 v, double* _Nullable out,
                             pn_error* _Nullable* _Nullable error);
 
 /// Turn a double into vigesimal places, rounding half away from zero
@@ -473,10 +464,10 @@ bool pn_vigesimal_to_double(pn_vigesimal v, double* _Nullable out,
 /// @param out - where the value lands on success
 /// @param error - where to hang the note on failure: PN_ERROR_NULL
 ///     when out is NULL, PN_ERROR_DOMAIN for NaN, infinity, or
-///     frac_places past PN_VIGESIMAL_MAX_PLACES, PN_ERROR_RANGE when
+///     frac_places past PN_BASE20_MAX_PLACES, PN_ERROR_RANGE when
 ///     the carries grow the value past 16 places.
 /// @returns true on success, false with a note in @param error.
-bool pn_vigesimal_from_double(double x, uint8_t frac_places, pn_vigesimal* _Nullable out,
+bool pn_base20_from_double(double x, uint8_t frac_places, pn_base20* _Nullable out,
                               pn_error* _Nullable* _Nullable error);
 
 /*  Egyptian hieroglyphic numerals (UTF-8 rendering).
@@ -844,7 +835,7 @@ bool pn_brahmi_render(uint64_t n, char* _Nonnull buf, size_t buflen,
 bool pn_brahmi_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullable out,
                      pn_error* _Nullable* _Nullable error);
 
-/*  Mayan bar-and-dot numerals over pn_vigesimal — the renderer.
+/*  Mayan bar-and-dot numerals over pn_base20 — the renderer.
    The Maya had what no other ancient place-value script here can
    claim, and what Unicode's cuneiform block pointedly lacks: a real
    zero.  Dots for units, bars for fives, a shell for nought, and the
@@ -884,7 +875,7 @@ bool pn_brahmi_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullab
    boundary, plus a '-' when neg.  Pure and total - it never fails; on
    a malformed v its answer is simply meaningless, since render rejects
 */
-size_t pn_mayan_render_size(pn_vigesimal v);
+size_t pn_mayan_render_size(pn_base20 v);
 
 /// Write @param v as Maya bar-and-dot numerals into @param buf as
 /// UTF-8, ending with a NUL: one sign per place, one space per
@@ -899,7 +890,7 @@ size_t pn_mayan_render_size(pn_vigesimal v);
 ///     pn_mayan_render_size(v).  On any failure buf is left
 ///     untouched.
 /// @returns true on success, false with a note in @param error.
-bool pn_mayan_render(pn_vigesimal v, char* _Nonnull buf, size_t buflen,
+bool pn_mayan_render(pn_base20 v, char* _Nonnull buf, size_t buflen,
                      pn_error* _Nullable* _Nullable error);
 
 /// Read back a rendered bar-and-dot string — the exact inverse of
@@ -910,7 +901,7 @@ bool pn_mayan_render(pn_vigesimal v, char* _Nonnull buf, size_t buflen,
 /// any foreign byte (the block's void past U+1D2F3 included —
 /// U+1D2F4..1D2FF carry no sign and never parse), or a sign cut off
 /// in the middle of its UTF-8 is PN_ERROR_SYNTAX.  More rows than
-/// PN_VIGESIMAL_MAX_PLACES is the page overrun — PN_ERROR_RANGE, the
+/// PN_BASE20_MAX_PLACES is the page overrun — PN_ERROR_RANGE, the
 /// ruling the scribe's fifteenth row gets — not bad grammar.  An
 /// empty string (buflen == 0) is syntax, not zero: the shell is
 /// zero's one true spelling, the way an empty tablet is no number.
@@ -924,7 +915,7 @@ bool pn_mayan_render(pn_vigesimal v, char* _Nonnull buf, size_t buflen,
 ///     failure
 /// @param error - where to hang the note on failure.
 /// @returns true on success, false with a note in @param error.
-bool pn_mayan_parse(const char* _Nullable buf, size_t buflen, pn_vigesimal* _Nullable out,
+bool pn_mayan_parse(const char* _Nullable buf, size_t buflen, pn_base20* _Nullable out,
                     pn_error* _Nullable* _Nullable error);
 
 /*  Inca quipu — positional decimal knot notation, transcribed in UTF-8.
@@ -1399,6 +1390,8 @@ bool pn_math_pythagorean_triple(uint64_t m, uint64_t n, uint64_t* _Nullable leg1
 /// @returns true on success, false with a note in @param error.
 bool pn_math_pythagorean_check(uint64_t x, uint64_t y, uint64_t z, bool* _Nullable out,
                                pn_error* _Nullable* _Nullable error);
+
+#pragma clang diagnostic pop
 
 #ifdef __cplusplus
 }
