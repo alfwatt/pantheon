@@ -44,7 +44,7 @@ Consume the library with `-Iinclude build/libpantheon.a` and a single
 
 #### Mayan
 - [x] vigesimal conversion
--       the pn_sex60 core rebased in base twenty: transcription, format, uint64 and double utils
+-       the pn_base60 core rebased in base twenty: transcription, format, uint64 and double utils
 - [x] [Maya numerals](https://en.wikipedia.org/wiki/Maya_numerals)
 -       bar-and-dot places in UTF-8 from block U+1D2E0..U+1D2F3, the shell for zero drawn as a sign
 
@@ -67,7 +67,7 @@ Every rendering below came out of the library itself
 (`pn_*_render`, `pn_*_format`), not off a chart; the U+2423 OPEN
 BOX shows a real place-boundary space the cords, boards and rows
 keep — it is part of the rendering.  The two conversion cores
-(`pn_sex60`, `pn_vigesimal`) sit beside the base-ten value; the
+(`pn_base60`, `pn_vigesimal`) sit beside the base-ten value; the
 rendered notations follow narrow-to-wide, longest furthest right.
 
 ```

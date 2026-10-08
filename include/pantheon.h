@@ -107,7 +107,7 @@ const char* _Nonnull pn_error_describe(const pn_error* _Nullable error);
    or 1/60; context decided.  See
    https://en.wikipedia.org/wiki/Sexagesimal and
    https://en.wikipedia.org/wiki/Babylonian_numerals .
-   pn_sex60 therefore carries an explicit radix position, a MODERN
+   pn_base60 therefore carries an explicit radix position, a MODERN
    convention added so this type is a number and not a riddle:
    value = (-1)^neg * sum_i  places[i] * 60^(radix - 1 - i)
    In period style, use radix == n_places (a pure integer).
@@ -119,17 +119,17 @@ const char* _Nonnull pn_error_describe(const pn_error* _Nullable error);
    beyond the exact range of a double.
 */
 
-#define PN_SEX60_MAX_PLACES 16 /* 60^16 ~ 2.8e28: plenty; keeps the struct tiny */
+#define PN_BASE60_MAX_PLACES 16 /* 60^16 ~ 2.8e28: plenty; keeps the struct tiny */
 
-typedef struct pn_sex60 {
-    uint8_t places[PN_SEX60_MAX_PLACES]; /* each 0..59, most significant first */
+typedef struct pn_base60 {
+    uint8_t places[PN_BASE60_MAX_PLACES]; /* each 0..59, most significant first */
     uint8_t n_places;                    /* number of significant places, 1..16 */
     uint8_t radix;                       /* places left of the radix point
                                              (a modern addition - the Babylonians
                                              wrote none); 0 means purely fractional */
     bool neg;                            /* modern nicety; Old Babylonian texts
                                              carry no sign */
-} pn_sex60;
+} pn_base60;
 
 /*  Old Babylonian values survive in print as comma- or colon-separated
    places, e.g. the famous YBC 7289 diagonal:  1,24,51,10  (= about 1.41421,
@@ -151,22 +151,22 @@ typedef struct pn_sex60 {
 /// separator.  One trap: an unbroken "3599" is NOT the decimal number
 /// 3599 — it reads as the places 35 and 99, and 99 is above 59, so it
 /// is refused.  Bring ordinary whole numbers in through
-/// pn_sex60_from_u64 instead.
+/// pn_base60_from_u64 instead.
 ///
-/// @returns a pn_sex60 number parsed from the
+/// @returns a pn_base60 number parsed from the
 /// @param text provided, or null and the
 /// @param error encountered:
 ///     PN_ERROR_NULL when text or out is NULL,
 ///     PN_ERROR_SYNTAX when the grammar is broken,
 ///     PN_ERROR_RANGE when a place tops 59, a place wears more than 2 digits,
-///     or the value grows past PN_SEX60_MAX_PLACES places.
-pn_sex60 pn_sex60_parse(const char* text, pn_error* _Nullable* _Nullable error);
+///     or the value grows past PN_BASE60_MAX_PLACES places.
+pn_base60 pn_base60_parse(const char* text, pn_error* _Nullable* _Nullable error);
 
 /// @returns an allocated null-terminated `char*` formatted with the,
 /// @param value provided, and the
 /// @param place_sep provided, or NULL and the
 /// @param error encountered
-[[nodiscard]] char* _Nullable pn_sex60_format(pn_sex60 value, char place_sep, pn_error* _Nullable* _Nullable error);
+[[nodiscard]] char* _Nullable pn_base60_format(pn_base60 value, char place_sep, pn_error* _Nullable* _Nullable error);
 
 /// Write the value back out as a transcription.  @param sep must be
 /// ',' ':' or ';'.  Places are written with two digits — only the
@@ -181,7 +181,7 @@ pn_sex60 pn_sex60_parse(const char* text, pn_error* _Nullable* _Nullable error);
 /// two ';' and will not parse back — use ',' or ':' when the string
 /// has to survive the round trip.  A negative value grows a leading
 /// '-'.  The write ends with a NUL and needs at most
-/// PN_SEX60_FORMAT_MAX_LEN bytes.
+/// PN_BASE60_FORMAT_MAX_LEN bytes.
 ///
 /// On failure the provided buffer is left untouched.
 ///
@@ -191,8 +191,8 @@ pn_sex60 pn_sex60_parse(const char* text, pn_error* _Nullable* _Nullable error);
 /// @param buffer provided, with the
 /// @param buflen provided; or NULL and the
 /// @param error encountered
-#define PN_SEX60_FORMAT_MAX_LEN (1 + 3 * PN_SEX60_MAX_PLACES + 1) /* '-' + places+seps + NUL */
-char* _Nullable pn_sex60_format_into(pn_sex60 value, char place_sep, char* _Nonnull buffer, size_t buflen,
+#define PN_BASE60_FORMAT_MAX_LEN (1 + 3 * PN_BASE60_MAX_PLACES + 1) /* '-' + places+seps + NUL */
+char* _Nullable pn_base60_format_into(pn_base60 value, char place_sep, char* _Nonnull buffer, size_t buflen,
                      pn_error* _Nullable* _Nullable error);
 
 /// Turn an ordinary unsigned integer into sexagesimal places by
@@ -205,10 +205,10 @@ char* _Nullable pn_sex60_format_into(pn_sex60 value, char place_sep, char* _Nonn
 /// @param out - where the value lands on success
 /// @param error - where to hang the note on failure: PN_ERROR_NULL
 ///     when out is NULL, PN_ERROR_RANGE when the number would need
-///     more than PN_SEX60_MAX_PLACES places (in practice unreachable:
+///     more than PN_BASE60_MAX_PLACES places (in practice unreachable:
 ///     2^64 needs only 11 places).
 /// @returns true on success, false with a note in @param error.
-bool pn_sex60_from_u64(uint64_t n, pn_sex60* _Nullable out, pn_error* _Nullable* _Nullable error);
+bool pn_base60_from_u64(uint64_t n, pn_base60* _Nullable out, pn_error* _Nullable* _Nullable error);
 
 /// Turn a sexagesimal whole number back into an ordinary unsigned
 /// integer with Horner's scheme (acc = acc*60 + place).  The value
@@ -221,7 +221,7 @@ bool pn_sex60_from_u64(uint64_t n, pn_sex60* _Nullable out, pn_error* _Nullable*
 ///     malformed too), PN_ERROR_RANGE when the value does not fit a
 ///     uint64_t.
 /// @returns true on success, false with a note in @param error.
-bool pn_sex60_to_u64(pn_sex60 v, uint64_t* _Nullable out, pn_error* _Nullable* _Nullable error);
+bool pn_base60_to_u64(pn_base60 v, uint64_t* _Nullable out, pn_error* _Nullable* _Nullable error);
 
 /// Turn a sexagesimal value into a double.  The fold runs
 /// right-to-left, val = (val + place) / 60, so whole values stay
@@ -236,10 +236,10 @@ bool pn_sex60_to_u64(pn_sex60 v, uint64_t* _Nullable out, pn_error* _Nullable* _
 /// @param error - where to hang the note on failure: PN_ERROR_NULL
 ///     when out is NULL, PN_ERROR_DOMAIN when v is malformed.
 /// @returns true on success, false with a note in @param error.
-bool pn_sex60_to_double(pn_sex60 v, double* _Nullable out, pn_error* _Nullable* _Nullable error);
+bool pn_base60_to_double(pn_base60 v, double* _Nullable out, pn_error* _Nullable* _Nullable error);
 
 /// Turn a double into sexagesimal places with exactly
-/// @param frac_places fractional places (0 to PN_SEX60_MAX_PLACES),
+/// @param frac_places fractional places (0 to PN_BASE60_MAX_PLACES),
 /// rounded half away from zero at the last kept place with carries
 /// walking left.  Trailing zero places are KEPT, never trimmed, so
 /// every answer is reproducible:
@@ -249,7 +249,7 @@ bool pn_sex60_to_double(pn_sex60 v, double* _Nullable out, pn_error* _Nullable* 
 ///
 /// The Babylonians would have dropped trailing empty places — and
 /// could afford to, since context told the reader the size anyway.
-/// NaN and infinity are refused; see pn_sex60_to_double for the
+/// NaN and infinity are refused; see pn_base60_to_double for the
 /// general exactness caveats.
 /// @param x - the number to convert
 /// @param frac_places - how many fractional places to keep
@@ -258,9 +258,9 @@ bool pn_sex60_to_double(pn_sex60 v, double* _Nullable out, pn_error* _Nullable* 
 ///     when out is NULL, PN_ERROR_DOMAIN for NaN, infinity, or
 ///     frac_places above the maximum, PN_ERROR_RANGE when the whole
 ///     part or the rounded result needs more than
-///     PN_SEX60_MAX_PLACES places.
+///     PN_BASE60_MAX_PLACES places.
 /// @returns true on success, false with a note in @param error.
-bool pn_sex60_from_double(double x, uint8_t frac_places, pn_sex60* _Nullable out,
+bool pn_base60_from_double(double x, uint8_t frac_places, pn_base60* _Nullable out,
                           pn_error* _Nullable* _Nullable error);
 
 // MARK: - Cuneiform Numbers
@@ -288,7 +288,7 @@ bool pn_sex60_from_double(double x, uint8_t frac_places, pn_sex60* _Nullable out
 /*  write for a well-formed v.  Pure and total — it never fails; on a
    malformed v its answer is simply meaningless, since render rejects
 */
-size_t pn_babylonian_render_size(pn_sex60 v);
+size_t pn_babylonian_render_size(pn_base60 v);
 
 /// Write @param v in positional cuneiform style into @param buf as
 /// UTF-8, ending with a NUL.  Each place becomes a group of (d/10) U
@@ -308,7 +308,7 @@ size_t pn_babylonian_render_size(pn_sex60 v);
 ///     pn_babylonian_render_size(v).  On any failure buf is left
 ///     untouched.
 /// @returns true on success, false with a note in @param error.
-bool pn_babylonian_render(pn_sex60 v, char* _Nonnull buf, size_t buflen,
+bool pn_babylonian_render(pn_base60 v, char* _Nonnull buf, size_t buflen,
                           pn_error* _Nullable* _Nullable error);
 
 // Parse a rendered cuneiform string - the inverse of
@@ -339,15 +339,15 @@ bool pn_babylonian_render(pn_sex60 v, char* _Nonnull buf, size_t buflen,
 ///     or illegal spacing, including an empty string and a DISH
 ///     before a U in one group, PN_ERROR_RANGE for a group with more
 ///     than 5 U or 9 DISH signs, or for a value past
-///     PN_SEX60_MAX_PLACES places.
+///     PN_BASE60_MAX_PLACES places.
 /// @returns true on success, false with a note in @param error.
-bool pn_babylonian_parse(const char* _Nullable buf, size_t buflen, pn_sex60* _Nullable out,
+bool pn_babylonian_parse(const char* _Nullable buf, size_t buflen, pn_base60* _Nullable out,
                          pn_error* _Nullable* _Nullable error);
 
 // MARK: - Vigesimal
 
 /*  Vigesimal — the base-20 core value: places, radix, conversions.
-   The pn_vigesimal counterpart of pn_sex60: a fixed-size array of
+   The pn_vigesimal counterpart of pn_base60: a fixed-size array of
    bytes inside a ~20-byte struct passed by value - no allocations,
    safe for real-time and embedded callers.
    value = (-1)^neg * sum_i  places[i] * 20^(radix - 1 - i)
@@ -465,7 +465,7 @@ bool pn_vigesimal_to_double(pn_vigesimal v, double* _Nullable out,
 
 /// Turn a double into vigesimal places, rounding half away from zero
 /// at the @param frac_places-th place (each place 0..19), just like
-/// pn_sex60_from_double: places kept past the rounding are zeros,
+/// pn_base60_from_double: places kept past the rounding are zeros,
 /// 0.98 rounded at one place steps up to a whole 1, NaN and infinity
 /// are refused.
 /// @param x - the number to convert

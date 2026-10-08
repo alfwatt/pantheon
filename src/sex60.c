@@ -36,8 +36,8 @@ static const uint64_t pow60_exact[] = {
    most 59, and a radix between 0 and n_places.  A caller who pokes
    at the struct by hand must not be able to push the other
    functions into misbehaving. */
-static int well_formed(pn_sex60 v) {
-    if (v.n_places == 0 || v.n_places > PN_SEX60_MAX_PLACES)
+static int well_formed(pn_base60 v) {
+    if (v.n_places == 0 || v.n_places > PN_BASE60_MAX_PLACES)
         return 0;
     if (v.radix > v.n_places)
         return 0;
@@ -47,14 +47,14 @@ static int well_formed(pn_sex60 v) {
     return 1;
 }
 
-bool pn_sex60_parse(const char* text, pn_sex60* _Nullable out,
+bool pn_base60_parse(const char* text, pn_base60* _Nullable out,
                     pn_error* _Nullable* _Nullable error) {
     if (text == NULL || out == NULL)
         return pn_error_set(error, PN_ERROR_NULL,
                             "parse needs a string and a place to put"
                             " the value");
 
-    pn_sex60 v; /* built here; *out keeps its old value unless all works */
+    pn_base60 v; /* built here; *out keeps its old value unless all works */
     memset(&v, 0, sizeof v);
 
     const char* p = text;
@@ -90,12 +90,12 @@ bool pn_sex60_parse(const char* text, pn_sex60* _Nullable out,
                                 " \"%.*s...\" included %s",
                                 v.n_places, d, nd > 3 ? 3 : nd, p - nd,
                                 nd > 2 ? "(three or more digits)" : "(a place above 59)");
-        if (v.n_places == PN_SEX60_MAX_PLACES)
+        if (v.n_places == PN_BASE60_MAX_PLACES)
             return pn_error_set(error, PN_ERROR_RANGE,
                                 "a value holds at most %u places"
                                 " (60^%u runs past what the type"
                                 " stores)",
-                                PN_SEX60_MAX_PLACES, PN_SEX60_MAX_PLACES);
+                                PN_BASE60_MAX_PLACES, PN_BASE60_MAX_PLACES);
 
         v.places[v.n_places++] = (uint8_t) d;
 
@@ -125,7 +125,7 @@ bool pn_sex60_parse(const char* text, pn_sex60* _Nullable out,
     return true;
 }
 
-bool pn_sex60_format(pn_sex60 v, char sep, char* _Nonnull buf, size_t buflen,
+bool pn_base60_format(pn_base60 v, char sep, char* _Nonnull buf, size_t buflen,
                      pn_error* _Nullable* _Nullable error) {
     if (buf == NULL)
         return pn_error_set(error, PN_ERROR_NULL, "format needs a buffer to write into");
@@ -140,14 +140,14 @@ bool pn_sex60_format(pn_sex60 v, char sep, char* _Nonnull buf, size_t buflen,
                             " %u places, radix %u - places need"
                             " 1 to %u slots, each 0 to 59, and"
                             " the radix cannot pass n_places",
-                            v.n_places, v.radix, PN_SEX60_MAX_PLACES);
+                            v.n_places, v.radix, PN_BASE60_MAX_PLACES);
 
     /*  Written in scratch space first, so a late failure can never
   leave buf holding half a number.  Worst case: '-' + 16
   places x 2 digits + 15 separators + NUL = 49 bytes, which
   the declared maximum has room for.
 */
-    char tmp[PN_SEX60_FORMAT_MAX_LEN];
+    char tmp[PN_BASE60_FORMAT_MAX_LEN];
     char* q = tmp;
 
     if (v.neg)
@@ -179,13 +179,13 @@ bool pn_sex60_format(pn_sex60 v, char sep, char* _Nonnull buf, size_t buflen,
    again); to_u64 builds the number back up with Horner's scheme.
    Babylonian clerks did exactly this on the abacus, and exactly this
    in the wrong order whenever we misread a tablet's missing zero. */
-bool pn_sex60_from_u64(uint64_t n, pn_sex60* _Nullable out, pn_error* _Nullable* _Nullable error) {
+bool pn_base60_from_u64(uint64_t n, pn_base60* _Nullable out, pn_error* _Nullable* _Nullable error) {
     if (out == NULL)
         return pn_error_set(error, PN_ERROR_NULL,
                             "from_u64 needs a place to put the"
                             " value");
 
-    pn_sex60 v;
+    pn_base60 v;
 
     memset(&v, 0, sizeof v);
     v.neg = false;
@@ -194,13 +194,13 @@ bool pn_sex60_from_u64(uint64_t n, pn_sex60* _Nullable out, pn_error* _Nullable*
     size_t k = 0;
 
     do {
-        if (k == PN_SEX60_MAX_PLACES)
+        if (k == PN_BASE60_MAX_PLACES)
             return pn_error_set(error, PN_ERROR_RANGE,
                                 "this many base-60 places will not"
                                 " fit the value (the guard reads as"
                                 " unreachable: 2^64 needs 11 places,"
                                 " the type holds %u)",
-                                PN_SEX60_MAX_PLACES);
+                                PN_BASE60_MAX_PLACES);
         p[k++] = (uint8_t) (n % 60u);
         n /= 60u;
     } while (n != 0);
@@ -217,12 +217,12 @@ bool pn_sex60_from_u64(uint64_t n, pn_sex60* _Nullable out, pn_error* _Nullable*
     return true;
 }
 
-bool pn_sex60_to_u64(pn_sex60 v, uint64_t* _Nullable out, pn_error* _Nullable* _Nullable error) {
+bool pn_base60_to_u64(pn_base60 v, uint64_t* _Nullable out, pn_error* _Nullable* _Nullable error) {
     if (out == NULL)
         return pn_error_set(error, PN_ERROR_NULL,
                             "to_u64 needs a place to put the"
                             " number");
-    if (v.n_places == 0 || v.n_places > PN_SEX60_MAX_PLACES || v.radix > v.n_places)
+    if (v.n_places == 0 || v.n_places > PN_BASE60_MAX_PLACES || v.radix > v.n_places)
         return pn_error_set(error, PN_ERROR_DOMAIN,
                             "the value is not well-formed:"
                             " %u places, radix %u",
@@ -259,7 +259,7 @@ bool pn_sex60_to_u64(pn_sex60 v, uint64_t* _Nullable out, pn_error* _Nullable* _
    exact uint64_t where one fits, then does one correctly-rounded
    division.  So the answer is exact whenever a double is able to
    hold it at all. */
-bool pn_sex60_to_double(pn_sex60 v, double* _Nullable out, pn_error* _Nullable* _Nullable error) {
+bool pn_base60_to_double(pn_base60 v, double* _Nullable out, pn_error* _Nullable* _Nullable error) {
     if (out == NULL)
         return pn_error_set(error, PN_ERROR_NULL,
                             "to_double needs a place to put the"
@@ -318,7 +318,7 @@ bool pn_sex60_to_double(pn_sex60 v, double* _Nullable out, pn_error* _Nullable* 
     return true;
 }
 
-bool pn_sex60_from_double(double x, uint8_t frac_places, pn_sex60* _Nullable out,
+bool pn_base60_from_double(double x, uint8_t frac_places, pn_base60* _Nullable out,
                           pn_error* _Nullable* _Nullable error) {
     if (out == NULL)
         return pn_error_set(error, PN_ERROR_NULL,
@@ -328,11 +328,11 @@ bool pn_sex60_from_double(double x, uint8_t frac_places, pn_sex60* _Nullable out
         return pn_error_set(error, PN_ERROR_DOMAIN,
                             "NaN and infinity name no number a"
                             " tablet could hold");
-    if ((int) frac_places > PN_SEX60_MAX_PLACES)
+    if ((int) frac_places > PN_BASE60_MAX_PLACES)
         return pn_error_set(error, PN_ERROR_DOMAIN,
                             "asked for %u fractional places;"
                             " the value holds %u places total",
-                            (unsigned) frac_places, PN_SEX60_MAX_PLACES);
+                            (unsigned) frac_places, PN_BASE60_MAX_PLACES);
 
     double mag = fabs(x);
     double ip = floor(mag); /* the whole part */
@@ -344,15 +344,15 @@ bool pn_sex60_from_double(double x, uint8_t frac_places, pn_sex60* _Nullable out
   worked out again instead of trusting the pair the division
   hands back.
 */
-    uint8_t ipd[PN_SEX60_MAX_PLACES];
+    uint8_t ipd[PN_BASE60_MAX_PLACES];
     size_t ki = 0;
 
     while (ip >= 1.0) {
-        if (ki == PN_SEX60_MAX_PLACES)
+        if (ki == PN_BASE60_MAX_PLACES)
             return pn_error_set(error, PN_ERROR_RANGE,
                                 "the whole part needs more than %u"
                                 " base-60 places",
-                                PN_SEX60_MAX_PLACES);
+                                PN_BASE60_MAX_PLACES);
         double q = floor(ip / 60.0);
         double r = ip - q * 60.0;
 
@@ -373,15 +373,15 @@ bool pn_sex60_from_double(double x, uint8_t frac_places, pn_sex60* _Nullable out
   place rounds half away from zero; trailing zeros stay, so
   every answer is reproducible.
 */
-    uint8_t fpd[PN_SEX60_MAX_PLACES];
+    uint8_t fpd[PN_BASE60_MAX_PLACES];
     size_t kf = frac_places;
 
     for (size_t j = 0; j < kf; j++) {
-        if (ki + j == PN_SEX60_MAX_PLACES)
+        if (ki + j == PN_BASE60_MAX_PLACES)
             return pn_error_set(error, PN_ERROR_RANGE,
                                 "%u whole places plus this fraction"
                                 " will not share %u slots",
-                                (unsigned) ki, PN_SEX60_MAX_PLACES);
+                                (unsigned) ki, PN_BASE60_MAX_PLACES);
         fp *= 60.0;
         uint8_t dgt = (uint8_t) fp; /* floor: fp cannot go below 0 */
 
@@ -428,7 +428,7 @@ bool pn_sex60_from_double(double x, uint8_t frac_places, pn_sex60* _Nullable out
         }
     }
 
-    pn_sex60 v;
+    pn_base60 v;
 
     memset(&v, 0, sizeof v);
     v.neg = signbit(x) != 0;
@@ -436,12 +436,12 @@ bool pn_sex60_from_double(double x, uint8_t frac_places, pn_sex60* _Nullable out
     size_t total = ki + kf;
 
     if (carry_out) {
-        if (total == PN_SEX60_MAX_PLACES)
+        if (total == PN_BASE60_MAX_PLACES)
             return pn_error_set(error, PN_ERROR_RANGE,
                                 "rounding grew the value past its"
                                 " %u places; there is no room for"
                                 " the new leading place",
-                                PN_SEX60_MAX_PLACES);
+                                PN_BASE60_MAX_PLACES);
         v.places[0] = 1;
         total++; /* all the other places stay zero */
         v.radix = (uint8_t) (ki + 1);

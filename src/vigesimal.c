@@ -6,7 +6,7 @@
     scratch buffer.
 
     The Maya wrote neither radix points nor signs; both are modern
-    niceties, exactly as in pn_sex60.  The one real difference from
+    niceties, exactly as in pn_base60.  The one real difference from
     sexagesimal is arithmetic: 20 = 4 x 5, so a fraction with a
     factor five in its bottom is no more dyadic than a sixtieth
      (0;1, which is 1/20, repeats forever in binary), while 20^12 is
@@ -162,7 +162,7 @@ bool pn_vigesimal_format(pn_vigesimal v, char sep, char* _Nonnull buf, size_t bu
   leave buf holding half a number.  Worst case: '-' + 16
   places x 2 digits + 15 separators + NUL = 49 bytes, which
   the declared maximum has room for.
-  One deliberate departure from pn_sex60_format: places print
+  One deliberate departure from pn_base60_format: places print
   with the FEWEST decimal digits they need, no zero padding
   past the first place.  Sexagesimal pads its places to two
   digits as the scholarly convention (1,24,51,10); a
@@ -279,7 +279,7 @@ bool pn_vigesimal_to_u64(pn_vigesimal v, uint64_t* _Nullable out,
         acc = acc * 20u + d;
     }
     *out = acc; /* the size of it: the sign is the caller's business,
-	                exactly as in pn_sex60_to_u64                  */
+	                exactly as in pn_base60_to_u64                  */
     return true;
 }
 

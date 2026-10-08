@@ -31,8 +31,8 @@
 
 /* A value is well-formed when it has 1 to MAX places, every place
    at most 59, and a radix between 0 and n_places. */
-static int well_formed(pn_sex60 v) {
-    if (v.n_places == 0 || v.n_places > PN_SEX60_MAX_PLACES)
+static int well_formed(pn_base60 v) {
+    if (v.n_places == 0 || v.n_places > PN_BASE60_MAX_PLACES)
         return 0;
     if (v.radix > v.n_places)
         return 0;
@@ -47,7 +47,7 @@ static size_t group_bytes(unsigned d) {
     return (d == 0) ? GAP_BYTES : (d / 10u + d % 10u) * SIGN_BYTES;
 }
 
-size_t pn_babylonian_render_size(pn_sex60 v) {
+size_t pn_babylonian_render_size(pn_base60 v) {
     size_t n = v.neg ? 1u : 0u;
 
     for (unsigned i = 0; i < v.n_places; i++) {
@@ -58,7 +58,7 @@ size_t pn_babylonian_render_size(pn_sex60 v) {
     return n;
 }
 
-bool pn_babylonian_render(pn_sex60 v, char* _Nonnull buf, size_t buflen,
+bool pn_babylonian_render(pn_base60 v, char* _Nonnull buf, size_t buflen,
                           pn_error* _Nullable* _Nullable error) {
     if (buf == NULL)
         return pn_error_set(error, PN_ERROR_NULL, "render needs a buffer to write into");
@@ -68,7 +68,7 @@ bool pn_babylonian_render(pn_sex60 v, char* _Nonnull buf, size_t buflen,
                             " %u places, radix %u - places need"
                             " 1 to %u slots, each 0 to 59, and"
                             " the radix cannot pass n_places",
-                            v.n_places, v.radix, PN_SEX60_MAX_PLACES);
+                            v.n_places, v.radix, PN_BASE60_MAX_PLACES);
 
     /* render_size is exact: buflen has to hold its bytes plus NUL */
     size_t need = pn_babylonian_render_size(v);
@@ -121,14 +121,14 @@ bool pn_babylonian_render(pn_sex60 v, char* _Nonnull buf, size_t buflen,
     Every other shape - other bytes, other spacings, groups written
    out of order - is refused, and that strictness is exactly what
    makes the parse-after-render round trip exact. */
-bool pn_babylonian_parse(const char* _Nullable buf, size_t buflen, pn_sex60* _Nullable out,
+bool pn_babylonian_parse(const char* _Nullable buf, size_t buflen, pn_base60* _Nullable out,
                          pn_error* _Nullable* _Nullable error) {
     if (buf == NULL || out == NULL)
         return pn_error_set(error, PN_ERROR_NULL,
                             "parse needs a string and a place to"
                             " put the value");
 
-    pn_sex60 v; /* built here; *out keeps its old value unless all works */
+    pn_base60 v; /* built here; *out keeps its old value unless all works */
 
     memset(&v, 0, sizeof v);
 
@@ -176,11 +176,11 @@ bool pn_babylonian_parse(const char* _Nullable buf, size_t buflen, pn_sex60* _Nu
                                     spaces);
             zeros = (spaces - 1u) / 3u;
         }
-        if (n + zeros > PN_SEX60_MAX_PLACES)
+        if (n + zeros > PN_BASE60_MAX_PLACES)
             return pn_error_set(error, PN_ERROR_RANGE,
                                 "the empty places here push the"
                                 " value past its %u place limit",
-                                PN_SEX60_MAX_PLACES);
+                                PN_BASE60_MAX_PLACES);
         for (; zeros > 0; zeros--)
             v.places[n++] = 0;
 
@@ -231,7 +231,7 @@ bool pn_babylonian_parse(const char* _Nullable buf, size_t buflen, pn_sex60* _Nu
                                 spaces); /* "" and "-" land here too */
         size_t k = (spaces + 1u) / 3u;
 
-        if (k > PN_SEX60_MAX_PLACES)
+        if (k > PN_BASE60_MAX_PLACES)
             return pn_error_set(error, PN_ERROR_RANGE,
                                 "%zu empty places will not fit"
                                 " the value",
@@ -249,12 +249,12 @@ bool pn_babylonian_parse(const char* _Nullable buf, size_t buflen, pn_sex60* _Nu
     else {
         size_t zeros = spaces / 3u;
 
-        if (n + zeros > PN_SEX60_MAX_PLACES)
+        if (n + zeros > PN_BASE60_MAX_PLACES)
             return pn_error_set(error, PN_ERROR_RANGE,
                                 "the blank tail pushes the"
                                 " value past its %u place"
                                 " limit",
-                                PN_SEX60_MAX_PLACES);
+                                PN_BASE60_MAX_PLACES);
         for (; zeros > 0; zeros--)
             v.places[n++] = 0;
     }

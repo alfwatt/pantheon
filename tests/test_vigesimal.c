@@ -95,7 +95,7 @@ int main(void) {
 
     CHECK_OK(pn_vigesimal_parse("-1,2,0,0", &v, &err_), err_);
     CHECK(v.neg);
-    /*  to_u64 reads the magnitude: the same quirk pn_sex60_to_u64 carries
+    /*  to_u64 reads the magnitude: the same quirk pn_base60_to_u64 carries
 	   (neg is the caller's business; see src/sex60.c)
 	*/
     CHECK_OK(pn_vigesimal_to_u64(v, &u, &err_), err_);
@@ -147,7 +147,7 @@ int main(void) {
     CHECK_ERROR(pn_vigesimal_from_double(1.0, 17, &v, &err_), err_, PN_ERROR_DOMAIN);
 
     /*  errors: malformed structs
-	   The poke-at-the-struct defence: pn_sex60's well_formed rule book,
+	   The poke-at-the-struct defence: pn_base60's well_formed rule book,
 	   rebased. *out / buf must stay untouched — checked by sentinel.
 	*/
     pn_vigesimal bad;

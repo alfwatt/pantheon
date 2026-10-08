@@ -94,7 +94,7 @@ __attribute__((unused)) static void* pn_nothing(void) {
             fprintf(stderr, "   got %.17g, want %.17g\n", g_, w_); \
     } while (0)
 
-/* CHECK_PLACES(v, radix, place, place, ...) — compare a pn_sex60
+/* CHECK_PLACES(v, radix, place, place, ...) — compare a pn_base60
    place-by-place, radix included, against literals. */
 #define CHECK_PLACES(v, rdx_, ...)                                                                \
     do {                                                                                          \

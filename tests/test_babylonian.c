@@ -23,15 +23,15 @@ static int count_sigs(const char* buf, const char* sig) {
 }
 
 /* Render into a generous buffer, asserting render_size == strlen. */
-static void render_ok(pn_sex60 v, char* buf, size_t buflen) {
+static void render_ok(pn_base60 v, char* buf, size_t buflen) {
     size_t need = pn_babylonian_render_size(v);
     CHECK_OK(pn_babylonian_render(v, buf, need + 1, &err_), err_);
     CHECK(strlen(buf) == need);
     (void) buflen;
 }
 
-static pn_sex60 mk(const uint8_t* places, uint8_t n, uint8_t radix) {
-    pn_sex60 v;
+static pn_base60 mk(const uint8_t* places, uint8_t n, uint8_t radix) {
+    pn_base60 v;
     memset(&v, 0, sizeof v);
     memcpy(v.places, places, n);
     v.n_places = n;
@@ -109,7 +109,7 @@ int main(void) {
     CHECK(strcmp(buf, DISH "   ") == 0); /* wedge + joiner + 2-space gap */
 
     /* Negative sign (our anachronism) leads the rendering. */
-    pn_sex60 negv = mk(one, 1, 1);
+    pn_base60 negv = mk(one, 1, 1);
     negv.neg = true;
     render_ok(negv, buf, sizeof buf);
     CHECK(buf[0] == '-' && strcmp(buf + 1, DISH) == 0);
@@ -129,13 +129,13 @@ int main(void) {
     CHECK_ERROR(pn_babylonian_render(mk(one, 1, 1), pn_nothing(), 16, &err_), err_, PN_ERROR_NULL);
 
     /* Buffer one byte short of need + NUL fails and leaves buf alone. */
-    pn_sex60 v1 = mk(one, 1, 1);
+    pn_base60 v1 = mk(one, 1, 1);
     memset(buf, 'x', 8);
     CHECK_ERROR(pn_babylonian_render(v1, buf, 4, &err_), err_, PN_ERROR_BUFFER);
     CHECK(memcmp(buf, "xxxx", 4) == 0);
 
     /* Malformed values must not print wedges. */
-    pn_sex60 bad = mk(one, 1, 1);
+    pn_base60 bad = mk(one, 1, 1);
     bad.n_places = 0;
     memset(buf, 'x', 8);
     CHECK_ERROR(pn_babylonian_render(bad, buf, sizeof buf, &err_), err_, PN_ERROR_DOMAIN);
@@ -167,19 +167,19 @@ int main(void) {
     static const uint8_t rt7[] = {0, 0};
     static const uint8_t rt8[] = {0, 45};
     static const uint8_t rt9[] = {3, 0, 0, 59};
-    static const uint8_t rt10[PN_SEX60_MAX_PLACES] = {59, 59, 59, 59, 59, 59, 59, 59,
+    static const uint8_t rt10[PN_BASE60_MAX_PLACES] = {59, 59, 59, 59, 59, 59, 59, 59,
                                                       59, 59, 59, 59, 59, 59, 59, 59};
     static const uint8_t* const rts[] = {rt1, rt2, rt3, rt4, rt5, rt6, rt7, rt8, rt9, rt10};
     static const uint8_t rt_lens[] = {1, 1, 3, 3, 2, 1, 2, 2, 4, 16};
 
     for (size_t c = 0; c < sizeof rts / sizeof rts[0]; c++) {
         for (int neg = 0; neg <= 1; neg++) {
-            pn_sex60 v = mk(rts[c], rt_lens[c], rt_lens[c]);
+            pn_base60 v = mk(rts[c], rt_lens[c], rt_lens[c]);
             v.neg = neg != 0;
             char rendered[4096];
             size_t need = pn_babylonian_render_size(v);
             CHECK_OK(pn_babylonian_render(v, rendered, need + 1, &err_), err_);
-            pn_sex60 w;
+            pn_base60 w;
             CHECK_OK(pn_babylonian_parse(rendered, strlen(rendered), &w, &err_), err_);
             CHECK(w.n_places == rt_lens[c] && w.neg == v.neg);
             CHECK(memcmp(w.places, rts[c], rt_lens[c]) == 0);
@@ -192,7 +192,7 @@ int main(void) {
 
     /* The 8583 reading, spelled out. */
     static const uint8_t expect_8583[] = {2, 23, 3};
-    pn_sex60 read;
+    pn_base60 read;
     const char* tablet = DISH DISH " " U U DISH DISH DISH " " DISH DISH DISH;
     CHECK_OK(pn_babylonian_parse(tablet, strlen(tablet), &read, &err_), err_);
     CHECK(read.n_places == 3 && read.radix == 3 && !read.neg);
@@ -233,12 +233,12 @@ int main(void) {
     CHECK(read.n_places == 7);
 
     /* Seventeen places: too deep a tablet. */
-    char deep[PN_SEX60_MAX_PLACES * 5 + 2];
+    char deep[PN_BASE60_MAX_PLACES * 5 + 2];
     char* dp = deep;
-    for (unsigned i = 0; i < PN_SEX60_MAX_PLACES + 1; i++) {
+    for (unsigned i = 0; i < PN_BASE60_MAX_PLACES + 1; i++) {
         memcpy(dp, DISH, 4);
         dp += 4;
-        if (i < PN_SEX60_MAX_PLACES)
+        if (i < PN_BASE60_MAX_PLACES)
             *dp++ = ' ';
     }
     *dp = '\0';
@@ -253,7 +253,7 @@ int main(void) {
     CHECK_ERROR(pn_babylonian_parse(DISH, 3, &read, &err_), err_, PN_ERROR_SYNTAX);
 
     /* A negative round-trips its sign. */
-    pn_sex60 neg_zero = mk(rt6, 1, 1);
+    pn_base60 neg_zero = mk(rt6, 1, 1);
     neg_zero.neg = true;
     char neg_rendered[16];
     size_t neg_need = pn_babylonian_render_size(neg_zero);
