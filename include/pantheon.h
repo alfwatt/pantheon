@@ -332,8 +332,7 @@ bool pn_babylonian_render(pn_base60 v, char* _Nonnull buf, size_t buflen,
 ///     than 5 U or 9 DISH signs, or for a value past
 ///     PN_BASE60_MAX_PLACES places.
 /// @returns true on success, false with a note in @param error.
-bool pn_babylonian_parse(const char* _Nullable buf, size_t buflen, pn_base60* _Nullable out,
-                         pn_error* _Nullable* _Nullable error);
+pn_base60* _Nullable pn_babylonian_parse_from(const char* _Nonnull buf, size_t buflen, pn_base60* _Nonnull out, pn_error* _Nullable* _Nullable error);
 
 // MARK: - Vigesimal
 
