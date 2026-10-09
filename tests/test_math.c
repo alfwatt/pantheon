@@ -46,7 +46,6 @@ static void t_gcd(void) {
     CHECK_OK(pn_math_gcd(46349ull, 46337ull, &sink, &err_), err_);
     CHECK(sink == 1ull); /* gcd(46349, 46337) */
     sink = 0ull;
-    CHECK_ERROR(pn_math_gcd(3ull, 4ull, pn_nothing(), &err_), err_, PN_ERROR_NULL);
 }
 
 static void t_lcm(void) {
@@ -102,7 +101,6 @@ static void t_lcm(void) {
     CHECK_OK(pn_math_lcm(4294967296ull, 4294967296ull, &sink, &err_), err_);
     CHECK(sink == 4294967296ull); /* lcm(4294967296, 4294967296) */
     sink = 0ull;
-    CHECK_ERROR(pn_math_lcm(3ull, 4ull, pn_nothing(), &err_), err_, PN_ERROR_NULL);
 }
 
 static void t_is_square(void) {
@@ -155,7 +153,6 @@ static void t_is_square(void) {
     CHECK_OK(pn_math_is_square(2ull, &ibool, &err_), err_);
     CHECK(ibool == false);
     ibool = true;
-    CHECK_ERROR(pn_math_is_square(9ull, pn_nothing(), &err_), err_, PN_ERROR_NULL);
 }
 
 static void t_is_prime(void) {
@@ -265,7 +262,6 @@ static void t_is_prime(void) {
     CHECK_OK(pn_math_is_prime(1000036000099ull, &ibool, &err_), err_);
     CHECK(ibool == false);
     ibool = true;
-    CHECK_ERROR(pn_math_is_prime(9ull, pn_nothing(), &err_), err_, PN_ERROR_NULL);
 }
 
 static void t_next_prime(void) {
@@ -334,7 +330,6 @@ static void t_next_prime(void) {
     CHECK_OK(pn_math_next_prime(10ull, &sink, &err_), err_);
     CHECK(sink == 11ull); /* next_prime(10) */
     sink = 0ull;
-    CHECK_ERROR(pn_math_next_prime(9ull, pn_nothing(), &err_), err_, PN_ERROR_NULL);
 }
 
 static void t_sieve(void) {
@@ -388,8 +383,6 @@ static void t_sieve(void) {
     CHECK_ERROR(pn_math_sieve(100ull, board, 24u, &icount, &err_), err_, PN_ERROR_BUFFER);
     CHECK(icount == 7u); /* count keeps its word */
     icount = 0u;
-    CHECK_ERROR(pn_math_sieve(100ull, pn_nothing(), 80000u, &icount, &err_), err_, PN_ERROR_NULL);
-    CHECK_ERROR(pn_math_sieve(100ull, board, 80000u, pn_nothing(), &err_), err_, PN_ERROR_NULL);
     icount = 0u;
     CHECK_ERROR(pn_math_sieve(1000001ull, board, 80000u, &icount, &err_), err_, PN_ERROR_RANGE);
 }
@@ -572,8 +565,6 @@ static void t_factorize(void) {
                 PN_ERROR_BUFFER);
     CHECK(icount == 999u); /* caller's count stands */
     icount = 0u;
-    CHECK_ERROR(pn_math_factorize(60ull, pn_nothing(), 72u, &icount, &err_), err_, PN_ERROR_NULL);
-    CHECK_ERROR(pn_math_factorize(60ull, f, 72u, pn_nothing(), &err_), err_, PN_ERROR_NULL);
 }
 
 static void t_factorize_sweep(void) {
@@ -648,7 +639,6 @@ static void t_perfect(void) {
     ibool = true;
     CHECK_ERROR(pn_math_perfect_check(1ull, &ibool, &err_), err_, PN_ERROR_RANGE);
     ibool = true;
-    CHECK_ERROR(pn_math_perfect_check(28ull, pn_nothing(), &err_), err_, PN_ERROR_NULL);
 }
 
 static void t_triple(void) {
@@ -712,12 +702,6 @@ static void t_triple(void) {
     CHECK(y == 30ull);
     CHECK(z == 34ull);
     x = y = z = 0ull;
-    CHECK_ERROR(pn_math_pythagorean_triple(3ull, 2ull, pn_nothing(), &y, &z, &err_), err_,
-                PN_ERROR_NULL);
-    CHECK_ERROR(pn_math_pythagorean_triple(3ull, 2ull, &x, pn_nothing(), &z, &err_), err_,
-                PN_ERROR_NULL);
-    CHECK_ERROR(pn_math_pythagorean_triple(3ull, 2ull, &x, &y, pn_nothing(), &err_), err_,
-                PN_ERROR_NULL);
 }
 
 static void t_pyth_check(void) {
@@ -768,8 +752,6 @@ static void t_pyth_check(void) {
              err_);
     CHECK(ibool == false);
     ibool = true;
-    CHECK_ERROR(pn_math_pythagorean_check(3ull, 4ull, 5ull, pn_nothing(), &err_), err_,
-                PN_ERROR_NULL);
 }
 
 static void t_loom_and_rod(void) {

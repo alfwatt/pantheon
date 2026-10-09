@@ -199,7 +199,6 @@ int main(void) {
 
     /* errors */
 
-    CHECK_ERROR(pn_brahmi_render(1u, pn_nothing(), 16, &err_), err_, PN_ERROR_NULL);
 
     /*  One past the four filled slots is range, not silence: there is
 	   no sign above the thousand.
@@ -299,9 +298,6 @@ int main(void) {
         CHECK(read == 256u); /* untouched */
     }
 
-    /* Nulls. */
-    CHECK_ERROR(pn_brahmi_parse(pn_nothing(), 4, &read, &err_), err_, PN_ERROR_NULL);
-    CHECK_ERROR(pn_brahmi_parse(ONE, 4, pn_nothing(), &err_), err_, PN_ERROR_NULL);
 
     /* A cut-off sign (3 of the ONE sign's 4 bytes) is not a sign. */
     read = 256u;

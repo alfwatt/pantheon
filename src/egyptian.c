@@ -25,6 +25,7 @@
 
     Reference: https://en.wikipedia.org/wiki/Egyptian_numerals
 */
+#include <assert.h>
 #include <string.h>
 
 #include "pantheon.h"
@@ -63,27 +64,29 @@ size_t pn_egyptian_render_size(uint64_t n) {
     return bytes;
 }
 
-bool pn_egyptian_render(uint64_t n, char* _Nonnull buf, size_t buflen,
-                        pn_error* _Nullable* _Nullable error) {
-    if (buf == NULL)
-        return pn_error_set(error, PN_ERROR_NULL, "render needs a buffer to write into");
+char* _Nullable pn_egyptian_render(uint64_t n, char* _Nonnull buf, size_t buflen,
+                                   pn_error* _Nullable* _Nullable error) {
+    assert(buf);
     if (n > PN_EGYPTIAN_MAX_VALUE) {
         /*  There is no sign above the Heh, so ten Heh signs are
   not something this module writes.
 */
-        return pn_error_set(error, PN_ERROR_RANGE,
-                            "%llu needs ten or more signs of one kind;"
-                            " the biggest sign is the Heh at 1000000",
-                            (unsigned long long) n);
+        if (error) *error = pn_error_init(PN_ERROR_RANGE,
+                                          "%llu needs ten or more signs of one kind;"
+                                          " the biggest sign is the Heh at 1000000",
+                                          (unsigned long long) n);
+        return NULL;
     }
 
     /* render_size is exact: buflen has to hold its bytes plus a NUL */
     size_t need = pn_egyptian_render_size(n);
-    if (buflen <= need)
-        return pn_error_set(error, PN_ERROR_BUFFER,
-                            "buffer holds %zu bytes; %llu needs %zu plus"
-                            " the terminating NUL",
-                            buflen, (unsigned long long) n, need);
+    if (buflen <= need) {
+        if (error) *error = pn_error_init(PN_ERROR_BUFFER,
+                                          "buffer holds %zu bytes; %llu needs %zu plus"
+                                          " the terminating NUL",
+                                          buflen, (unsigned long long) n, need);
+        return NULL;
+    }
 
     char* q = buf; /* safe: need is exact and already checked */
     for (unsigned i = 0; i < N_SIGNS; i++) {
@@ -95,7 +98,7 @@ bool pn_egyptian_render(uint64_t n, char* _Nonnull buf, size_t buflen,
         }
     }
     *q = '\0'; /* n == 0 lands here: the blank, then the NUL */
-    return true;
+    return buf;
 }
 
 /* Parsing reads back what rendering wrote.
@@ -110,12 +113,10 @@ bool pn_egyptian_render(uint64_t n, char* _Nonnull buf, size_t buflen,
     power, so that string names no canonical number.  That reply is
     PN_ERROR_RANGE, not PN_ERROR_SYNTAX - the same reply six U
     wedges get from pn_babylonian_parse. */
-bool pn_egyptian_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullable out,
-                       pn_error* _Nullable* _Nullable error) {
-    if (buf == NULL || out == NULL)
-        return pn_error_set(error, PN_ERROR_NULL,
-                            "parse needs a string and a place to put"
-                            " the number");
+uint64_t* _Nullable pn_egyptian_parse(const char* _Nonnull buf, size_t buflen,
+                                      uint64_t* _Nonnull out,
+                                      pn_error* _Nullable* _Nullable error) {
+    assert(buf && out);
 
     uint64_t sum = 0; /* built here: *out stays untouched unless all works */
     int prev = -1;    /* which sign the previous run used; runs step down */
@@ -135,34 +136,39 @@ bool pn_egyptian_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Null
 */
             size_t room = (size_t) (end - p);
 
-            return pn_error_set(error, PN_ERROR_SYNTAX,
-                                "byte at position %zu of %zu does not"
-                                " start a hieroglyphic sign (%zu bytes"
-                                " left there: not enough)"
-                                "%s",
-                                (size_t) (p - buf), buflen, room,
-                                room < SIGN_BYTES ? " - a sign is 4"
-                                                    " bytes whole"
-                                                  : "");
+            if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                              "byte at position %zu of %zu does not"
+                                              " start a hieroglyphic sign (%zu bytes"
+                                              " left there: not enough)"
+                                              "%s",
+                                              (size_t) (p - buf), buflen, room,
+                                              room < SIGN_BYTES ? " - a sign is 4"
+                                              " bytes whole"
+                                              : "");
+            return NULL;
         }
-        if (prev >= 0 && found <= prev)
-            return pn_error_set(error, PN_ERROR_SYNTAX,
-                                "the sign at position %zu does not step"
-                                " down in power: runs must go from the"
-                                " Heh toward the stroke, and one sign"
-                                " gets a single run",
-                                (size_t) (p - buf));
+        if (prev >= 0 && found <= prev) {
+            if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                              "the sign at position %zu does not step"
+                                              " down in power: runs must go from the"
+                                              " Heh toward the stroke, and one sign"
+                                              " gets a single run",
+                                              (size_t) (p - buf));
+            return NULL;
+        }
 
         size_t count = 0;
         do {
             p += SIGN_BYTES;
-            if (++count > 9u)
-                return pn_error_set(error, PN_ERROR_RANGE,
-                                    "ten copies of one sign at"
-                                    " position %zu: ten strokes are"
-                                    " written as one hobble, scribe"
-                                    " - a run holds 1 to 9",
-                                    (size_t) (p - buf) - SIGN_BYTES);
+            if (++count > 9u) {
+                if (error) *error = pn_error_init(PN_ERROR_RANGE,
+                                                  "ten copies of one sign at"
+                                                  " position %zu: ten strokes are"
+                                                  " written as one hobble, scribe"
+                                                  " - a run holds 1 to 9",
+                                                  (size_t) (p - buf) - SIGN_BYTES);
+                return NULL;
+            }
         } while (p + SIGN_BYTES <= end && memcmp(p, signs[found], SIGN_BYTES) == 0);
 
         /*  Nothing can overflow here: at most 9 copies over seven
@@ -175,5 +181,5 @@ bool pn_egyptian_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Null
 
     /* An empty string is the scribe's blank: it reads back as 0. */
     *out = sum;
-    return true;
+    return out;
 }

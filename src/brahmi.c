@@ -37,6 +37,7 @@
 
     Reference: https://en.wikipedia.org/wiki/Brahmi_numerals
 */
+#include <assert.h>
 #include <string.h>
 
 #include "pantheon.h"
@@ -117,29 +118,32 @@ size_t pn_brahmi_render_size(uint64_t n) {
     return brahmi_emit(n, NULL);
 }
 
-bool pn_brahmi_render(uint64_t n, char* _Nonnull buf, size_t buflen,
-                      pn_error* _Nullable* _Nullable error) {
-    if (buf == NULL)
-        return pn_error_set(error, PN_ERROR_NULL, "render needs a buffer to write into");
-    if (n > PN_BRAHMI_MAX_VALUE)
-        return pn_error_set(error, PN_ERROR_RANGE,
-                            "%llu runs past %llu: no sign"
-                            " above the thousand exists"
-                            " (ten thousand is words,"
-                            " not signs)",
-                            (unsigned long long) n, (unsigned long long) PN_BRAHMI_MAX_VALUE);
+char* _Nullable pn_brahmi_render(uint64_t n, char* _Nonnull buf, size_t buflen,
+                                 pn_error* _Nullable* _Nullable error) {
+    assert(buf);
+    if (n > PN_BRAHMI_MAX_VALUE) {
+        if (error) *error = pn_error_init(PN_ERROR_RANGE,
+                                          "%llu runs past %llu: no sign"
+                                          " above the thousand exists"
+                                          " (ten thousand is words,"
+                                          " not signs)",
+                                          (unsigned long long) n, (unsigned long long) PN_BRAHMI_MAX_VALUE);
+        return NULL;
+    }
 
     const size_t need = brahmi_emit(n, NULL); /*exact: buflen must hold +NUL */
 
-    if (buflen <= need)
-        return pn_error_set(error, PN_ERROR_BUFFER,
-                            "buffer holds %zu bytes; this"
-                            " string needs %zu plus the"
-                            " terminating NUL",
-                            buflen, need);
+    if (buflen <= need) {
+        if (error) *error = pn_error_init(PN_ERROR_BUFFER,
+                                          "buffer holds %zu bytes; this"
+                                          " string needs %zu plus the"
+                                          " terminating NUL",
+                                          buflen, need);
+        return NULL;
+    }
     (void) brahmi_emit(n, buf);
     buf[need] = '\0'; /* n == 0: just the blank, and the NUL */
-    return true;
+    return buf;
 }
 
 /* Parsing reads back what rendering wrote.
@@ -178,15 +182,12 @@ static int match_sign(const char* p, const char* end) {
     return -1;
 }
 
-bool pn_brahmi_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullable out,
-                     pn_error* _Nullable* _Nullable error) {
-    if (buf == NULL || out == NULL)
-        return pn_error_set(error, PN_ERROR_NULL,
-                            "parse needs a string and a place"
-                            " to put the number");
+uint64_t* _Nullable pn_brahmi_parse(const char* _Nonnull buf, size_t buflen, uint64_t* _Nonnull out,
+                                    pn_error* _Nullable* _Nullable error) {
+    assert(buf && out);
     if (buflen == 0) {
         *out = 0; /* the blank reads back as the nothing it was */
-        return true;
+        return out;
     }
 
     uint64_t sum = 0; /* built here; *out keeps its old value unless all works */
@@ -196,18 +197,22 @@ bool pn_brahmi_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullab
     while (p < end) {
         const int s = match_sign(p, end);
 
-        if (s < 0)
-            return pn_error_set(error, PN_ERROR_SYNTAX,
-                                "position %zu holds a foreign"
-                                " byte or a sign cut off short",
-                                (size_t) (p - buf));
-        if (s == SIG_JOINER)
-            return pn_error_set(error, PN_ERROR_SYNTAX,
-                                "a joiner at position %zu with"
-                                " nothing being joined to it"
-                                " (doubled, leading, or off its"
-                                " power sign)",
-                                (size_t) (p - buf));
+        if (s < 0) {
+            if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                              "position %zu holds a foreign"
+                                              " byte or a sign cut off short",
+                                              (size_t) (p - buf));
+            return NULL;
+        }
+        if (s == SIG_JOINER) {
+            if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                              "a joiner at position %zu with"
+                                              " nothing being joined to it"
+                                              " (doubled, leading, or off its"
+                                              " power sign)",
+                                              (size_t) (p - buf));
+            return NULL;
+        }
         p += SIGN_BYTES;
 
         uint64_t worth;
@@ -217,12 +222,14 @@ bool pn_brahmi_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullab
             const int is_thousand = (s == SIG_THOUSAND);
             const uint64_t power = is_thousand ? 1000u : 100u;
 
-            if (slot > (is_thousand ? 0 : 1))
-                return pn_error_set(error, PN_ERROR_SYNTAX,
-                                    "a second term of this"
-                                    " power, or an ascending"
-                                    " one: the pillar walks"
-                                    " down from the thousand");
+            if (slot > (is_thousand ? 0 : 1)) {
+                if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                                  "a second term of this"
+                                                  " power, or an ascending"
+                                                  " one: the pillar walks"
+                                                  " down from the thousand");
+                return NULL;
+            }
 
             /* The digit: the bare power sign means 1; the ligature
 			   <JOINER units-digit> multiplies it. */
@@ -231,37 +238,45 @@ bool pn_brahmi_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullab
                 p += SIGN_BYTES;
                 const int c = match_sign(p, end);
 
-                if (c < 0 || c > SIG_NINE)
-                    return pn_error_set(error, PN_ERROR_SYNTAX,
-                                        "the joiner at position"
-                                        " %zu joins to a"
-                                        " non-multiplier (a tens"
-                                        " sign, a power, a second"
-                                        " joiner) or to nothing",
-                                        (size_t) (p - buf) - SIGN_BYTES);
-                if (c == 0)
-                    return pn_error_set(error, PN_ERROR_SYNTAX,
-                                        "1 times the power: write"
-                                        " the power sign bare,"
-                                        " not ligatured");
+                if (c < 0 || c > SIG_NINE) {
+                    if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                                      "the joiner at position"
+                                                      " %zu joins to a"
+                                                      " non-multiplier (a tens"
+                                                      " sign, a power, a second"
+                                                      " joiner) or to nothing",
+                                                      (size_t) (p - buf) - SIGN_BYTES);
+                    return NULL;
+                }
+                if (c == 0) {
+                    if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                                      "1 times the power: write"
+                                                      " the power sign bare,"
+                                                      " not ligatured");
+                    return NULL;
+                }
                 worth = (uint64_t) (c + 1) * power;
                 p += SIGN_BYTES;
             }
             next = is_thousand ? 1 : 2;
         }
         else if (s >= SIG_TEN && s <= SIG_NINETY) {
-            if (slot > 2)
-                return pn_error_set(error, PN_ERROR_SYNTAX,
-                                    "a tens term twice, or after"
-                                    " the ones term");
+            if (slot > 2) {
+                if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                                  "a tens term twice, or after"
+                                                  " the ones term");
+                return NULL;
+            }
             worth = (uint64_t) (s - SIG_TEN + 1) * 10u;
             next = 3;
         }
         else { /* a bare units sign: the ones term */
-            if (slot > 3)
-                return pn_error_set(error, PN_ERROR_SYNTAX,
-                                    "the ones term is already"
-                                    " spoken");
+            if (slot > 3) {
+                if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                                  "the ones term is already"
+                                                  " spoken");
+                return NULL;
+            }
             worth = (uint64_t) (s + 1);
             next = 4;
         }
@@ -272,5 +287,5 @@ bool pn_brahmi_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullab
         slot = next;
     }
     *out = sum;
-    return true;
+    return out;
 }

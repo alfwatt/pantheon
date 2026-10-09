@@ -8,6 +8,8 @@
    - Wikipedia's worked example 8583 = 2*60^2 + 23*60 + 3.
 */
 
+#include <stdlib.h>
+
 #include "check.h"
 
 int main(void) {
@@ -20,7 +22,7 @@ int main(void) {
     /* the tablets */
 
     /* YBC 7289: the diagonal of a unit square. */
-    CHECK_OK(pn_base60_parse("1;24,51,10", &v, &err_), err_);
+    CHECK_VALUE(v = pn_base60_parse("1;24,51,10", &err_), err_);
     static const uint8_t ybc[] = {1, 24, 51, 10};
     CHECK(v.n_places == 4 && v.radix == 1 && !v.neg);
     CHECK(memcmp(v.places, ybc, sizeof ybc) == 0);
@@ -28,7 +30,7 @@ int main(void) {
     CHECK_DBL(d, 1.4142129629629630, 1e-15);
 
     /* Plimpton 322 row 1. */
-    CHECK_OK(pn_base60_parse("1;59,0,15", &v, &err_), err_);
+    CHECK_VALUE(v = pn_base60_parse("1;59,0,15", &err_), err_);
     CHECK_OK(pn_base60_to_double(v, &d, &err_), err_);
     CHECK_DBL(d, 28561.0 / 14400.0, 1e-15);
 
@@ -41,8 +43,8 @@ int main(void) {
     /* integers */
 
     /* Separators ',' and ':' agree; no ';' means period-style integer. */
-    CHECK_OK(pn_base60_parse("1,24,51,10", &v, &err_), err_);
-    CHECK_OK(pn_base60_parse("1:24:51:10", &w, &err_), err_);
+    CHECK_VALUE(v = pn_base60_parse("1,24,51,10", &err_), err_);
+    CHECK_VALUE(w = pn_base60_parse("1:24:51:10", &err_), err_);
     CHECK(v.n_places == 4 && v.radix == 4);
     CHECK(memcmp(&v, &w, sizeof v) == 0);
     CHECK_OK(pn_base60_to_double(v, &d, &err_), err_);
@@ -73,7 +75,7 @@ int main(void) {
     CHECK_ERROR(pn_base60_to_u64(v, &u, &err_), err_, PN_ERROR_RANGE);
 
     /* Fractional places are not integers. */
-    CHECK_OK(pn_base60_parse("0;45", &v, &err_), err_);
+    CHECK_VALUE(v = pn_base60_parse("0;45", &err_), err_);
     CHECK(v.n_places == 2 && v.radix == 1);
     CHECK_ERROR(pn_base60_to_u64(v, &u, &err_), err_, PN_ERROR_DOMAIN);
     CHECK_OK(pn_base60_to_double(v, &d, &err_), err_);
@@ -121,87 +123,87 @@ int main(void) {
     /*  The YBC 7289 reading round-trips byte-identically, whatever the
 	   ordinary separator is: the radix boundary is always ';'.
 	*/
-    CHECK_OK(pn_base60_parse("1;24,51,10", &v, &err_), err_);
+    CHECK_VALUE(v = pn_base60_parse("1;24,51,10", &err_), err_);
     for (const char* seps = ",:"; *seps; seps++) {
         char want[PN_BASE60_FORMAT_MAX_LEN];
         snprintf(want, sizeof want, "1;24%c51%c10", *seps, *seps);
-        CHECK_OK(pn_base60_format(v, *seps, buf, sizeof buf, &err_), err_);
+        CHECK_OK(pn_base60_format_into(v, *seps, buf, sizeof buf, &err_), err_);
         CHECK(strcmp(buf, want) == 0);
-        CHECK_OK(pn_base60_parse(buf, &w, &err_), err_);
+        CHECK_VALUE(w = pn_base60_parse(buf, &err_), err_);
         CHECK(memcmp(&v, &w, sizeof v) == 0);
     }
     /*  With ';' as the ordinary separator a fractional value formats to
 	   two ';' and no longer parses back — documented in the header.
 	*/
-    CHECK_OK(pn_base60_format(v, ';', buf, sizeof buf, &err_), err_);
+    CHECK_OK(pn_base60_format_into(v, ';', buf, sizeof buf, &err_), err_);
     CHECK(strcmp(buf, "1;24;51;10") == 0);
-    CHECK_ERROR(pn_base60_parse(buf, &w, &err_), err_, PN_ERROR_SYNTAX);
+    CHECK_VALUE_ERROR(w = pn_base60_parse(buf, &err_), err_, PN_ERROR_SYNTAX);
 
     /*  Period-style integers: first place without its leading zero,
 	   later places two digits ("3" is written "03").
 	*/
     CHECK_OK(pn_base60_from_u64(8583, &v, &err_), err_);
-    CHECK_OK(pn_base60_format(v, ',', buf, sizeof buf, &err_), err_);
+    CHECK_OK(pn_base60_format_into(v, ',', buf, sizeof buf, &err_), err_);
     CHECK(strcmp(buf, "2,23,03") == 0);
 
     /* Negatives round-trip. */
-    CHECK_OK(pn_base60_parse("-1;6", &v, &err_), err_);
+    CHECK_VALUE(v = pn_base60_parse("-1;6", &err_), err_);
     CHECK(v.neg);
     CHECK_OK(pn_base60_to_double(v, &d, &err_), err_);
     CHECK_DBL(d, -1.1, 1e-15); /* -(1 + 6/60) */
-    CHECK_OK(pn_base60_format(v, ',', buf, sizeof buf, &err_), err_);
+    CHECK_OK(pn_base60_format_into(v, ',', buf, sizeof buf, &err_), err_);
     CHECK(strcmp(buf, "-1;06") == 0); /* later places: two digits */
 
     /*  the error table
-	   Grammar failures: every one of these must leave *out untouched, too
-	   (checked once via a sentinel).
+	   Grammar failures: every one of these hands back a zeroed value
+	   beside its note.
 	*/
     static const char* const syntax_bad[] = {"",   "-",  ";",  "1;",  "1,,2", "1;2;3", "+1",
                                              " 1", "1 ", "1a", ";45", "1;2,", "1;"};
     for (size_t i = 0; i < sizeof syntax_bad / sizeof syntax_bad[0]; i++) {
-        v = (pn_base60) {0};
         v.n_places = 7; /* sentinel */
-        CHECK_ERROR(pn_base60_parse(syntax_bad[i], &v, &err_), err_, PN_ERROR_SYNTAX);
-        CHECK(v.n_places == 7); /* untouched */
+        CHECK_VALUE_ERROR(v = pn_base60_parse(syntax_bad[i], &err_), err_, PN_ERROR_SYNTAX);
+        CHECK(v.n_places == 0); /* zeroed */
     }
 
     /*  Range failures: a place over 59, a run of three digits, a
 	   seventeenth place.
 	*/
-    CHECK_ERROR(pn_base60_parse("60", &v, &err_), err_, PN_ERROR_RANGE);
-    CHECK_ERROR(pn_base60_parse("3599", &v, &err_), err_, PN_ERROR_RANGE); /* places 35, 99 */
-    CHECK_ERROR(pn_base60_parse("1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1", &v, &err_), err_,
+    CHECK_VALUE_ERROR(v = pn_base60_parse("60", &err_), err_, PN_ERROR_RANGE);
+    CHECK_VALUE_ERROR(v = pn_base60_parse("3599", &err_), err_, PN_ERROR_RANGE); /* places 35, 99 */
+    CHECK_VALUE_ERROR(v = pn_base60_parse("1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1", &err_), err_,
                 PN_ERROR_RANGE);
 
-    /* Nulls everywhere. */
-    CHECK_ERROR(pn_base60_parse(pn_nothing(), &v, &err_), err_, PN_ERROR_NULL);
-    CHECK_ERROR(pn_base60_parse("1", pn_nothing(), &err_), err_, PN_ERROR_NULL);
-    CHECK_ERROR(pn_base60_from_u64(1, pn_nothing(), &err_), err_, PN_ERROR_NULL);
-    CHECK_ERROR(pn_base60_to_u64(v, pn_nothing(), &err_), err_, PN_ERROR_NULL);
-    CHECK_ERROR(pn_base60_to_double(v, pn_nothing(), &err_), err_, PN_ERROR_NULL);
-    CHECK_ERROR(pn_base60_from_double(1.0, 1, pn_nothing(), &err_), err_, PN_ERROR_NULL);
-    CHECK_ERROR(pn_base60_format(v, ',', pn_nothing(), sizeof buf, &err_), err_, PN_ERROR_NULL);
 
     /* Bad separator character; malformed values. */
-    CHECK_OK(pn_base60_parse("1", &v, &err_), err_);
-    CHECK_ERROR(pn_base60_format(v, '.', buf, sizeof buf, &err_), err_, PN_ERROR_SYNTAX);
+    CHECK_VALUE(v = pn_base60_parse("1", &err_), err_);
+    CHECK_ERROR(pn_base60_format_into(v, '.', buf, sizeof buf, &err_), err_, PN_ERROR_SYNTAX);
     w = v;
     w.n_places = 0;
-    CHECK_ERROR(pn_base60_format(w, ',', buf, sizeof buf, &err_), err_, PN_ERROR_DOMAIN);
+    CHECK_ERROR(pn_base60_format_into(w, ',', buf, sizeof buf, &err_), err_, PN_ERROR_DOMAIN);
     w = v;
     w.places[0] = 60;
-    CHECK_ERROR(pn_base60_format(w, ',', buf, sizeof buf, &err_), err_, PN_ERROR_DOMAIN);
+    CHECK_ERROR(pn_base60_format_into(w, ',', buf, sizeof buf, &err_), err_, PN_ERROR_DOMAIN);
     w = v;
     w.radix = 2; /* > n_places */
     CHECK_ERROR(pn_base60_to_u64(w, &u, &err_), err_, PN_ERROR_DOMAIN);
 
+    /* The allocating form writes the same text and hands it to the caller. */
+    char* owned = NULL;
+    CHECK_VALUE(v = pn_base60_parse("-1;6", &err_), err_);
+    CHECK_OK((owned = pn_base60_format(v, ',', &err_)) != NULL, err_);
+    CHECK(owned && strcmp(owned, "-1;06") == 0);
+    free(owned);
+    CHECK_ERROR((owned = pn_base60_format(v, '.', &err_)) != NULL, err_, PN_ERROR_SYNTAX);
+    CHECK(owned == NULL);
+
     /* Too-small buffer fails and leaves buf byte-for-byte untouched. */
     char small[11];
     memset(small, 'x', sizeof small);
-    CHECK_OK(pn_base60_parse("1;24,51,10", &v, &err_), err_); /* renders to 10 bytes */
-    CHECK_ERROR(pn_base60_format(v, ',', small, 10, &err_), err_, PN_ERROR_BUFFER);
+    CHECK_VALUE(v = pn_base60_parse("1;24,51,10", &err_), err_); /* renders to 10 bytes */
+    CHECK_ERROR(pn_base60_format_into(v, ',', small, 10, &err_), err_, PN_ERROR_BUFFER);
     CHECK(memcmp(small, "xxxxxxxx", 8) == 0);
-    CHECK_OK(pn_base60_format(v, ',', small, sizeof small, &err_), err_);
+    CHECK_OK(pn_base60_format_into(v, ',', small, sizeof small, &err_), err_);
     CHECK(strcmp(small, "1;24,51,10") == 0);
 
     return CHECK_RUN();

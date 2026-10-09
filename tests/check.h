@@ -22,22 +22,6 @@
 
 static int pn_checks, pn_fails;
 
-/* The header marks required pointers _Nonnull, so clang rightly
-    refuses to compile a test that hands one a plain NULL on purpose -
-    and those tests exist precisely to prove the null check works.
-    Hand these to the call instead: the compiler cannot look inside
-    the volatile load below, and what the function under test
-    receives is still a null pointer.  A test file that never uses
-    this still compiles: the unused attribute keeps -Wunused-function
-    quiet where it is not called.   */
-__attribute__((unused)) static void* pn_nothing(void) {
-    /* A volatile load is opaque to the optimizer, so no constant
-      folder here or in the caller can prove the result is null.   */
-    volatile void* nothing = NULL;
-
-    return (void*) (uintptr_t) nothing;
-}
-
 #define CHECK(cond)                                                         \
     do {                                                                    \
         pn_checks++;                                                        \
@@ -48,7 +32,7 @@ __attribute__((unused)) static void* pn_nothing(void) {
     } while (0)
 
 /* CHECK_OK(call(..., &slot), slot) — the call must succeed: return
-   true and leave its error slot NULL. */
+   its item (anything but NULL) and leave its error slot NULL. */
 #define CHECK_OK(expr, slot)                                                                \
     do {                                                                                    \
         pn_error* slot = NULL;                                                              \
@@ -67,7 +51,7 @@ __attribute__((unused)) static void* pn_nothing(void) {
     } while (0)
 
 /* CHECK_ERROR(call(..., &slot), slot, PN_ERROR_X) — the call must
-   fail with exactly code PN_ERROR_X and hang a note on the slot. */
+   return NULL and hang a note of exactly code PN_ERROR_X on the slot. */
 #define CHECK_ERROR(expr, slot, want_)                                                         \
     do {                                                                                       \
         pn_error* slot = NULL;                                                                 \
@@ -83,6 +67,42 @@ __attribute__((unused)) static void* pn_nothing(void) {
                     pn_error_describe(slot));                                                  \
         }                                                                                      \
         pn_error_free(slot);                                                                   \
+    } while (0)
+
+/* CHECK_VALUE(v = call(..., &slot), slot) — a value-returning call
+   must leave its error slot NULL; the value itself is checked
+   separately. */
+#define CHECK_VALUE(stmt, slot)                                                             \
+    do {                                                                                    \
+        pn_error* slot = NULL;                                                              \
+        pn_checks++;                                                                        \
+        (void) (stmt);                                                                      \
+        if (slot != NULL) {                                                                 \
+            pn_fails++;                                                                     \
+            fprintf(stderr, "FAIL %s:%d: %s: left a note: %s\n", __FILE__, __LINE__, #stmt, \
+                    pn_error_describe(slot));                                               \
+        }                                                                                   \
+        pn_error_free(slot);                                                                \
+    } while (0)
+
+/* CHECK_VALUE_ERROR(v = call(..., &slot), slot, PN_ERROR_X) — a
+   value-returning call must hang a note of exactly code PN_ERROR_X. */
+#define CHECK_VALUE_ERROR(stmt, slot, want_)                                                \
+    do {                                                                                    \
+        pn_error* slot = NULL;                                                              \
+        pn_checks++;                                                                        \
+        (void) (stmt);                                                                      \
+        if (slot == NULL) {                                                                 \
+            pn_fails++;                                                                     \
+            fprintf(stderr, "FAIL %s:%d: %s: no note, want %s\n", __FILE__, __LINE__, #stmt, \
+                    #want_);                                                                \
+        }                                                                                   \
+        else if (slot->code != (want_)) {                                                   \
+            pn_fails++;                                                                     \
+            fprintf(stderr, "FAIL %s:%d: %s: %s\n", __FILE__, __LINE__, #stmt,              \
+                    pn_error_describe(slot));                                               \
+        }                                                                                   \
+        pn_error_free(slot);                                                                \
     } while (0)
 
 #define CHECK_DBL(got, want, eps)                                  \

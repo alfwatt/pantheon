@@ -195,10 +195,6 @@ int main(void) {
     CHECK_ERROR(pn_roman_render(3888u, buf, fifteen, &err_), err_, PN_ERROR_BUFFER);
     CHECK(buf[0] == '?');
 
-    /* nulls */
-    CHECK_ERROR(pn_roman_render(5u, pn_nothing(), sizeof buf, &err_), err_, PN_ERROR_NULL);
-    CHECK_ERROR(pn_roman_parse(pn_nothing(), 0, &v, &err_), err_, PN_ERROR_NULL);
-    CHECK_ERROR(pn_roman_parse("VIII", 4, pn_nothing(), &err_), err_, PN_ERROR_NULL);
 
     return CHECK_RUN();
 }

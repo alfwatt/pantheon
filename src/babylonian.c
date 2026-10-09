@@ -20,6 +20,7 @@
 
     Reference: https://en.wikipedia.org/wiki/Babylonian_numerals
 */
+#include <assert.h>
 #include <string.h>
 
 #include "pantheon.h"
@@ -58,26 +59,30 @@ size_t pn_babylonian_render_size(pn_base60 v) {
     return n;
 }
 
-bool pn_babylonian_render(pn_base60 v, char* _Nonnull buf, size_t buflen,
-                          pn_error* _Nullable* _Nullable error) {
-    if (buf == NULL)
-        return pn_error_set(error, PN_ERROR_NULL, "render needs a buffer to write into");
-    if (!well_formed(v))
-        return pn_error_set(error, PN_ERROR_DOMAIN,
-                            "the value is not well-formed:"
-                            " %u places, radix %u - places need"
-                            " 1 to %u slots, each 0 to 59, and"
-                            " the radix cannot pass n_places",
-                            v.n_places, v.radix, PN_BASE60_MAX_PLACES);
+char* _Nullable pn_babylonian_render(pn_base60 v, char* _Nonnull buf, size_t buflen,
+                                     pn_error* _Nullable* _Nullable error) {
+    assert(buf);
+
+    if (!well_formed(v)) {
+        if (error) *error = pn_error_init(PN_ERROR_DOMAIN,
+                                          "the value is not well-formed:"
+                                          " %u places, radix %u - places need"
+                                          " 1 to %u slots, each 0 to 59, and"
+                                          " the radix cannot pass n_places",
+                                          v.n_places, v.radix, PN_BASE60_MAX_PLACES);
+        return NULL;
+    }
 
     /* render_size is exact: buflen has to hold its bytes plus NUL */
     size_t need = pn_babylonian_render_size(v);
 
-    if (buflen <= need)
-        return pn_error_set(error, PN_ERROR_BUFFER,
-                            "buffer holds %zu bytes; this value"
-                            " needs %zu plus the terminating NUL",
-                            buflen, need);
+    if (buflen <= need) {
+        if (error) *error = pn_error_init(PN_ERROR_BUFFER,
+                                          "buffer holds %zu bytes; this value"
+                                          " needs %zu plus the terminating NUL",
+                                          buflen, need);
+        return NULL;
+    }
 
     char* q = buf; /* safe: need is exact and already checked */
 
@@ -103,7 +108,8 @@ bool pn_babylonian_render(pn_base60 v, char* _Nonnull buf, size_t buflen,
         }
     }
     *q = '\0';
-    return true;
+
+    return buf;
 }
 
 /* Parsing reads back what rendering wrote.
@@ -121,18 +127,15 @@ bool pn_babylonian_render(pn_base60 v, char* _Nonnull buf, size_t buflen,
     Every other shape - other bytes, other spacings, groups written
    out of order - is refused, and that strictness is exactly what
    makes the parse-after-render round trip exact. */
-bool pn_babylonian_parse(const char* _Nullable buf, size_t buflen, pn_base60* _Nullable out,
-                         pn_error* _Nullable* _Nullable error) {
-    if (buf == NULL || out == NULL)
-        return pn_error_set(error, PN_ERROR_NULL,
-                            "parse needs a string and a place to"
-                            " put the value");
+pn_base60* _Nullable pn_babylonian_parse_from(const char* _Nonnull buffer, size_t buflen, pn_base60* _Nonnull out, pn_error* _Nullable* _Nullable error) {
+    assert(buffer && out);
 
     pn_base60 v; /* built here; *out keeps its old value unless all works */
 
     memset(&v, 0, sizeof v);
 
-    const char *p = buf, *end = buf + buflen;
+    const char *p = buffer;
+    const char *end = buffer + buflen;
 
     if (buflen > 0 && *p == '-') {
         v.neg = true;
@@ -157,116 +160,147 @@ bool pn_babylonian_parse(const char* _Nullable buf, size_t buflen, pn_base60* _N
         size_t zeros;
 
         if (!got_group) { /* leading run: a multiple of 3 */
-            if (spaces % 3u != 0u)
-                return pn_error_set(error, PN_ERROR_SYNTAX,
-                                    "a string may open with %"
-                                    "zu space(s), which is no"
-                                    " whole row of empty places"
-                                    " (an empty place costs 3)",
-                                    spaces);
+            if (spaces % 3u != 0u) {
+                if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                                  "a string may open with %"
+                                                  "zu space(s), which is no"
+                                                  " whole row of empty places"
+                                                  " (an empty place costs 3)",
+                                                  spaces);
+                return NULL;
+            }
             zeros = spaces / 3u;
         }
         else { /* between runs: 3k + 1 */
-            if ((spaces - 1u) % 3u != 0u)
-                return pn_error_set(error, PN_ERROR_SYNTAX,
-                                    "%zu spaces between groups:"
-                                    " groups join with 1 space"
-                                    " plus rows of empty places"
-                                    " at 3 spaces each",
-                                    spaces);
+            if ((spaces - 1u) % 3u != 0u) {
+                if (error) *error =  pn_error_init(PN_ERROR_SYNTAX,
+                                                   "%zu spaces between groups:"
+                                                   " groups join with 1 space"
+                                                   " plus rows of empty places"
+                                                   " at 3 spaces each",
+                                                   spaces);
+                return NULL;
+            }
             zeros = (spaces - 1u) / 3u;
         }
-        if (n + zeros > PN_BASE60_MAX_PLACES)
-            return pn_error_set(error, PN_ERROR_RANGE,
-                                "the empty places here push the"
-                                " value past its %u place limit",
-                                PN_BASE60_MAX_PLACES);
+
+        if (n + zeros > PN_BASE60_MAX_PLACES) {
+            if (error) *error =  pn_error_init(PN_ERROR_RANGE,
+                                               "the empty places here push the"
+                                               " value past its %u place limit",
+                                               PN_BASE60_MAX_PLACES);
+            return NULL;
+        }
+
         for (; zeros > 0; zeros--)
             v.places[n++] = 0;
 
         /*  The group itself: U signs first, then DISH signs, in
-  canonical order with canonical counts only (five tens
-  plus nine ones still sits under 60; a sixth ten is no
-  single place).
-*/
+            canonical order with canonical counts only (five tens
+            plus nine ones still sits under 60; a sixth ten is no
+            single place). */
         size_t nu = 0, nd = 0;
 
         while (p + SIGN_BYTES <= end && memcmp(p, U_UTF8, SIGN_BYTES) == 0) {
             p += SIGN_BYTES;
-            if (++nu > 5u)
-                return pn_error_set(error, PN_ERROR_RANGE,
-                                    "six corner wedges in one"
-                                    " group: a place holds at"
-                                    " most five tens");
+            if (++nu > 5u) {
+                if (error) *error =  pn_error_init(PN_ERROR_RANGE,
+                                                   "six corner wedges in one"
+                                                   " group: a place holds at"
+                                                   " most five tens");
+                return NULL;
+            }
         }
+
         while (p + SIGN_BYTES <= end && memcmp(p, DISH_UTF8, SIGN_BYTES) == 0) {
             p += SIGN_BYTES;
-            if (++nd > 9u)
-                return pn_error_set(error, PN_ERROR_RANGE,
-                                    "ten vertical wedges in one"
-                                    " group: a scribe would"
-                                    " carry to the next place");
+            if (++nd > 9u) {
+                if (error) *error =  pn_error_init(PN_ERROR_RANGE,
+                                                   "ten vertical wedges in one"
+                                                   " group: a scribe would"
+                                                   " carry to the next place");
+                return NULL;
+            }
         }
-        if (nu + nd == 0u)
-            return pn_error_set(error, PN_ERROR_SYNTAX,
-                                "byte at position %zu starts no"
-                                " wedge sign (or cuts one off"
-                                " with %zu byte(s) left)",
-                                (size_t) (p - buf), (size_t) (end - p));
-        if (p != end && *p != ' ')
-            return pn_error_set(error, PN_ERROR_SYNTAX,
-                                "byte %zu glues a wedge onto the"
-                                " group without a space between",
-                                (size_t) (p - buf));
+
+        if (nu + nd == 0u) {
+            if (error) *error =  pn_error_init(PN_ERROR_SYNTAX,
+                                               "byte at position %zu starts no"
+                                               " wedge sign (or cuts one off"
+                                               " with %zu byte(s) left)",
+                                               (size_t) (p - buffer), (size_t) (end - p));
+            return NULL;
+        }
+
+        if (p != end && *p != ' ') {
+            if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                              "byte %zu glues a wedge onto the"
+                                              " group without a space between",
+                                              (size_t) (p - buffer));
+            return NULL;
+        }
+
         v.places[n++] = (uint8_t) (nu * 10u + nd);
         got_group = 1;
         spaces = 0;
     }
 
     if (!got_group) { /* all-space: 3k-1 spaces, k empty places */
-        if ((spaces + 1u) % 3u != 0u)
-            return pn_error_set(error, PN_ERROR_SYNTAX,
-                                "%zu space(s) with no wedge in"
-                                " sight name no value",
-                                spaces); /* "" and "-" land here too */
+        if ((spaces + 1u) % 3u != 0u) {
+            if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                              "%zu space(s) with no wedge in"
+                                              " sight name no value",
+                                              spaces); /* "" and "-" land here too */
+            return NULL;
+        }
         size_t k = (spaces + 1u) / 3u;
 
-        if (k > PN_BASE60_MAX_PLACES)
-            return pn_error_set(error, PN_ERROR_RANGE,
-                                "%zu empty places will not fit"
-                                " the value",
-                                k);
+        if (k > PN_BASE60_MAX_PLACES) {
+            if (error) *error = pn_error_init(PN_ERROR_RANGE,
+                                              "%zu empty places will not fit"
+                                              " the value",
+                                              k);
+            return NULL;
+        }
+
         for (; k > 0; k--)
             v.places[n++] = 0;
     }
     else if (spaces % 3u != 0u) { /* trailing run: a multiple of 3 */
-        return pn_error_set(error, PN_ERROR_SYNTAX,
-                            "the string trails off with %zu"
-                            " space(s): a blank tail comes"
-                            " in rows of 3",
-                            spaces);
+        if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                           "the string trails off with %zu"
+                                           " space(s): a blank tail comes"
+                                           " in rows of 3",
+                                           spaces);
+        return NULL;
     }
     else {
         size_t zeros = spaces / 3u;
 
-        if (n + zeros > PN_BASE60_MAX_PLACES)
-            return pn_error_set(error, PN_ERROR_RANGE,
-                                "the blank tail pushes the"
-                                " value past its %u place"
-                                " limit",
-                                PN_BASE60_MAX_PLACES);
+        if (n + zeros > PN_BASE60_MAX_PLACES) {
+            if (error) *error = pn_error_init(PN_ERROR_RANGE,
+                                              "the blank tail pushes the"
+                                              " value past its %u place"
+                                              " limit",
+                                              PN_BASE60_MAX_PLACES);
+            return NULL;
+        }
+
         for (; zeros > 0; zeros--)
             v.places[n++] = 0;
     }
 
-    if (n == 0)
-        return pn_error_set(error, PN_ERROR_SYNTAX,
-                            "no place survived the reading"
-                            " (unreachable; belt and"
-                            " tablet-clay)");
+    if (n == 0) {
+        if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                          "no place survived the reading"
+                                          " (unreachable; belt and"
+                                          " tablet-clay)");
+        return NULL;
+    }
 
     v.n_places = (uint8_t) n;
     v.radix = (uint8_t) n; /* no radix point on clay: whole numbers */
     *out = v;
-    return true;
+
+    return out;
 }

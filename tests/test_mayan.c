@@ -119,7 +119,6 @@ int main(void) {
     /* errors: render — the well_formed rule book */
 
     CHECK_OK(pn_base20_from_u64(1u, &v, &err_), err_);
-    CHECK_ERROR(pn_mayan_render(v, pn_nothing(), 64, &err_), err_, PN_ERROR_NULL);
 
     memset(buf, 'x', 8);
     v.places[2] = 20; /* {1,0,20,0}: a place past nineteen */
@@ -246,9 +245,6 @@ int main(void) {
     CHECK_ERROR(pn_mayan_parse(rows, w, &back, &err_), err_, PN_ERROR_RANGE);
     CHECK(back.n_places == 255u);
 
-    /* Nulls. */
-    CHECK_ERROR(pn_mayan_parse(pn_nothing(), 4, &back, &err_), err_, PN_ERROR_NULL);
-    CHECK_ERROR(pn_mayan_parse(DOT, 4, pn_nothing(), &err_), err_, PN_ERROR_NULL);
 
     /*  render_size is pure and total even on a junk struct (meaningless,
 	   never fatal - the sibling contract, babylonian.c's is the same)

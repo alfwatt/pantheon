@@ -25,6 +25,7 @@
 
     References: https://en.wikipedia.org/wiki/Roman_numerals
 */
+#include <assert.h>
 #include <string.h>
 
 #include "pantheon.h"
@@ -52,22 +53,25 @@ static void put_row(const char* row, char* buf, size_t* w) {
         buf[(*w)++] = *row++;
 }
 
-bool pn_roman_render(uint64_t n, char* _Nonnull buf, size_t buflen,
-                     pn_error* _Nullable* _Nullable error) {
-    if (buf == NULL)
-        return pn_error_set(error, PN_ERROR_NULL, "render needs a buffer to write into");
-    if (n > PN_ROMAN_MAX_VALUE)
-        return pn_error_set(error, PN_ERROR_RANGE,
-                            "%llu runs past %llu: the tally"
-                            " walks no higher than MMM CM XC"
-                            " IX",
-                            (unsigned long long) n, (unsigned long long) PN_ROMAN_MAX_VALUE);
-    if (buflen < pn_roman_render_size(n) + 1u)
-        return pn_error_set(error, PN_ERROR_BUFFER,
-                            "buffer holds %zu byte(s); this"
-                            " numeral needs %zu plus a"
-                            " terminating 0 byte",
-                            buflen, pn_roman_render_size(n));
+char* _Nullable pn_roman_render(uint64_t n, char* _Nonnull buf, size_t buflen,
+                                pn_error* _Nullable* _Nullable error) {
+    assert(buf);
+    if (n > PN_ROMAN_MAX_VALUE) {
+        if (error) *error = pn_error_init(PN_ERROR_RANGE,
+                                          "%llu runs past %llu: the tally"
+                                          " walks no higher than MMM CM XC"
+                                          " IX",
+                                          (unsigned long long) n, (unsigned long long) PN_ROMAN_MAX_VALUE);
+        return NULL;
+    }
+    if (buflen < pn_roman_render_size(n) + 1u) {
+        if (error) *error = pn_error_init(PN_ERROR_BUFFER,
+                                          "buffer holds %zu byte(s); this"
+                                          " numeral needs %zu plus a"
+                                          " terminating 0 byte",
+                                          buflen, pn_roman_render_size(n));
+        return NULL;
+    }
 
     size_t w = 0u;
 
@@ -76,7 +80,7 @@ bool pn_roman_render(uint64_t n, char* _Nonnull buf, size_t buflen,
     put_row(t_row[(n / 10u) % 10u], buf, &w);
     put_row(u_row[n % 10u], buf, &w);
     buf[w] = '\0';
-    return true;
+    return buf;
 }
 
 /* The greedy walk's table: how much a token is worth and how it
@@ -91,15 +95,12 @@ static const struct {
 };
 #define N_CANON ((sizeof canon) / (sizeof canon[0]))
 
-bool pn_roman_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullable out,
-                    pn_error* _Nullable* _Nullable error) {
-    if (buf == NULL || out == NULL)
-        return pn_error_set(error, PN_ERROR_NULL,
-                            "parse needs a string and a place to"
-                            " put the number");
+uint64_t* _Nullable pn_roman_parse(const char* _Nonnull buf, size_t buflen, uint64_t* _Nonnull out,
+                                   pn_error* _Nullable* _Nullable error) {
+    assert(buf && out);
     if (buflen == 0u) {
         *out = 0u; /* Bede's nulla: the blank tally  */
-        return true;
+        return out;
     }
 
     /* Greedy walk: at each step take the biggest canon token that
@@ -122,13 +123,15 @@ bool pn_roman_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullabl
                 break;
             }
         }
-        if (!matched)
-            return pn_error_set(error, PN_ERROR_SYNTAX,
-                                "position %zu starts no"
-                                " Roman token: a run of"
-                                " letters the canon does"
-                                " not spell ends the walk",
-                                i);
+        if (!matched) {
+            if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                              "position %zu starts no"
+                                              " Roman token: a run of"
+                                              " letters the canon does"
+                                              " not spell ends the walk",
+                                              i);
+            return NULL;
+        }
     }
 
     /* The read-back is the real test: what parses has to render back
@@ -142,13 +145,15 @@ bool pn_roman_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullabl
     bool ok = pn_roman_render(sum, back, sizeof back, &inner);
 
     pn_error_free(inner); /* its verdict is already ours */
-    if (!ok || strlen(back) != buflen || memcmp(back, buf, buflen) != 0)
-        return pn_error_set(error, PN_ERROR_SYNTAX,
-                            "\"%.*s\" does not spell the"
-                            " canon for %llu: the tally"
-                            " must render back to itself",
-                            (int) (buflen > 64 ? 64 : buflen), buf, (unsigned long long) sum);
+    if (!ok || strlen(back) != buflen || memcmp(back, buf, buflen) != 0) {
+        if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                          "\"%.*s\" does not spell the"
+                                          " canon for %llu: the tally"
+                                          " must render back to itself",
+                                          (int) (buflen > 64 ? 64 : buflen), buf, (unsigned long long) sum);
+        return NULL;
+    }
 
     *out = sum;
-    return true;
+    return out;
 }

@@ -49,7 +49,6 @@ static bool parse_str(const char* text, uint64_t* out, pn_error** error) {
 
 int main(void) {
     char buf[4096];
-    uint64_t v;
 
     /* the lone rod and its raw bytes */
 
@@ -106,7 +105,6 @@ int main(void) {
 
     /* render error cases */
 
-    CHECK_ERROR(pn_rods_render(1u, pn_nothing(), 10, &err_), err_, PN_ERROR_NULL);
     render_ok(23u, buf, sizeof buf);
     CHECK_ERROR(pn_rods_render(23u, buf, pn_rods_render_size(23u), &err_), err_,
                 PN_ERROR_BUFFER); /* the exact-minus-NUL cut */
@@ -116,8 +114,6 @@ int main(void) {
 
     /* parse error cases */
 
-    CHECK_ERROR(pn_rods_parse(pn_nothing(), 0, &v, &err_), err_, PN_ERROR_NULL);
-    CHECK_ERROR(pn_rods_parse(buf, 3, pn_nothing(), &err_), err_, PN_ERROR_NULL);
 
     uint64_t probe;
     CHECK_OK(parse_str("", &probe, &err_), err_); /* the empty board is 0 */

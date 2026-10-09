@@ -48,7 +48,8 @@ extern "C" {
 
 /// @enum `pn_error_code`: the five ways a call can fail
 typedef enum pn_error_code {
-    PN_ERROR_NULL,   /* a pointer argument arrived NULL               */
+    PN_ERROR_NULL,   /* a required resource was missing (a NULL is an
+                        assert, not a note)                           */
     PN_ERROR_SYNTAX, /* an input string breaks the writing rules      */
     PN_ERROR_RANGE,  /* a number is too big for this number system    */
     PN_ERROR_DOMAIN, /* a number of the wrong kind for this job       */
@@ -145,7 +146,6 @@ typedef struct pn_base60 {
 /// @param text provided, or a meaningless value and the
 /// @param error encountered (read the note; a value-returning call
 ///     reports failure through the note, not through the value):
-///     PN_ERROR_NULL when text is NULL,
 ///     PN_ERROR_SYNTAX when the grammar is broken,
 ///     PN_ERROR_RANGE when a place tops 59, a place wears more than 2 digits,
 ///     or the value grows past PN_BASE60_MAX_PLACES places.
@@ -194,25 +194,29 @@ char* _Nullable pn_base60_format_into(pn_base60 value, char place_sep, char* _No
 ///        0     -> a single place {0}
 /// @param n - the whole number to convert
 /// @param out - where the value lands on success
-/// @param error - where to hang the note on failure: PN_ERROR_NULL
-///     when out is NULL, PN_ERROR_RANGE when the number would need
+/// @param error - where to hang the note on failure:
+///     PN_ERROR_RANGE when the number would need
 ///     more than PN_BASE60_MAX_PLACES places (in practice unreachable:
 ///     2^64 needs only 11 places).
-/// @returns true on success, false with a note in @param error.
-bool pn_base60_from_u64(uint64_t n, pn_base60* _Nullable out, pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+pn_base60* _Nullable pn_base60_from_u64(uint64_t n, pn_base60* _Nonnull out,
+                                        pn_error* _Nullable* _Nullable error);
 
 /// Turn a sexagesimal whole number back into an ordinary unsigned
 /// integer with Horner's scheme (acc = acc*60 + place).  The value
 /// must have radix == n_places, that is: no fraction.
 /// @param v - the value to convert; it must be well-formed
 /// @param out - where the number lands on success
-/// @param error - where to hang the note on failure: PN_ERROR_NULL
-///     when out is NULL, PN_ERROR_DOMAIN when v is malformed or
+/// @param error - where to hang the note on failure:
+///     PN_ERROR_DOMAIN when v is malformed or
 ///     carries any fractional place (a place above 59 counts as
 ///     malformed too), PN_ERROR_RANGE when the value does not fit a
 ///     uint64_t.
-/// @returns true on success, false with a note in @param error.
-bool pn_base60_to_u64(pn_base60 v, uint64_t* _Nullable out, pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+uint64_t* _Nullable pn_base60_to_u64(pn_base60 v, uint64_t* _Nonnull out,
+                                     pn_error* _Nullable* _Nullable error);
 
 /// Turn a sexagesimal value into a double.  The fold runs
 /// right-to-left, val = (val + place) / 60, so whole values stay
@@ -224,10 +228,12 @@ bool pn_base60_to_u64(pn_base60 v, uint64_t* _Nullable out, pn_error* _Nullable*
 /// exact.
 /// @param v - the value to convert; it must be well-formed
 /// @param out - where the double lands on success
-/// @param error - where to hang the note on failure: PN_ERROR_NULL
-///     when out is NULL, PN_ERROR_DOMAIN when v is malformed.
-/// @returns true on success, false with a note in @param error.
-bool pn_base60_to_double(pn_base60 v, double* _Nullable out, pn_error* _Nullable* _Nullable error);
+/// @param error - where to hang the note on failure:
+///     PN_ERROR_DOMAIN when v is malformed.
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+double* _Nullable pn_base60_to_double(pn_base60 v, double* _Nonnull out,
+                                      pn_error* _Nullable* _Nullable error);
 
 /// Turn a double into sexagesimal places with exactly
 /// @param frac_places fractional places (0 to PN_BASE60_MAX_PLACES),
@@ -245,14 +251,15 @@ bool pn_base60_to_double(pn_base60 v, double* _Nullable out, pn_error* _Nullable
 /// @param x - the number to convert
 /// @param frac_places - how many fractional places to keep
 /// @param out - where the value lands on success
-/// @param error - where to hang the note on failure: PN_ERROR_NULL
-///     when out is NULL, PN_ERROR_DOMAIN for NaN, infinity, or
+/// @param error - where to hang the note on failure:
+///     PN_ERROR_DOMAIN for NaN, infinity, or
 ///     frac_places above the maximum, PN_ERROR_RANGE when the whole
 ///     part or the rounded result needs more than
 ///     PN_BASE60_MAX_PLACES places.
-/// @returns true on success, false with a note in @param error.
-bool pn_base60_from_double(double x, uint8_t frac_places, pn_base60* _Nullable out,
-                          pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+pn_base60* _Nullable pn_base60_from_double(double x, uint8_t frac_places, pn_base60* _Nonnull out,
+                                           pn_error* _Nullable* _Nullable error);
 
 // MARK: - Cuneiform Numbers
 
@@ -292,15 +299,16 @@ size_t pn_babylonian_render_size(pn_base60 v);
 /// @param v - the value to render
 /// @param buf - where the cuneiform lands, with room for the NUL
 /// @param buflen - bytes of room at buf
-/// @param error - where to hang the note on failure: PN_ERROR_NULL
-///     when buf is NULL, PN_ERROR_DOMAIN when v is malformed
+/// @param error - where to hang the note on failure:
+///     PN_ERROR_DOMAIN when v is malformed
 ///     (n_places == 0 or above the max, a place past 59, or radix
 ///     past n_places), PN_ERROR_BUFFER when buflen does not beat
 ///     pn_babylonian_render_size(v).  On any failure buf is left
 ///     untouched.
-/// @returns true on success, false with a note in @param error.
-bool pn_babylonian_render(pn_base60 v, char* _Nonnull buf, size_t buflen,
-                          pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `buf` on success, or NULL and the
+/// @param error encountered.
+char* _Nullable pn_babylonian_render(pn_base60 v, char* _Nonnull buf, size_t buflen,
+                                     pn_error* _Nullable* _Nullable error);
 
 // Parse a rendered cuneiform string - the inverse of
 // pn_babylonian_render.  @param buf holds exactly @param buflen bytes
@@ -314,7 +322,7 @@ bool pn_babylonian_render(pn_base60 v, char* _Nonnull buf, size_t buflen,
 // 4, 7, … spaces (3k+1: joiner plus k gaps); leading and trailing
 // runs are multiples of 3; an all-space string has length 3k-1.  Any
 // other spacing, and any other byte, is malformed.  Round-trip law:
-// pn_babylonian_parse(buf, strlen(buf), &w, &err) after a successful
+// pn_babylonian_parse_from(buf, strlen(buf), &w, &err) after a successful
 // pn_babylonian_render(v, buf, …) recovers v's places exactly.
 //
 // The cuneiform itself carries no radix point ('-' notwithstanding),
@@ -325,14 +333,17 @@ bool pn_babylonian_render(pn_base60 v, char* _Nonnull buf, size_t buflen,
 /// @param buflen - bytes to read at buf
 /// @param out - where the value lands on success; untouched on any
 ///     failure
-/// @param error - where to hang the note on failure: PN_ERROR_NULL
-///     when buf or out is NULL, PN_ERROR_SYNTAX for any foreign byte
+/// @param error - where to hang the note on failure:
+///     PN_ERROR_SYNTAX for any foreign byte
 ///     or illegal spacing, including an empty string and a DISH
 ///     before a U in one group, PN_ERROR_RANGE for a group with more
 ///     than 5 U or 9 DISH signs, or for a value past
 ///     PN_BASE60_MAX_PLACES places.
-/// @returns true on success, false with a note in @param error.
-pn_base60* _Nullable pn_babylonian_parse_from(const char* _Nonnull buf, size_t buflen, pn_base60* _Nonnull out, pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+pn_base60* _Nullable pn_babylonian_parse_from(const char* _Nonnull buffer, size_t buflen,
+                                              pn_base60* _Nonnull out,
+                                              pn_error* _Nullable* _Nullable error);
 
 // MARK: - Vigesimal
 
@@ -383,14 +394,15 @@ typedef struct pn_base20 {
 /// @param text - the transcription to read
 /// @param out - where the value lands on success; untouched on any
 ///     failure
-/// @param error - where to hang the note on failure: PN_ERROR_NULL
-///     when text or out is NULL, PN_ERROR_SYNTAX when the grammar is
+/// @param error - where to hang the note on failure:
+///     PN_ERROR_SYNTAX when the grammar is
 ///     broken, PN_ERROR_RANGE when a place tops 19, a place wears
 ///     more than 2 digits, or the value grows past
 ///     PN_BASE20_MAX_PLACES places.
-/// @returns true on success, false with a note in @param error.
-bool pn_base20_parse(const char* text, pn_base20* _Nullable out,
-                        pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+pn_base20* _Nullable pn_base20_parse(const char* _Nonnull text, pn_base20* _Nonnull out,
+                                     pn_error* _Nullable* _Nullable error);
 
 #define PN_BASE20_FORMAT_MAX_LEN \
     (1 + 3 * PN_BASE20_MAX_PLACES + 1) /* '-' + places+seps + NUL */
@@ -403,15 +415,16 @@ bool pn_base20_parse(const char* text, pn_base20* _Nullable out,
 /// @param sep - the joiner between places
 /// @param buf - where the text lands, with room for the NUL
 /// @param buflen - bytes of room at buf
-/// @param error - where to hang the note on failure: PN_ERROR_NULL
-///     when buf is NULL, PN_ERROR_SYNTAX when sep is not one of the
+/// @param error - where to hang the note on failure:
+///     PN_ERROR_SYNTAX when sep is not one of the
 ///     allowed joiners, PN_ERROR_DOMAIN when v is malformed
 ///     (n_places == 0 or past the max, a place above 19, radix past
 ///     n_places), PN_ERROR_BUFFER when buflen is too small.  On any
 ///     failure buf is left untouched.
-/// @returns true on success, false with a note in @param error.
-bool pn_base20_format(pn_base20 v, char sep, char* _Nonnull buf, size_t buflen,
-                         pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `buf` on success, or NULL and the
+/// @param error encountered.
+char* _Nullable pn_base20_format(pn_base20 v, char sep, char* _Nonnull buf, size_t buflen,
+                                 pn_error* _Nullable* _Nullable error);
 
 /// Turn an ordinary unsigned integer into vigesimal places exactly
 /// how the sexagesimal from_u64 does it, rebased: peel 20s off the
@@ -419,25 +432,27 @@ bool pn_base20_format(pn_base20 v, char sep, char* _Nonnull buf, size_t buflen,
 /// of 0.
 /// @param n - the whole number to convert
 /// @param out - where the value lands on success
-/// @param error - where to hang the note on failure: PN_ERROR_NULL
-///     when out is NULL, PN_ERROR_RANGE when the number would need
+/// @param error - where to hang the note on failure:
+///     PN_ERROR_RANGE when the number would need
 ///     more than PN_BASE20_MAX_PLACES places (in practice
 ///     unreachable: UINT64_MAX takes 15 places).
-/// @returns true on success, false with a note in @param error.
-bool pn_base20_from_u64(uint64_t n, pn_base20* _Nullable out,
-                           pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+pn_base20* _Nullable pn_base20_from_u64(uint64_t n, pn_base20* _Nonnull out,
+                                        pn_error* _Nullable* _Nullable error);
 
 /// Build a vigesimal whole number back up with Horner's scheme.
 /// @param v - the value to convert; well-formed and whole
 /// @param out - where the number lands on success
-/// @param error - where to hang the note on failure: PN_ERROR_NULL
-///     when out is NULL, PN_ERROR_DOMAIN when v is malformed or its
+/// @param error - where to hang the note on failure:
+///     PN_ERROR_DOMAIN when v is malformed or its
 ///     radix is not n_places (that is: not a whole number),
 ///     PN_ERROR_RANGE when the value does not fit a uint64_t
 ///     (16 places maxed out = 20^16 - 1 would not).
-/// @returns true on success, false with a note in @param error.
-bool pn_base20_to_u64(pn_base20 v, uint64_t* _Nullable out,
-                         pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+uint64_t* _Nullable pn_base20_to_u64(pn_base20 v, uint64_t* _Nonnull out,
+                                     pn_error* _Nullable* _Nullable error);
 
 /// Turn a vigesimal value into a double: the whole part runs through
 /// Horner's scheme in exact uint64_t arithmetic while it fits, then
@@ -447,11 +462,12 @@ bool pn_base20_to_u64(pn_base20 v, uint64_t* _Nullable out,
 /// division loop; harmless.)
 /// @param v - the value to convert; it must be well-formed
 /// @param out - where the double lands on success
-/// @param error - where to hang the note on failure: PN_ERROR_NULL
-///     when out is NULL, PN_ERROR_DOMAIN when v is malformed.
-/// @returns true on success, false with a note in @param error.
-bool pn_base20_to_double(pn_base20 v, double* _Nullable out,
-                            pn_error* _Nullable* _Nullable error);
+/// @param error - where to hang the note on failure:
+///     PN_ERROR_DOMAIN when v is malformed.
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+double* _Nullable pn_base20_to_double(pn_base20 v, double* _Nonnull out,
+                                      pn_error* _Nullable* _Nullable error);
 
 /// Turn a double into vigesimal places, rounding half away from zero
 /// at the @param frac_places-th place (each place 0..19), just like
@@ -461,13 +477,14 @@ bool pn_base20_to_double(pn_base20 v, double* _Nullable out,
 /// @param x - the number to convert
 /// @param frac_places - how many fractional places to keep
 /// @param out - where the value lands on success
-/// @param error - where to hang the note on failure: PN_ERROR_NULL
-///     when out is NULL, PN_ERROR_DOMAIN for NaN, infinity, or
+/// @param error - where to hang the note on failure:
+///     PN_ERROR_DOMAIN for NaN, infinity, or
 ///     frac_places past PN_BASE20_MAX_PLACES, PN_ERROR_RANGE when
 ///     the carries grow the value past 16 places.
-/// @returns true on success, false with a note in @param error.
-bool pn_base20_from_double(double x, uint8_t frac_places, pn_base20* _Nullable out,
-                              pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+pn_base20* _Nullable pn_base20_from_double(double x, uint8_t frac_places, pn_base20* _Nonnull out,
+                                           pn_error* _Nullable* _Nullable error);
 
 /*  Egyptian hieroglyphic numerals (UTF-8 rendering).
    The Egyptian system (c. 3000 BCE onward) was decimal but ADDITIVE: a
@@ -526,13 +543,14 @@ size_t pn_egyptian_render_size(uint64_t n);
 /// pn_egyptian_render_size(n) bytes plus the NUL.
 /// @param buf - where the numeral is written; must not be NULL
 /// @param buflen - bytes of room at buf; must exceed the render size
-/// @param error - where to hang the note on failure: PN_ERROR_NULL
-///     when buf is NULL, PN_ERROR_RANGE when n is past the scribe's
+/// @param error - where to hang the note on failure:
+///     PN_ERROR_RANGE when n is past the scribe's
 ///     full set, PN_ERROR_BUFFER when buflen is too small.  On any
 ///     failure buf is left untouched.
-/// @returns true on success, false with a note in @param error.
-bool pn_egyptian_render(uint64_t n, char* _Nonnull buf, size_t buflen,
-                        pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `buf` on success, or NULL and the
+/// @param error encountered.
+char* _Nullable pn_egyptian_render(uint64_t n, char* _Nonnull buf, size_t buflen,
+                                   pn_error* _Nullable* _Nullable error);
 
 /// Read back a rendered hieroglyphic string — the exact inverse of
 /// pn_egyptian_render.  @param buf holds @param buflen bytes of UTF-8
@@ -547,15 +565,16 @@ bool pn_egyptian_render(uint64_t n, char* _Nonnull buf, size_t buflen,
 /// @param buflen - bytes to read at buf
 /// @param out - where the number lands on success; left untouched on
 ///     any failure
-/// @param error - where to hang the note on failure: PN_ERROR_NULL
-///     when buf or out is NULL, PN_ERROR_SYNTAX for a foreign byte,
+/// @param error - where to hang the note on failure:
+///     PN_ERROR_SYNTAX for a foreign byte,
 ///     a cut-off sign, or runs out of order, PN_ERROR_RANGE for a run
 ///     of ten or more copies of one sign — a scribe would have
 ///     carried to the next power, so that string is no canonical
 ///     number.
-/// @returns true on success, false with a note in @param error.
-bool pn_egyptian_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullable out,
-                       pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+uint64_t* _Nullable pn_egyptian_parse(const char* _Nonnull buf, size_t buflen,
+                                      uint64_t* _Nonnull out, pn_error* _Nullable* _Nullable error);
 
 // MARK: - Hanzi Numerals
 
@@ -610,15 +629,16 @@ size_t pn_hanzi_render_size(uint64_t n);
 /// @param n - the whole number to render
 /// @param buf - where the string lands, with room for the NUL
 /// @param buflen - bytes of room at buf
-/// @param error - where to hang the note on failure: PN_ERROR_NULL
-///     when buf is NULL, PN_ERROR_RANGE when n tops
+/// @param error - where to hang the note on failure:
+///     PN_ERROR_RANGE when n tops
 ///     PN_HANZI_MAX_VALUE (no sign above 万 lives here),
 ///     PN_ERROR_BUFFER when buflen does not beat
 ///     pn_hanzi_render_size(n).  On any failure buf is left
 ///     untouched.
-/// @returns true on success, false with a note in @param error.
-bool pn_hanzi_render(uint64_t n, char* _Nonnull buf, size_t buflen,
-                     pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `buf` on success, or NULL and the
+/// @param error encountered.
+char* _Nullable pn_hanzi_render(uint64_t n, char* _Nonnull buf, size_t buflen,
+                                pn_error* _Nullable* _Nullable error);
 
 /// Read back a canonical hanzi string — the exact inverse of
 /// pn_hanzi_render.    Strict canonical form: terms of
@@ -634,9 +654,10 @@ bool pn_hanzi_render(uint64_t n, char* _Nonnull buf, size_t buflen,
 /// @param out - where the number lands on success; untouched on any
 ///     failure
 /// @param error - where to hang the note on failure.
-/// @returns true on success, false with a note in @param error.
-bool pn_hanzi_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullable out,
-                    pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+uint64_t* _Nullable pn_hanzi_parse(const char* _Nonnull buf, size_t buflen, uint64_t* _Nonnull out,
+                                   pn_error* _Nullable* _Nullable error);
 
 /*  Counting rod numerals (UTF-8 rendering).
    Rod numerals (算筹, in use c. 400 BCE onward in China, Japan,
@@ -693,16 +714,17 @@ size_t pn_rods_render_size(uint64_t n);
 /// @param n == 0 renders the empty string; the write needs exactly
 /// pn_rods_render_size(@param n) bytes plus the NUL.  The old error
 /// block above says which notes come back; kept here in short:
-/// PN_ERROR_NULL when buf is NULL, PN_ERROR_RANGE when n tops
+/// PN_ERROR_RANGE when n tops
 /// PN_ROD_MAX_VALUE, PN_ERROR_BUFFER when buflen is smaller than the
 /// exact byte count — and on any failure buf is left untouched.
 /// @param n - the whole number to render
 /// @param buf - where the board lands, with room for the NUL
 /// @param buflen - bytes of room at buf
 /// @param error - where to hang the note on failure.
-/// @returns true on success, false with a note in @param error.
-bool pn_rods_render(uint64_t n, char* _Nonnull buf, size_t buflen,
-                    pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `buf` on success, or NULL and the
+/// @param error encountered.
+char* _Nullable pn_rods_render(uint64_t n, char* _Nonnull buf, size_t buflen,
+                               pn_error* _Nullable* _Nullable error);
 
 /// Read back a rendered rod string — the exact inverse of
 /// pn_rods_render.    The string is just the two rod sets and spaces,
@@ -718,7 +740,7 @@ bool pn_rods_render(uint64_t n, char* _Nonnull buf, size_t buflen,
 ///
 /// The round trip is exact: parsing the string after a successful
 /// render recovers n.    An empty buffer (buflen == 0) reads back
-/// as 0.  PN_ERROR_NULL when buf or out is NULL; PN_ERROR_SYNTAX for
+/// as 0.  PN_ERROR_SYNTAX for
 /// a leading space, all spaces, two glyphs with no space between, a
 /// glyph whose set argues with its place's parity, any other byte, or
 /// a sign cut off short; PN_ERROR_RANGE for more than
@@ -728,9 +750,10 @@ bool pn_rods_render(uint64_t n, char* _Nonnull buf, size_t buflen,
 /// @param buflen - bytes to read at buf
 /// @param out - where the number lands on success
 /// @param error - where to hang the note on failure.
-/// @returns true on success, false with a note in @param error.
-bool pn_rods_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullable out,
-                   pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+uint64_t* _Nullable pn_rods_parse(const char* _Nonnull buf, size_t buflen, uint64_t* _Nonnull out,
+                                  pn_error* _Nullable* _Nullable error);
 
 /*  Indian Brahmi numerals (UTF-8 rendering).
    Brahmi numerals (attested from the 3rd century BCE, on Ashoka's edicts
@@ -794,16 +817,17 @@ size_t pn_brahmi_render_size(uint64_t n);
 /// is the power sign, then U+1107F the joiner, then the units sign
 /// for d.  @param n == 0 renders the empty string — the blank.  The
 /// write needs exactly pn_brahmi_render_size(@param n) bytes plus
-/// the NUL.  PN_ERROR_NULL when buf is NULL, PN_ERROR_RANGE when n
+/// the NUL.  PN_ERROR_RANGE when n
 /// tops PN_BRAHMI_MAX_VALUE, PN_ERROR_BUFFER when buflen is smaller
 /// — and on any failure buf is left untouched.
 /// @param n - the whole number to render
 /// @param buf - where the signs land, with room for the NUL
 /// @param buflen - bytes of room at buf
 /// @param error - where to hang the note on failure.
-/// @returns true on success, false with a note in @param error.
-bool pn_brahmi_render(uint64_t n, char* _Nonnull buf, size_t buflen,
-                      pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `buf` on success, or NULL and the
+/// @param error encountered.
+char* _Nullable pn_brahmi_render(uint64_t n, char* _Nonnull buf, size_t buflen,
+                                 pn_error* _Nullable* _Nullable error);
 
 /// Read back a rendered Brahmi string — the exact inverse of
 /// pn_brahmi_render.    Strict canonical form: the twenty number
@@ -830,9 +854,10 @@ bool pn_brahmi_render(uint64_t n, char* _Nonnull buf, size_t buflen,
 /// @param buflen - bytes to read at buf
 /// @param out - where the number lands on success
 /// @param error - where to hang the note on failure.
-/// @returns true on success, false with a note in @param error.
-bool pn_brahmi_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullable out,
-                     pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+uint64_t* _Nullable pn_brahmi_parse(const char* _Nonnull buf, size_t buflen, uint64_t* _Nonnull out,
+                                    pn_error* _Nullable* _Nullable error);
 
 /*  Mayan bar-and-dot numerals over pn_base20 — the renderer.
    The Maya had what no other ancient place-value script here can
@@ -882,15 +907,16 @@ size_t pn_mayan_render_size(pn_base20 v);
 /// @param v - the value to render
 /// @param buf - where the signs land, with room for the NUL
 /// @param buflen - bytes of room at buf
-/// @param error - where to hang the note on failure: PN_ERROR_NULL
-///     when buf is NULL, PN_ERROR_DOMAIN when v is malformed
+/// @param error - where to hang the note on failure:
+///     PN_ERROR_DOMAIN when v is malformed
 ///     (n_places == 0 or past the max, a place above 19, radix past
 ///     n_places), PN_ERROR_BUFFER when buflen does not beat
 ///     pn_mayan_render_size(v).  On any failure buf is left
 ///     untouched.
-/// @returns true on success, false with a note in @param error.
-bool pn_mayan_render(pn_base20 v, char* _Nonnull buf, size_t buflen,
-                     pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `buf` on success, or NULL and the
+/// @param error encountered.
+char* _Nullable pn_mayan_render(pn_base20 v, char* _Nonnull buf, size_t buflen,
+                                pn_error* _Nullable* _Nullable error);
 
 /// Read back a rendered bar-and-dot string — the exact inverse of
 /// pn_mayan_render.   ,@param buf holds @param buflen bytes of UTF-8
@@ -913,9 +939,10 @@ bool pn_mayan_render(pn_base20 v, char* _Nonnull buf, size_t buflen,
 /// @param out - where the value lands on success; untouched on any
 ///     failure
 /// @param error - where to hang the note on failure.
-/// @returns true on success, false with a note in @param error.
-bool pn_mayan_parse(const char* _Nullable buf, size_t buflen, pn_base20* _Nullable out,
-                    pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+pn_base20* _Nullable pn_mayan_parse(const char* _Nonnull buf, size_t buflen,
+                                    pn_base20* _Nonnull out, pn_error* _Nullable* _Nullable error);
 
 /*  Inca quipu — positional decimal knot notation, transcribed in UTF-8.
    The quipucamayuq tied numbers onto pendant cords hanging from a
@@ -982,14 +1009,15 @@ size_t pn_quipu_render_size(uint64_t n);
 /// @param n - the whole number to render
 /// @param buf - where the cord lands, with room for the NUL
 /// @param buflen - bytes of room at buf
-/// @param error - where to hang the note on failure: PN_ERROR_NULL
-///     when buf is NULL, PN_ERROR_RANGE when n tops PN_QUIPU_MAX_VALUE
+/// @param error - where to hang the note on failure:
+///     PN_ERROR_RANGE when n tops PN_QUIPU_MAX_VALUE
 ///      (a twentieth line no pendant holds), PN_ERROR_BUFFER when
 ///     buflen does not beat pn_quipu_render_size(n).  On any failure
 ///     buf is left untouched.
-/// @returns true on success, false with a note in @param error.
-bool pn_quipu_render(uint64_t n, char* _Nonnull buf, size_t buflen,
-                     pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `buf` on success, or NULL and the
+/// @param error encountered.
+char* _Nullable pn_quipu_render(uint64_t n, char* _Nonnull buf, size_t buflen,
+                                pn_error* _Nullable* _Nullable error);
 
 /// Read back a rendered cord — the exact inverse of
 /// pn_quipu_render.    The reading demands the canonical form:
@@ -1012,9 +1040,10 @@ bool pn_quipu_render(uint64_t n, char* _Nonnull buf, size_t buflen,
 /// @param out - where the number lands on success; untouched on any
 ///     failure
 /// @param error - where to hang the note on failure.
-/// @returns true on success, false with a note in @param error.
-bool pn_quipu_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullable out,
-                    pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+uint64_t* _Nullable pn_quipu_parse(const char* _Nonnull buf, size_t buflen, uint64_t* _Nonnull out,
+                                   pn_error* _Nullable* _Nullable error);
 
 /*  Greek alphabetic numerals — the Milesian (Ionic) system, in UTF-8.
    No place values, no zero: the market and the chancery took the
@@ -1109,14 +1138,15 @@ size_t pn_greek_render_size(uint64_t n);
 /// @param n - the whole number to render
 /// @param buf - where the cord lands, with room for the NUL
 /// @param buflen - bytes of room at buf
-/// @param error - where to hang the note on failure: PN_ERROR_NULL
-///     when buf is NULL, PN_ERROR_RANGE when n tops
+/// @param error - where to hang the note on failure:
+///     PN_ERROR_RANGE when n tops
 ///     PN_GREEK_MAX_VALUE, PN_ERROR_BUFFER when buflen cannot hold
 ///     pn_greek_render_size(n) plus the NUL.  On any failure buf is
 ///     left untouched.
-/// @returns true on success, false with a note in @param error.
-bool pn_greek_render(uint64_t n, char* _Nonnull buf, size_t buflen,
-                     pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `buf` on success, or NULL and the
+/// @param error encountered.
+char* _Nullable pn_greek_render(uint64_t n, char* _Nonnull buf, size_t buflen,
+                                pn_error* _Nullable* _Nullable error);
 
 /// Read back a rendered cord — the exact inverse of
 /// pn_greek_render.    The reading is strict about the canonical
@@ -1136,9 +1166,10 @@ bool pn_greek_render(uint64_t n, char* _Nonnull buf, size_t buflen,
 /// @param out - where the number lands on success; untouched on any
 ///     failure
 /// @param error - where to hang the note on failure.
-/// @returns true on success, false with a note in @param error.
-bool pn_greek_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullable out,
-                    pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+uint64_t* _Nullable pn_greek_parse(const char* _Nonnull buf, size_t buflen, uint64_t* _Nonnull out,
+                                   pn_error* _Nullable* _Nullable error);
 
 /*  Roman numerals — the canonical form, in ordinary ASCII letters.
    No zero, no place values: the ledger kept seven capital letters -
@@ -1210,14 +1241,15 @@ size_t pn_roman_render_size(uint64_t n);
 /// @param n - the whole number to render
 /// @param buf - where the letters land, with room for the NUL
 /// @param buflen - bytes of room at buf
-/// @param error - where to hang the note on failure: PN_ERROR_NULL
-///     when buf is NULL, PN_ERROR_RANGE when n tops
+/// @param error - where to hang the note on failure:
+///     PN_ERROR_RANGE when n tops
 ///     PN_ROMAN_MAX_VALUE, PN_ERROR_BUFFER when buflen cannot hold
 ///     pn_roman_render_size(n) plus the NUL.  On any failure buf is
 ///     left untouched.
-/// @returns true on success, false with a note in @param error.
-bool pn_roman_render(uint64_t n, char* _Nonnull buf, size_t buflen,
-                     pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `buf` on success, or NULL and the
+/// @param error encountered.
+char* _Nullable pn_roman_render(uint64_t n, char* _Nonnull buf, size_t buflen,
+                                pn_error* _Nullable* _Nullable error);
 
 /// Read canonical Roman letters back — the exact inverse of
 /// pn_roman_render.    The walk is greedy over the canon table, and
@@ -1230,9 +1262,10 @@ bool pn_roman_render(uint64_t n, char* _Nonnull buf, size_t buflen,
 /// @param out - where the number lands on success; untouched on any
 ///     failure
 /// @param error - where to hang the note on failure.
-/// @returns true on success, false with a note in @param error.
-bool pn_roman_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullable out,
-                    pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+uint64_t* _Nullable pn_roman_parse(const char* _Nonnull buf, size_t buflen, uint64_t* _Nonnull out,
+                                   pn_error* _Nullable* _Nullable error);
 
 /*  Early mathematical theory (Elements VII-IX, the sieve of
    Eratosthenes, the gnomon figures).
@@ -1258,8 +1291,7 @@ bool pn_roman_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullabl
 size_t pn_math_sieve_size(uint64_t limit);
 
 /// Lay the sieve board in @param out in ascending order and report
-/// the rows it set through @param count.    PN_ERROR_NULL when out or
-/// count is NULL, PN_ERROR_RANGE when @param limit passes
+/// the rows it set through @param count.  PN_ERROR_RANGE when @param limit passes
 /// PN_MATH_SIEVE_MAX_VALUE, PN_ERROR_BUFFER when @param cap falls
 /// short of the count — and on any failure the caller's rows and
 /// @param count keep their word.
@@ -1268,9 +1300,10 @@ size_t pn_math_sieve_size(uint64_t limit);
 /// @param cap - slots available at @param out
 /// @param count - how many primes were written, on success
 /// @param error - where to hang the note on failure.
-/// @returns true on success, false with a note in @param error.
-bool pn_math_sieve(uint64_t limit, uint64_t* _Nullable out, size_t cap, size_t* _Nullable count,
-                   pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+uint64_t* _Nullable pn_math_sieve(uint64_t limit, uint64_t* _Nonnull out, size_t cap,
+                                  size_t* _Nonnull count, pn_error* _Nullable* _Nullable error);
 
 /// Euclid's ladder (Elements VII.1-2): the greatest common measure
 /// of @param a and @param b.  gcd(1071, 462) = 21; gcd(0, 0) = 0 by
@@ -1278,59 +1311,64 @@ bool pn_math_sieve(uint64_t limit, uint64_t* _Nullable out, size_t cap, size_t* 
 /// @param a - one number
 /// @param b - the other number
 /// @param out - where the answer lands on success
-/// @param error - where to hang the note on failure: PN_ERROR_NULL
-///     when out is NULL.
-/// @returns true on success, false with a note in @param error.
-bool pn_math_gcd(uint64_t a, uint64_t b, uint64_t* _Nullable out,
-                 pn_error* _Nullable* _Nullable error);
+/// @param error - where to hang the note on failure.
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+uint64_t* _Nullable pn_math_gcd(uint64_t a, uint64_t b, uint64_t* _Nonnull out,
+                                pn_error* _Nullable* _Nullable error);
 
 /// The least common multiple: the smallest number both @param a and
 /// @param b measure.  lcm(1071, 462) = 23562; a blank row makes the
-/// ratio blank — lcm(0, n) = 0.  PN_ERROR_NULL when out is NULL,
+/// ratio blank — lcm(0, n) = 0.
 /// PN_ERROR_RANGE when the product leaves the ledger.
 /// @param a - one number
 /// @param b - the other number
 /// @param out - where the answer lands on success
 /// @param error - where to hang the note on failure.
-/// @returns true on success, false with a note in @param error.
-bool pn_math_lcm(uint64_t a, uint64_t b, uint64_t* _Nullable out,
-                 pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+uint64_t* _Nullable pn_math_lcm(uint64_t a, uint64_t b, uint64_t* _Nonnull out,
+                                pn_error* _Nullable* _Nullable error);
 
 /// Is @param n a square number?  The Pythagoreans' gnomon figures:
 /// is_square(999950884) is true, the square of 31622.
 /// @param n - the number to weigh
 /// @param out - where the verdict lands on success
-/// @param error - where to hang the note on failure: PN_ERROR_NULL
-///     when out is NULL.
-/// @returns true on success, false with a note in @param error.
-bool pn_math_is_square(uint64_t n, bool* _Nullable out, pn_error* _Nullable* _Nullable error);
+/// @param error - where to hang the note on failure.
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+bool* _Nullable pn_math_is_square(uint64_t n, bool* _Nonnull out,
+                                  pn_error* _Nullable* _Nullable error);
 
 /// Is @param n prime?  Seven Miller-Rabin witnesses answer for the
 /// whole ledger, so Carmichael's fools — is_prime(561) says false —
 /// cannot slip past.
 /// @param n - the number to weigh
 /// @param out - where the verdict lands on success
-/// @param error - where to hang the note on failure: PN_ERROR_NULL
-///     when out is NULL.
-/// @returns true on success, false with a note in @param error.
-bool pn_math_is_prime(uint64_t n, bool* _Nullable out, pn_error* _Nullable* _Nullable error);
+/// @param error - where to hang the note on failure.
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+bool* _Nullable pn_math_is_prime(uint64_t n, bool* _Nonnull out,
+                                 pn_error* _Nullable* _Nullable error);
 
 /// The next prime at or after @param n — inclusive, the culture
 /// counting the number itself when it is already prime:
 /// next_prime(1) = 2, next_prime(2) = 2, next_prime(46340) = 46349.
 /// @param n - weigh from here upward
 /// @param out - where the answer lands on success
-/// @param error - where to hang the note on failure: PN_ERROR_NULL
-///     when out is NULL, PN_ERROR_RANGE past the last prime of the
+/// @param error - where to hang the note on failure:
+///     PN_ERROR_RANGE past the last prime of the
 ///     ledger.
-/// @returns true on success, false with a note in @param error.
-bool pn_math_next_prime(uint64_t n, uint64_t* _Nullable out, pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+uint64_t* _Nullable pn_math_next_prime(uint64_t n, uint64_t* _Nonnull out,
+                                       pn_error* _Nullable* _Nullable error);
 
 size_t pn_math_factorize_size(uint64_t n);
 
 /// The abacist's ledger of factors: @param n = f[0] x f[1] x ...
 /// ascending, repeats kept — the culture wrote 90 as 2 x 3 x 3 x 5
-/// and 649 as 11 x 59.  PN_ERROR_NULL when out or count is NULL,
+/// and 649 as 11 x 59.
 /// PN_ERROR_BUFFER when @param cap falls short of the count; on any
 /// failure the caller's rows and @param count keep their word.
 /// @param n - split this number
@@ -1338,9 +1376,10 @@ size_t pn_math_factorize_size(uint64_t n);
 /// @param cap - slots available at @param out
 /// @param count - how many factors were written, on success
 /// @param error - where to hang the note on failure.
-/// @returns true on success, false with a note in @param error.
-bool pn_math_factorize(uint64_t n, uint64_t* _Nullable out, size_t cap, size_t* _Nullable count,
-                       pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+uint64_t* _Nullable pn_math_factorize(uint64_t n, uint64_t* _Nonnull out, size_t cap,
+                                      size_t* _Nonnull count, pn_error* _Nullable* _Nullable error);
 
 /// Is @param n equal to its own parts (Elements IX.36)?  6 = 1 + 2
 /// + 3, then 28, 496, 8128 — the even form Euclid built and Euler
@@ -1350,10 +1389,12 @@ bool pn_math_factorize(uint64_t n, uint64_t* _Nullable out, size_t cap, size_t* 
 /// perfect_check(90) answers cleanly with false.
 /// @param n - the number to weigh
 /// @param out - where the verdict lands on success
-/// @param error - where to hang the note on failure: PN_ERROR_NULL
-///     when out is NULL, PN_ERROR_RANGE when n is below 2.
-/// @returns true on success, false with a note in @param error.
-bool pn_math_perfect_check(uint64_t n, bool* _Nullable out, pn_error* _Nullable* _Nullable error);
+/// @param error - where to hang the note on failure:
+///     PN_ERROR_RANGE when n is below 2.
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+bool* _Nullable pn_math_perfect_check(uint64_t n, bool* _Nonnull out,
+                                      pn_error* _Nullable* _Nullable error);
 
 // MARK: - Pythagoreas
 
@@ -1367,14 +1408,16 @@ bool pn_math_perfect_check(uint64_t n, bool* _Nullable out, pn_error* _Nullable*
 /// @param leg1 - where the gnomon leg lands
 /// @param leg2 - where the even leg lands
 /// @param hypotenuse - where the hypotenuse lands
-/// @param error - where to hang the note on failure: PN_ERROR_NULL
-///     when any answer slot is NULL, PN_ERROR_RANGE when the
+/// @param error - where to hang the note on failure:
+///     PN_ERROR_RANGE when the
 ///     generators break 1 <= n < m <= 65535 or any side runs past
 ///     PN_MATH_SIDE_MAX_VALUE.
-/// @returns true on success, false with a note in @param error.
-bool pn_math_pythagorean_triple(uint64_t m, uint64_t n, uint64_t* _Nullable leg1,
-                                uint64_t* _Nullable leg2, uint64_t* _Nullable hypotenuse,
-                                pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `leg1` on success, or NULL and the
+/// @param error encountered.
+uint64_t* _Nullable pn_math_pythagorean_triple(uint64_t m, uint64_t n, uint64_t* _Nonnull leg1,
+                                               uint64_t* _Nonnull leg2,
+                                               uint64_t* _Nonnull hypotenuse,
+                                               pn_error* _Nullable* _Nullable error);
 
 /// Weigh the rod: does @param x*x + @param y*y equal @param z*z?
 /// (119, 120, 169) stands.  Sides outside the rod's foot earn a
@@ -1383,12 +1426,13 @@ bool pn_math_pythagorean_triple(uint64_t m, uint64_t n, uint64_t* _Nullable leg1
 /// @param y - the other side
 /// @param z - the longest side
 /// @param out - where the verdict lands on success
-/// @param error - where to hang the note on failure: PN_ERROR_NULL
-///     when out is NULL, PN_ERROR_RANGE when a side runs under 1 or
+/// @param error - where to hang the note on failure:
+///     PN_ERROR_RANGE when a side runs under 1 or
 ///     past PN_MATH_SIDE_MAX_VALUE.
-/// @returns true on success, false with a note in @param error.
-bool pn_math_pythagorean_check(uint64_t x, uint64_t y, uint64_t z, bool* _Nullable out,
-                               pn_error* _Nullable* _Nullable error);
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+bool* _Nullable pn_math_pythagorean_check(uint64_t x, uint64_t y, uint64_t z, bool* _Nonnull out,
+                                          pn_error* _Nullable* _Nullable error);
 
 #pragma clang diagnostic pop
 

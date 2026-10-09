@@ -38,6 +38,7 @@
     Ascher & Ascher, Mathematics of the Incas: Code of the Quipu
     (1997).
 */
+#include <assert.h>
 #include <string.h>
 
 #include "pantheon.h"
@@ -128,27 +129,30 @@ size_t pn_quipu_render_size(uint64_t n) {
     return quipu_emit(n, NULL);
 }
 
-bool pn_quipu_render(uint64_t n, char* _Nonnull buf, size_t buflen,
-                     pn_error* _Nullable* _Nullable error) {
-    if (buf == NULL)
-        return pn_error_set(error, PN_ERROR_NULL, "render needs a buffer to write into");
-    if (n > PN_QUIPU_MAX_VALUE)
-        return pn_error_set(error, PN_ERROR_RANGE,
-                            "%llu needs a twentieth line: 10^19"
-                            " no longer fits the cord",
-                            (unsigned long long) n);
+char* _Nullable pn_quipu_render(uint64_t n, char* _Nonnull buf, size_t buflen,
+                                pn_error* _Nullable* _Nullable error) {
+    assert(buf);
+    if (n > PN_QUIPU_MAX_VALUE) {
+        if (error) *error = pn_error_init(PN_ERROR_RANGE,
+                                          "%llu needs a twentieth line: 10^19"
+                                          " no longer fits the cord",
+                                          (unsigned long long) n);
+        return NULL;
+    }
 
     const size_t need = quipu_emit(n, NULL); /*exact: buflen must hold +NUL */
 
-    if (buflen <= need)
-        return pn_error_set(error, PN_ERROR_BUFFER,
-                            "buffer holds %zu bytes; this cord"
-                            " needs %zu plus the terminating"
-                            " NUL",
-                            buflen, need);
+    if (buflen <= need) {
+        if (error) *error = pn_error_init(PN_ERROR_BUFFER,
+                                          "buffer holds %zu bytes; this cord"
+                                          " needs %zu plus the terminating"
+                                          " NUL",
+                                          buflen, need);
+        return NULL;
+    }
     (void) quipu_emit(n, buf);
     buf[need] = '\0';
-    return true;
+    return buf;
 }
 
 /* Parsing reads the cord back.
@@ -166,31 +170,32 @@ bool pn_quipu_render(uint64_t n, char* _Nonnull buf, size_t buflen,
    overfill a uint64_t: the babylonian tenth-DISH ruling moved from
    syntax to range on the knot count, while the twentieth place stays
    the page-overrun range call. */
-bool pn_quipu_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullable out,
-                    pn_error* _Nullable* _Nullable error) {
-    if (buf == NULL || out == NULL)
-        return pn_error_set(error, PN_ERROR_NULL,
-                            "parse needs a string and a place to"
-                            " put the number");
+uint64_t* _Nullable pn_quipu_parse(const char* _Nonnull buf, size_t buflen, uint64_t* _Nonnull out,
+                                   pn_error* _Nullable* _Nullable error) {
+    assert(buf && out);
     if (buflen == 0) {
         *out = 0; /*the empty cord: no knot was tied   */
-        return true;
+        return out;
     }
-    if (buf[0] == ' ')
-        return pn_error_set(error, PN_ERROR_SYNTAX,
-                            "the cord never starts inside a"
-                            " gutter");
+    if (buf[0] == ' ') {
+        if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                          "the cord never starts inside a"
+                                          " gutter");
+        return NULL;
+    }
 
     size_t spaces = 0; /*counted first: it defines the places */
 
     for (size_t i = 0; i < buflen; i++)
         if (buf[i] == ' ')
             spaces++;
-    if (spaces + 1u > (size_t) PN_QUIPU_MAX_PLACES)
-        return pn_error_set(error, PN_ERROR_RANGE,
-                            "%zu space(s) ask for %zu places:"
-                            " more cord than a uint64_t holds",
-                            spaces, spaces + 1u);
+    if (spaces + 1u > (size_t) PN_QUIPU_MAX_PLACES) {
+        if (error) *error = pn_error_init(PN_ERROR_RANGE,
+                                          "%zu space(s) ask for %zu places:"
+                                          " more cord than a uint64_t holds",
+                                          spaces, spaces + 1u);
+        return NULL;
+    }
 
     uint64_t sum = 0;         /**out keeps its old value unless all works */
     int place = (int) spaces; /*topmost line; steps down each gutter     */
@@ -204,13 +209,15 @@ bool pn_quipu_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullabl
         if (*p == ' ') {
             if (col_count != 0) {      /*a boundary ends this column */
                 if (col_place != place /*gutter inside the run, or   */
-                    || (col_kind == 1) != (place == 0))
-                    return pn_error_set(error, PN_ERROR_SYNTAX,
-                                        "%d knot(s) of the %s family sit"
-                                        " in the wrong line (the %s line"
-                                        " alone takes them)",
-                                        col_count, (col_kind == 1) ? "figure-eight" : "simple",
-                                        (place == 0) ? "units" : "upper");
+                    || (col_kind == 1) != (place == 0)) {
+                    if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                                      "%d knot(s) of the %s family sit"
+                                                      " in the wrong line (the %s line"
+                                                      " alone takes them)",
+                                                      col_count, (col_kind == 1) ? "figure-eight" : "simple",
+                                                      (place == 0) ? "units" : "upper");
+                    return NULL;
+                }
                 sum += (uint64_t) col_count * pow10[place];
                 col_count = 0;
                 col_kind = -1;
@@ -222,39 +229,48 @@ bool pn_quipu_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullabl
         }
         const int kind = quipu_match_knot(p, end);
 
-        if (kind < 0)
-            return pn_error_set(error, PN_ERROR_SYNTAX,
-                                "position %zu of the cord holds a"
-                                " foreign byte or half a knot",
-                                (size_t) (p - buf));
+        if (kind < 0) {
+            if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                              "position %zu of the cord holds a"
+                                              " foreign byte or half a knot",
+                                              (size_t) (p - buf));
+            return NULL;
+        }
         if (col_count == 0) { /*the column opens right here */
-            if (place < 0)
-                return pn_error_set(error, PN_ERROR_SYNTAX,
-                                    "knots dangling past the free"
-                                    " end of the cord");
+            if (place < 0) {
+                if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                                  "knots dangling past the free"
+                                                  " end of the cord");
+                return NULL;
+            }
             col_kind = kind;
             col_place = place;
         }
         else if (kind != col_kind) {
-            return pn_error_set(error, PN_ERROR_SYNTAX,
-                                "one column never mixes the two"
-                                " knot families - position %zu"
-                                " switches families",
-                                (size_t) (p - buf));
+            if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                              "one column never mixes the two"
+                                              " knot families - position %zu"
+                                              " switches families",
+                                              (size_t) (p - buf));
+            return NULL;
         }
-        if (col_count == 9)
-            return pn_error_set(error, PN_ERROR_RANGE,
-                                "a tenth turn in this column:"
-                                " a digit holds at most 9");
+        if (col_count == 9) {
+            if (error) *error = pn_error_init(PN_ERROR_RANGE,
+                                              "a tenth turn in this column:"
+                                              " a digit holds at most 9");
+            return NULL;
+        }
         col_count++;
         p += SIGN_BYTES;
     }
     if (col_count != 0) { /*the units column closes */
-        if ((col_kind == 1) != (place == 0))
-            return pn_error_set(error, PN_ERROR_SYNTAX,
-                                "%d knot(s) of the %s family sit"
-                                " in the wrong line",
-                                col_count, (col_kind == 1) ? "figure-eight" : "simple");
+        if ((col_kind == 1) != (place == 0)) {
+            if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                              "%d knot(s) of the %s family sit"
+                                              " in the wrong line",
+                                              col_count, (col_kind == 1) ? "figure-eight" : "simple");
+            return NULL;
+        }
         sum += (uint64_t) col_count * pow10[place];
     }
     /*  No "walk ended at place -1" demand copied from muscle memory
@@ -266,5 +282,5 @@ bool pn_quipu_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullabl
   col_place must equal the place they close at.
 */
     *out = sum;
-    return true;
+    return out;
 }

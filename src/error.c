@@ -4,17 +4,21 @@
     one block holding the pn_error struct followed directly by its
     message text, which the caller frees with pn_error_free.  One
     block per note means one free per note.  These few functions
-    hang, read, and destroy the notes; the numeral modules call them
+    build, read, and destroy the notes; the numeral modules call them
     and never touch malloc themselves.
 
-    Only the failing call itself hangs a note, through pn_error_set.
-    It is the prerogative of a function to set its own out
-    parameters: no builder here hands out finished notes for some
-    other function to place on a caller's slot.
+    pn_error_init builds a note and hands it to the failing call,
+    which hangs it on the caller's slot itself: it is the prerogative
+    of a function to set its own out parameters.  The house form at
+    every failure site is
+
+        if (error) *error = pn_error_init(PN_ERROR_X, "...");
+        return NULL;
 
     A caller who does not want explanations passes a NULL slot: the
-    builder then makes nothing at all and the call simply reports
-    failure through its return value.
+    note is then never built, and the call simply reports failure
+    through its return value - NULL for a pointer, a zeroed value
+    for a struct.
 */
 #include <stdarg.h>
 #include <stdio.h>
@@ -68,20 +72,15 @@ static const char* pn_error_code_name(pn_error_code code) {
     return "unknown error";
 }
 
-bool pn_error_set(pn_error** location, pn_error_code code, const char* format, ...) {
+pn_error* pn_error_init(pn_error_code code, const char* format, ...) {
     va_list args;
     pn_error* note;
-
-    if (location == NULL)
-        return false; /* no listener: the note is simply not made */
 
     va_start(args, format);
     note = pn_error_build_fmt(code, format, args);
     va_end(args);
 
-    pn_error_free(*location); /* only the newest note survives */
-    *location = note;
-    return false;
+    return note;
 }
 
 void pn_error_free(pn_error* error) {

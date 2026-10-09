@@ -24,6 +24,7 @@
 
     Reference: https://en.wikipedia.org/wiki/Chinese_numerals
 */
+#include <assert.h>
 #include <string.h>
 
 #include "pantheon.h"
@@ -98,28 +99,31 @@ size_t pn_hanzi_render_size(uint64_t n) {
     return hanzi_emit(n, NULL);
 }
 
-bool pn_hanzi_render(uint64_t n, char* _Nonnull buf, size_t buflen,
-                     pn_error* _Nullable* _Nullable error) {
-    if (buf == NULL)
-        return pn_error_set(error, PN_ERROR_NULL, "render needs a buffer to write into");
-    if (n > PN_HANZI_MAX_VALUE)
-        return pn_error_set(error, PN_ERROR_RANGE,
-                            "%llu runs past %llu: no sign"
-                            " above \U00004E07 lives in this module"
-                            " (\U00004EBF is not written here)",
-                            (unsigned long long) n, (unsigned long long) PN_HANZI_MAX_VALUE);
+char* _Nullable pn_hanzi_render(uint64_t n, char* _Nonnull buf, size_t buflen,
+                                pn_error* _Nullable* _Nullable error) {
+    assert(buf);
+    if (n > PN_HANZI_MAX_VALUE) {
+        if (error) *error = pn_error_init(PN_ERROR_RANGE,
+                                          "%llu runs past %llu: no sign"
+                                          " above \U00004E07 lives in this module"
+                                          " (\U00004EBF is not written here)",
+                                          (unsigned long long) n, (unsigned long long) PN_HANZI_MAX_VALUE);
+        return NULL;
+    }
 
     const size_t need = hanzi_emit(n, NULL); /*exact: buflen must hold +NUL */
 
-    if (buflen <= need)
-        return pn_error_set(error, PN_ERROR_BUFFER,
-                            "buffer holds %zu bytes; this"
-                            " string needs %zu plus the"
-                            " terminating NUL",
-                            buflen, need);
+    if (buflen <= need) {
+        if (error) *error = pn_error_init(PN_ERROR_BUFFER,
+                                          "buffer holds %zu bytes; this"
+                                          " string needs %zu plus the"
+                                          " terminating NUL",
+                                          buflen, need);
+        return NULL;
+    }
     (void) hanzi_emit(n, buf);
     buf[need] = '\0'; /* n == 0 writes just the NUL */
-    return true;
+    return buf;
 }
 
 /* Parsing reads back what rendering wrote.
@@ -158,20 +162,19 @@ static int match_mult(const char* p, const char* end) {
     return 0;
 }
 
-bool pn_hanzi_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullable out,
-                    pn_error* _Nullable* _Nullable error) {
-    if (buf == NULL || out == NULL)
-        return pn_error_set(error, PN_ERROR_NULL,
-                            "parse needs a string and a place"
-                            " to put the number");
+uint64_t* _Nullable pn_hanzi_parse(const char* _Nonnull buf, size_t buflen, uint64_t* _Nonnull out,
+                                   pn_error* _Nullable* _Nullable error) {
+    assert(buf && out);
     if (buflen == 0) {
         *out = 0; /* the blank reads back as the nothing it was */
-        return true;
+        return out;
     }
-    if (buf[0] == ' ' || buf[buflen - 1] == ' ')
-        return pn_error_set(error, PN_ERROR_SYNTAX,
-                            "the blank sits between terms,"
-                            " never at a border");
+    if (buf[0] == ' ' || buf[buflen - 1] == ' ') {
+        if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                          "the blank sits between terms,"
+                                          " never at a border");
+        return NULL;
+    }
 
     const char* end = buf + buflen;
 
@@ -184,16 +187,20 @@ bool pn_hanzi_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullabl
 
     for (const char* w = buf; w + SIGN_BYTES <= end; w++)
         if (memcmp(w, WAN, SIGN_BYTES) == 0) {
-            if (wan != NULL)
-                return pn_error_set(error, PN_ERROR_SYNTAX,
-                                    "a second \U00004E07 in one string:"
-                                    " there is one \U00004E07 at most");
+            if (wan != NULL) {
+                if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                                  "a second \U00004E07 in one string:"
+                                                  " there is one \U00004E07 at most");
+                return NULL;
+            }
             wan = w;
         }
-    if (wan != NULL && wan == buf)
-        return pn_error_set(error, PN_ERROR_SYNTAX,
-                            "\U00004E07 with no top section for it to"
-                            " ride on");
+    if (wan != NULL && wan == buf) {
+        if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                          "\U00004E07 with no top section for it to"
+                                          " ride on");
+        return NULL;
+    }
 
     const char* const starts[2] = {buf, wan != NULL ? wan + SIGN_BYTES : buf};
     const char* const stops[2] = {wan != NULL ? wan : buf, end};
@@ -214,14 +221,16 @@ bool pn_hanzi_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullabl
 
             const int d = match_digit(p + run, stops[s]);
 
-            if (d < 0)
-                return pn_error_set(error, PN_ERROR_SYNTAX,
-                                    "position %zu holds no digit"
-                                    " sign (a foreign byte, a"
-                                    " cut-off sign, or a space"
-                                    " right where a digit"
-                                    " belongs)",
-                                    (size_t) (p - buf));
+            if (d < 0) {
+                if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                                  "position %zu holds no digit"
+                                                  " sign (a foreign byte, a"
+                                                  " cut-off sign, or a space"
+                                                  " right where a digit"
+                                                  " belongs)",
+                                                  (size_t) (p - buf));
+                return NULL;
+            }
             const char* q = p + run + SIGN_BYTES;
             int k = match_mult(q, stops[s]); /* 3/2/1 = the term's place, else bare units */
 
@@ -231,46 +240,53 @@ bool pn_hanzi_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullabl
                 k = 0;
             const int place = bases[s] + k;
 
-            if (k >= prev_k[s])
-                return pn_error_set(error, PN_ERROR_SYNTAX,
-                                    "the multiplier at position"
-                                    " %zu climbs or repeats"
-                                    " (or follows a section's"
-                                    " bare units digit): each"
-                                    " section walks its places"
-                                    " downward",
-                                    (size_t) (q - buf - (k > 0 ? SIGN_BYTES : 0)));
+            if (k >= prev_k[s]) {
+                if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                                  "the multiplier at position"
+                                                  " %zu climbs or repeats"
+                                                  " (or follows a section's"
+                                                  " bare units digit): each"
+                                                  " section walks its places"
+                                                  " downward",
+                                                  (size_t) (q - buf - (k > 0 ? SIGN_BYTES : 0)));
+                return NULL;
+            }
             prev_k[s] = k;
             const int gap = prev - place;
 
             if (prev < 0) {
-                if (run != 0)
-                    return pn_error_set(error, PN_ERROR_SYNTAX,
-                                        "%d space(s) ahead of"
-                                        " the first term: a"
-                                        " string starts on a"
-                                        " term",
-                                        run);
+                if (run != 0) {
+                    if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                                      "%d space(s) ahead of"
+                                                      " the first term: a"
+                                                      " string starts on a"
+                                                      " term",
+                                                      run);
+                    return NULL;
+                }
             }
             else if (gap <= 0) {
-                return pn_error_set(error, PN_ERROR_SYNTAX,
-                                    "terms cannot step"
-                                    " backwards in place");
+                if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                                  "terms cannot step"
+                                                  " backwards in place");
+                return NULL;
             }
             else if (gap == 1 && run != 0) {
-                return pn_error_set(error, PN_ERROR_SYNTAX,
-                                    "%d space(s) between terms"
-                                    " only one place apart:"
-                                    " neighbors touch",
-                                    run);
+                if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                                  "%d space(s) between terms"
+                                                  " only one place apart:"
+                                                  " neighbors touch",
+                                                  run);
+                return NULL;
             }
             else if (gap > 1 && run != 1) {
-                return pn_error_set(error, PN_ERROR_SYNTAX,
-                                    "%d space(s) across a skip"
-                                    " of %d places: a skip is"
-                                    " admitted by exactly one"
-                                    " blank",
-                                    run, gap);
+                if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                                  "%d space(s) across a skip"
+                                                  " of %d places: a skip is"
+                                                  " admitted by exactly one"
+                                                  " blank",
+                                                  run, gap);
+                return NULL;
             }
             secs[s] += (uint64_t) d * pow10s[k];
             prev = place;
@@ -281,5 +297,5 @@ bool pn_hanzi_parse(const char* _Nullable buf, size_t buflen, uint64_t* _Nullabl
     /* The grammar lets in no value past PN_HANZI_MAX_VALUE: each
 	   *section tops out at 9999, so no overflow check is needed. */
     *out = secs[0] * 10000u + secs[1];
-    return true;
+    return out;
 }

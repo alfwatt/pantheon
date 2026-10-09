@@ -13,6 +13,7 @@
   running out.
  */
 
+#include <assert.h>
 #include <string.h>
 
 #include "pantheon.h"
@@ -259,33 +260,34 @@ size_t pn_math_sieve_size(uint64_t limit) {
     return count;
 }
 
-bool pn_math_sieve(uint64_t limit, uint64_t* _Nullable out, size_t cap, size_t* _Nullable count,
-                   pn_error* _Nullable* _Nullable error) {
+uint64_t* _Nullable pn_math_sieve(uint64_t limit, uint64_t* _Nonnull out, size_t cap,
+                                  size_t* _Nonnull count, pn_error* _Nullable* _Nullable error) {
     uint8_t composite[PN_MATH_SHEET];
     size_t need, w;
     uint64_t n;
 
-    if (out == NULL || count == NULL)
-        return pn_error_set(error, PN_ERROR_NULL,
-                            "the sieve needs an array to write"
-                            " into and a place for the count");
-    if (limit > PN_MATH_SIEVE_MAX_VALUE)
-        return pn_error_set(error, PN_ERROR_RANGE,
-                            "%llu runs past %llu: the sieve"
-                            " sheet holds no more rows",
-                            (unsigned long long) limit,
-                            (unsigned long long) PN_MATH_SIEVE_MAX_VALUE);
+    assert(out && count);
+    if (limit > PN_MATH_SIEVE_MAX_VALUE) {
+        if (error) *error = pn_error_init(PN_ERROR_RANGE,
+                                          "%llu runs past %llu: the sieve"
+                                          " sheet holds no more rows",
+                                          (unsigned long long) limit,
+                                          (unsigned long long) PN_MATH_SIEVE_MAX_VALUE);
+        return NULL;
+    }
     need = pn_math_sieve_size(limit);
-    if (cap < need)
-        return pn_error_set(error, PN_ERROR_BUFFER,
-                            "the array holds room for %zu"
-                            " prime(s); the sieve would write"
-                            " %zu of them",
-                            cap, need);
+    if (cap < need) {
+        if (error) *error = pn_error_init(PN_ERROR_BUFFER,
+                                          "the array holds room for %zu"
+                                          " prime(s); the sieve would write"
+                                          " %zu of them",
+                                          cap, need);
+        return NULL;
+    }
     if (need == 0u) {
         *count = 0u; /* the blank ledger: nothing to
 			                             strike, nothing to write         */
-        return true;
+        return out;
     }
     pn_sheet(composite);
     w = 0u;
@@ -294,80 +296,73 @@ bool pn_math_sieve(uint64_t limit, uint64_t* _Nullable out, size_t cap, size_t* 
             out[w++] = n;
     }
     *count = w;
-    return true;
+    return out;
 }
 
-bool pn_math_gcd(uint64_t a, uint64_t b, uint64_t* _Nullable out,
-                 pn_error* _Nullable* _Nullable error) {
-    if (out == NULL)
-        return pn_error_set(error, PN_ERROR_NULL,
-                            "gcd needs a place to put the"
-                            " answer");
+uint64_t* _Nullable pn_math_gcd(uint64_t a, uint64_t b, uint64_t* _Nonnull out,
+                                pn_error* _Nullable* _Nullable error) {
+    assert(out);
+    (void) error; /* -Wunused-parameter: nothing here can fail */
     *out = pn_gcd(a, b);
-    return true;
+    return out;
 }
 
-bool pn_math_lcm(uint64_t a, uint64_t b, uint64_t* _Nullable out,
-                 pn_error* _Nullable* _Nullable error) {
+uint64_t* _Nullable pn_math_lcm(uint64_t a, uint64_t b, uint64_t* _Nonnull out,
+                                pn_error* _Nullable* _Nullable error) {
     uint64_t g, q;
 
-    if (out == NULL)
-        return pn_error_set(error, PN_ERROR_NULL,
-                            "lcm needs a place to put the"
-                            " answer");
+    assert(out);
     if (a == 0u || b == 0u) {
         *out = 0u; /* no ratio survives a blank */
-        return true;
+        return out;
     }
     g = pn_gcd(a, b);
     q = a / g;
-    if (q > UINT64_MAX / b)
-        return pn_error_set(error, PN_ERROR_RANGE,
-                            "%llu times %llu divided by"
-                            " their gcd leaves the ledger:"
-                            " no uint64_t holds the answer",
-                            (unsigned long long) a, (unsigned long long) b);
+    if (q > UINT64_MAX / b) {
+        if (error) *error = pn_error_init(PN_ERROR_RANGE,
+                                          "%llu times %llu divided by"
+                                          " their gcd leaves the ledger:"
+                                          " no uint64_t holds the answer",
+                                          (unsigned long long) a, (unsigned long long) b);
+        return NULL;
+    }
     *out = q * b;
-    return true;
+    return out;
 }
 
-bool pn_math_is_square(uint64_t n, bool* _Nullable out, pn_error* _Nullable* _Nullable error) {
+bool* _Nullable pn_math_is_square(uint64_t n, bool* _Nonnull out,
+                                  pn_error* _Nullable* _Nullable error) {
     uint64_t x;
 
-    if (out == NULL)
-        return pn_error_set(error, PN_ERROR_NULL,
-                            "is_square needs a place to put"
-                            " the verdict");
+    assert(out);
+    (void) error; /* -Wunused-parameter: nothing here can fail */
     x = pn_isqrt(n);
     *out = (x * x == n); /* x < 2^32: x*x never wraps */
-    return true;
+    return out;
 }
 
-bool pn_math_is_prime(uint64_t n, bool* _Nullable out, pn_error* _Nullable* _Nullable error) {
+bool* _Nullable pn_math_is_prime(uint64_t n, bool* _Nonnull out,
+                                 pn_error* _Nullable* _Nullable error) {
     uint8_t composite[PN_MATH_SHEET];
 
-    if (out == NULL)
-        return pn_error_set(error, PN_ERROR_NULL,
-                            "is_prime needs a place to put"
-                            " the verdict");
+    assert(out);
+    (void) error; /* -Wunused-parameter: nothing here can fail */
     pn_sheet(composite);
     *out = (pn_prime_on(composite, n) != 0);
-    return true;
+    return out;
 }
 
-bool pn_math_next_prime(uint64_t n, uint64_t* _Nullable out, pn_error* _Nullable* _Nullable error) {
+uint64_t* _Nullable pn_math_next_prime(uint64_t n, uint64_t* _Nonnull out,
+                                       pn_error* _Nullable* _Nullable error) {
     uint8_t composite[PN_MATH_SHEET];
     uint64_t cand;
     unsigned k;
 
-    if (out == NULL)
-        return pn_error_set(error, PN_ERROR_NULL,
-                            "next_prime needs a place to put"
-                            " the answer");
+    assert(out);
     for (k = 0u; k < N_SMALL; k++) {
         if (n <= small_primes[k]) {
             *out = small_primes[k];
-            return true;
+            return out;
         }
     }
     pn_sheet(composite);
@@ -379,14 +374,16 @@ bool pn_math_next_prime(uint64_t n, uint64_t* _Nullable out, pn_error* _Nullable
     for (;;) {
         if (pn_prime_on(composite, cand) != 0) {
             *out = cand;
-            return true;
+            return out;
         }
-        if (cand > UINT64_MAX - 2u)
-            return pn_error_set(error, PN_ERROR_RANGE,
-                                "%llu and every odd number"
-                                " above it run off the end"
-                                " of the ledger",
-                                (unsigned long long) n);
+        if (cand > UINT64_MAX - 2u) {
+            if (error) *error = pn_error_init(PN_ERROR_RANGE,
+                                              "%llu and every odd number"
+                                              " above it run off the end"
+                                              " of the ledger",
+                                              (unsigned long long) n);
+            return NULL;
+        }
         cand += 2u;
     }
 }
@@ -435,32 +432,31 @@ size_t pn_math_factorize_size(uint64_t n) {
     return pn_do_factorize(n, facs);
 }
 
-bool pn_math_factorize(uint64_t n, uint64_t* _Nullable out, size_t cap, size_t* _Nullable count,
-                       pn_error* _Nullable* _Nullable error) {
+uint64_t* _Nullable pn_math_factorize(uint64_t n, uint64_t* _Nonnull out, size_t cap,
+                                      size_t* _Nonnull count,
+                                      pn_error* _Nullable* _Nullable error) {
     uint64_t facs[PN_MATH_MAX_FACTORS];
     size_t w;
 
-    if (out == NULL || count == NULL)
-        return pn_error_set(error, PN_ERROR_NULL,
-                            "factorize needs an array to"
-                            " write into and a place for the"
-                            " count");
+    assert(out && count);
     if (n < 2u) {
         *count = 0u; /* 1 is the empty product; the blank
 			                             abstains                           */
-        return true;
+        return out;
     }
     w = pn_do_factorize(n, facs);
-    if (w > cap)
-        return pn_error_set(error, PN_ERROR_BUFFER,
-                            "the array holds room for %zu"
-                            " factor(s); %llu has %zu of"
-                            " them",
-                            cap, (unsigned long long) n, w);
+    if (w > cap) {
+        if (error) *error = pn_error_init(PN_ERROR_BUFFER,
+                                          "the array holds room for %zu"
+                                          " factor(s); %llu has %zu of"
+                                          " them",
+                                          cap, (unsigned long long) n, w);
+        return NULL;
+    }
     for (size_t i = 0u; i < w; i++)
         out[i] = facs[i];
     *count = w;
-    return true;
+    return out;
 }
 
 /*  the odd-perfect verdict of the published record (no odd perfect
@@ -493,17 +489,17 @@ static int pn_sigma_odd_below_gap(uint64_t n, uint64_t* out) {
     return 1;
 }
 
-bool pn_math_perfect_check(uint64_t n, bool* _Nullable out, pn_error* _Nullable* _Nullable error) {
-    if (out == NULL)
-        return pn_error_set(error, PN_ERROR_NULL,
-                            "perfect_check needs a place to"
-                            " put the verdict");
-    if (n < 2u)
-        return pn_error_set(error, PN_ERROR_RANGE,
-                            "%llu is the blank or the unit:"
-                            " a perfect number is a sum of"
-                            " its own parts",
-                            (unsigned long long) n);
+bool* _Nullable pn_math_perfect_check(uint64_t n, bool* _Nonnull out,
+                                      pn_error* _Nullable* _Nullable error) {
+    assert(out);
+    if (n < 2u) {
+        if (error) *error = pn_error_init(PN_ERROR_RANGE,
+                                          "%llu is the blank or the unit:"
+                                          " a perfect number is a sum of"
+                                          " its own parts",
+                                          (unsigned long long) n);
+        return NULL;
+    }
     if ((n & 1u) == 0u) {
         /* Euclid-Euler, the culture's own theorem: an even perfect
 		    number is 2^(k-1) * (2^k - 1) with 2^k - 1 prime.    Peel the
@@ -516,15 +512,15 @@ bool pn_math_perfect_check(uint64_t n, bool* _Nullable out, pn_error* _Nullable*
         }
         if (twos + 1u >= 64u) {
             *out = false; /* 2^64-scale: no Mersenne fits the ledger */
-            return true;
+            return out;
         }
         mers = (1ull << (twos + 1u)) - 1u;
         if (mers != odd) {
             *out = false; /* not of Euclid's shape */
-            return true;
+            return out;
         }
         *out = (pn_witness_prime(mers) != 0);
-        return true;
+        return out;
     }
     /* odd n: the published record (no odd perfect below 10^1500)
 	    needs no arithmetic - every odd ledger number is composite by
@@ -535,60 +531,61 @@ bool pn_math_perfect_check(uint64_t n, bool* _Nullable out, pn_error* _Nullable*
     if (!pn_sigma_odd_below_gap(n, &sigma)) {
         *out = false; /* the sum left the ledger while the bound
 			                   says composite                              */
-        return true;
+        return out;
     }
     *out = (sigma == 2u * n); /* n odd below 2^63: 2n wraps nowhere */
-    return true;
+    return out;
 }
 
-bool pn_math_pythagorean_triple(uint64_t m, uint64_t n, uint64_t* _Nullable leg1,
-                                uint64_t* _Nullable leg2, uint64_t* _Nullable hypotenuse,
-                                pn_error* _Nullable* _Nullable error) {
+uint64_t* _Nullable pn_math_pythagorean_triple(uint64_t m, uint64_t n, uint64_t* _Nonnull leg1,
+                                               uint64_t* _Nonnull leg2,
+                                               uint64_t* _Nonnull hypotenuse,
+                                               pn_error* _Nullable* _Nullable error) {
     uint64_t mm, a, b, c;
 
-    if (leg1 == NULL || leg2 == NULL || hypotenuse == NULL)
-        return pn_error_set(error, PN_ERROR_NULL,
-                            "the triple needs three places"
-                            " to put its sides");
-    if (n < 1u || m <= n || m > PN_MATH_M_MAX_VALUE)
-        return pn_error_set(error, PN_ERROR_RANGE,
-                            "m and n must satisfy 1 <= n <"
-                            " m <= %llu; m = %llu and n ="
-                            " %llu do not",
-                            (unsigned long long) PN_MATH_M_MAX_VALUE, (unsigned long long) m,
-                            (unsigned long long) n);
+    assert(leg1 && leg2 && hypotenuse);
+    if (n < 1u || m <= n || m > PN_MATH_M_MAX_VALUE) {
+        if (error) *error = pn_error_init(PN_ERROR_RANGE,
+                                          "m and n must satisfy 1 <= n <"
+                                          " m <= %llu; m = %llu and n ="
+                                          " %llu do not",
+                                          (unsigned long long) PN_MATH_M_MAX_VALUE, (unsigned long long) m,
+                                          (unsigned long long) n);
+        return NULL;
+    }
     mm = m * m; /* m < 2^16: the squares fit the rod's foot */
     a = mm - n * n;
     b = 2u * m * n;
     c = mm + n * n;
-    if (a > PN_MATH_SIDE_MAX_VALUE || b > PN_MATH_SIDE_MAX_VALUE || c > PN_MATH_SIDE_MAX_VALUE)
-        return pn_error_set(error, PN_ERROR_RANGE,
-                            "a side of this triangle runs"
-                            " past %llu: longer than the"
-                            " rule measures",
-                            PN_MATH_SIDE_MAX_VALUE);
+    if (a > PN_MATH_SIDE_MAX_VALUE || b > PN_MATH_SIDE_MAX_VALUE || c > PN_MATH_SIDE_MAX_VALUE) {
+        if (error) *error = pn_error_init(PN_ERROR_RANGE,
+                                          "a side of this triangle runs"
+                                          " past %llu: longer than the"
+                                          " rule measures",
+                                          PN_MATH_SIDE_MAX_VALUE);
+        return NULL;
+    }
     *leg1 = a; /* the gnomon leg first, the Plimpton order */
     *leg2 = b;
     *hypotenuse = c;
-    return true;
+    return leg1;
 }
 
-bool pn_math_pythagorean_check(uint64_t x, uint64_t y, uint64_t z, bool* _Nullable out,
-                               pn_error* _Nullable* _Nullable error) {
+bool* _Nullable pn_math_pythagorean_check(uint64_t x, uint64_t y, uint64_t z, bool* _Nonnull out,
+                                          pn_error* _Nullable* _Nullable error) {
     uint64_t xx, yy, zz, rem;
 
-    if (out == NULL)
-        return pn_error_set(error, PN_ERROR_NULL,
-                            "the check needs a place to put"
-                            " the verdict");
+    assert(out);
     if (x < 1u || y < 1u || z < 1u || x > PN_MATH_SIDE_MAX_VALUE || y > PN_MATH_SIDE_MAX_VALUE ||
-        z > PN_MATH_SIDE_MAX_VALUE)
-        return pn_error_set(error, PN_ERROR_RANGE,
-                            "each side must run from 1 to"
-                            " %llu; %llu, %llu, %llu do not"
-                            " all fit the rule",
-                            PN_MATH_SIDE_MAX_VALUE, (unsigned long long) x, (unsigned long long) y,
-                            (unsigned long long) z);
+        z > PN_MATH_SIDE_MAX_VALUE) {
+        if (error) *error = pn_error_init(PN_ERROR_RANGE,
+                                          "each side must run from 1 to"
+                                          " %llu; %llu, %llu, %llu do not"
+                                          " all fit the rule",
+                                          PN_MATH_SIDE_MAX_VALUE, (unsigned long long) x, (unsigned long long) y,
+                                          (unsigned long long) z);
+        return NULL;
+    }
     xx = x * x; /* sides at or below 2^32-1: each square fits */
     yy = y * y;
     zz = z * z;
@@ -596,8 +593,8 @@ bool pn_math_pythagorean_check(uint64_t x, uint64_t y, uint64_t z, bool* _Nullab
     if (yy > rem) {
         *out = false; /* the true sum left every ledger while zz
 			                   sits inside - no triangle then             */
-        return true;
+        return out;
     }
     *out = ((xx + yy) == zz);
-    return true;
+    return out;
 }

@@ -57,7 +57,6 @@ static bool parse_str(const char* text, uint64_t* out, pn_error** error) {
 
 int main(void) {
     char buf[4096];
-    uint64_t v;
 
     /* the single-digit values and the raw bytes */
 
@@ -107,7 +106,6 @@ int main(void) {
 
     /* render error cases */
 
-    CHECK_ERROR(pn_hanzi_render(1u, pn_nothing(), 10, &err_), err_, PN_ERROR_NULL);
     CHECK_ERROR(pn_hanzi_render(1u, buf, 0, &err_), err_, PN_ERROR_BUFFER);
     render_ok(4622u, buf, sizeof buf);
     CHECK_ERROR(pn_hanzi_render(4622u, buf, pn_hanzi_render_size(4622u), &err_), err_,
@@ -118,9 +116,6 @@ int main(void) {
     CHECK_ERROR(pn_hanzi_render(UINT64_MAX, buf, sizeof buf, &err_), err_, PN_ERROR_RANGE);
 
     /* parse error cases */
-
-    CHECK_ERROR(pn_hanzi_parse(pn_nothing(), 0, &v, &err_), err_, PN_ERROR_NULL);
-    CHECK_ERROR(pn_hanzi_parse(buf, 3, pn_nothing(), &err_), err_, PN_ERROR_NULL);
 
     uint64_t probe;
     CHECK_OK(parse_str("", &probe, &err_), err_); /* the blank reads back as 0 */

@@ -122,7 +122,6 @@ int main(void) {
     /* errors */
 
     /* NULL buffer. */
-    CHECK_ERROR(pn_egyptian_render(1u, pn_nothing(), 16, &err_), err_, PN_ERROR_NULL);
 
     /* One past the scribe's full set is range, not silence. */
     memset(buf, 'x', 8);
@@ -205,9 +204,6 @@ int main(void) {
              err_);
     CHECK(read == 8u);
 
-    /* Nulls. */
-    CHECK_ERROR(pn_egyptian_parse(pn_nothing(), 4, &read, &err_), err_, PN_ERROR_NULL);
-    CHECK_ERROR(pn_egyptian_parse(STROKE, 4, pn_nothing(), &err_), err_, PN_ERROR_NULL);
 
     /* A cut-off sign (3 of the stroke's 4 bytes) is not a sign. */
     read = 4622u;

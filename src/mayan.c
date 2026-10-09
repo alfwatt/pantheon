@@ -26,6 +26,7 @@
     Unicode block Mayan Numerals (U+1D2E0..U+1D2F3), proposal
     L2/16-264 (Jameson Quinn), Unicode 10.0 (2017).
 */
+#include <assert.h>
 #include <string.h>
 
 #include "pantheon.h"
@@ -90,26 +91,29 @@ size_t pn_mayan_render_size(pn_base20 v) {
     return n;
 }
 
-bool pn_mayan_render(pn_base20 v, char* _Nonnull buf, size_t buflen,
-                     pn_error* _Nullable* _Nullable error) {
-    if (buf == NULL)
-        return pn_error_set(error, PN_ERROR_NULL, "render needs a buffer to write into");
-    if (!well_formed(v))
-        return pn_error_set(error, PN_ERROR_DOMAIN,
-                            "the value is not well-formed:"
-                            " %u places, radix %u - places need"
-                            " 1 to %u slots, each 0 to 19, and"
-                            " the radix cannot pass n_places",
-                            v.n_places, v.radix, PN_BASE20_MAX_PLACES);
+char* _Nullable pn_mayan_render(pn_base20 v, char* _Nonnull buf, size_t buflen,
+                                pn_error* _Nullable* _Nullable error) {
+    assert(buf);
+    if (!well_formed(v)) {
+        if (error) *error = pn_error_init(PN_ERROR_DOMAIN,
+                                          "the value is not well-formed:"
+                                          " %u places, radix %u - places need"
+                                          " 1 to %u slots, each 0 to 19, and"
+                                          " the radix cannot pass n_places",
+                                          v.n_places, v.radix, PN_BASE20_MAX_PLACES);
+        return NULL;
+    }
 
     /* render_size is exact: buflen has to hold its bytes plus NUL */
     const size_t need = pn_mayan_render_size(v);
 
-    if (buflen <= need)
-        return pn_error_set(error, PN_ERROR_BUFFER,
-                            "buffer holds %zu bytes; this value"
-                            " needs %zu plus the terminating NUL",
-                            buflen, need);
+    if (buflen <= need) {
+        if (error) *error = pn_error_init(PN_ERROR_BUFFER,
+                                          "buffer holds %zu bytes; this value"
+                                          " needs %zu plus the terminating NUL",
+                                          buflen, need);
+        return NULL;
+    }
 
     char* q = buf; /* safe: need is exact and already checked */
 
@@ -122,7 +126,7 @@ bool pn_mayan_render(pn_base20 v, char* _Nonnull buf, size_t buflen,
         q += SIGN_BYTES;
     }
     *q = '\0';
-    return true;
+    return buf;
 }
 
 /* Parsing reads back what rendering wrote.
@@ -135,17 +139,16 @@ bool pn_mayan_render(pn_base20 v, char* _Nonnull buf, size_t buflen,
    More rows than the codex page holds
    (PN_BASE20_MAX_PLACES) is the scribe's page overrun:
    PN_ERROR_RANGE, not a grammar fault. */
-bool pn_mayan_parse(const char* _Nullable buf, size_t buflen, pn_base20* _Nullable out,
-                    pn_error* _Nullable* _Nullable error) {
-    if (buf == NULL || out == NULL)
-        return pn_error_set(error, PN_ERROR_NULL,
-                            "parse needs a string and a place to"
-                            " put the value");
-    if (buflen == 0)
-        return pn_error_set(error, PN_ERROR_SYNTAX,
-                            "an empty tablet is no number:"
-                            " the shell is how zero spells"
-                            " itself");
+pn_base20* _Nullable pn_mayan_parse(const char* _Nonnull buf, size_t buflen,
+                                    pn_base20* _Nonnull out, pn_error* _Nullable* _Nullable error) {
+    assert(buf && out);
+    if (buflen == 0) {
+        if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                          "an empty tablet is no number:"
+                                          " the shell is how zero spells"
+                                          " itself");
+        return NULL;
+    }
 
     const char *p = buf, *end = buf + buflen;
 
@@ -154,8 +157,10 @@ bool pn_mayan_parse(const char* _Nullable buf, size_t buflen, pn_base20* _Nullab
     memset(&v, 0, sizeof v);
 
     if (*p == '-') {
-        if (p + 1 >= end)
-            return pn_error_set(error, PN_ERROR_SYNTAX, "a '-' sitting over nothing");
+        if (p + 1 >= end) {
+            if (error) *error = pn_error_init(PN_ERROR_SYNTAX, "a '-' sitting over nothing");
+            return NULL;
+        }
         v.neg = true;
         p++;
     }
@@ -165,34 +170,40 @@ bool pn_mayan_parse(const char* _Nullable buf, size_t buflen, pn_base20* _Nullab
     for (;;) {
         unsigned digit;
 
-        if (match_mayan(p, end, &digit) != 0)
-            return pn_error_set(error, PN_ERROR_SYNTAX,
-                                "%zu byte(s) at position %zu"
-                                " are neither a whole digit"
-                                " sign nor a single joining"
-                                " space (doubled gutter or"
-                                " two signs touching look"
-                                " the same from here)",
-                                (size_t) (end - p), (size_t) (p - buf));
-        if (k == PN_BASE20_MAX_PLACES)
-            return pn_error_set(error, PN_ERROR_RANGE,
-                                "the row past the page:"
-                                " a codex stack holds %u",
-                                PN_BASE20_MAX_PLACES);
+        if (match_mayan(p, end, &digit) != 0) {
+            if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                              "%zu byte(s) at position %zu"
+                                              " are neither a whole digit"
+                                              " sign nor a single joining"
+                                              " space (doubled gutter or"
+                                              " two signs touching look"
+                                              " the same from here)",
+                                              (size_t) (end - p), (size_t) (p - buf));
+            return NULL;
+        }
+        if (k == PN_BASE20_MAX_PLACES) {
+            if (error) *error = pn_error_init(PN_ERROR_RANGE,
+                                              "the row past the page:"
+                                              " a codex stack holds %u",
+                                              PN_BASE20_MAX_PLACES);
+            return NULL;
+        }
         v.places[k++] = (uint8_t) digit;
         p += SIGN_BYTES;
         if (p == end)
             break;
-        if (*p != ' ' || p + 1 >= end)
-            return pn_error_set(error, PN_ERROR_SYNTAX,
-                                "rows join with one space:"
-                                " position %zu wears a"
-                                "%s",
-                                (size_t) (p - buf),
-                                (*p == ' ') ? " trailing"
+        if (*p != ' ' || p + 1 >= end) {
+            if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
+                                              "rows join with one space:"
+                                              " position %zu wears a"
+                                              "%s",
+                                              (size_t) (p - buf),
+                                              (*p == ' ') ? " trailing"
                                               " space with no row under"
                                               " it"
-                                            : " no gutter");
+                                              : " no gutter");
+            return NULL;
+        }
         p++;
     }
     v.n_places = (uint8_t) k;
@@ -201,5 +212,5 @@ bool pn_mayan_parse(const char* _Nullable buf, size_t buflen, pn_base20* _Nullab
   cuneiform parser gives
 */
     *out = v;
-    return true;
+    return out;
 }

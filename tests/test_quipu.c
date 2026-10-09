@@ -274,7 +274,6 @@ int main(void) {
 
     /* errors: render */
 
-    CHECK_ERROR(pn_quipu_render(1u, pn_nothing(), 16, &err_), err_, PN_ERROR_NULL);
 
     /* one past nineteen places: 10^19 overflows the uint64_t shelf */
     memset(buf, 'x', 8);
@@ -417,9 +416,6 @@ int main(void) {
                         " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE
                         " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE);
 
-    /* Nulls. */
-    CHECK_ERROR(pn_quipu_parse(pn_nothing(), 4, &back, &err_), err_, PN_ERROR_NULL);
-    CHECK_ERROR(pn_quipu_parse(FIGURE, 3, pn_nothing(), &err_), err_, PN_ERROR_NULL);
 
     /*  A cut-off knot: two of the bullet's three bytes stop mid-UTF-8 —
 	   two whole knots would be six bytes; seven is half a knot.
