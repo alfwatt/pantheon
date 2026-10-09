@@ -1,24 +1,36 @@
-/*  babylonian.c — libPantheon: positional cuneiform numerals, UTF-8.
+/*  babylonian.c — Babylonian cuneiform numerals in UTF-8.
 
-    Two signs do all the work, the same pair pressed into the clay:
+    Babylonian scribes pressed numbers into wet clay with a reed,
+    using just two wedge shapes:
 
-    U+12079 CUNEIFORM SIGN DISH  (the vertical wedge) = 1
-    U+1230B CUNEIFORM SIGN U      (the corner wedge)   = 10
+    𒁹  U+12079 CUNEIFORM SIGN DISH  (the vertical wedge) = 1
+    𒌋  U+1230B CUNEIFORM SIGN U      (the corner wedge)   = 10
 
-    A place worth d takes (d/10) copies of U followed by (d%10)
-    copies of DISH, and places sit one space apart.  Unicode has no
-    zero sign for the sexagesimal gap, so an empty place is written
-    as two spaces - the very blank a scribe left, with the very
-    ambiguity that came with it: on the tablet a lone DISH meant 1,
-    60, or 1/60, and only context told the reader which.
+    Each base-60 place (0 to 59) is written as some corner wedges
+    for the tens, then some vertical wedges for the ones: 23 is two
+    U signs and three DISH signs.  Places are separated by one space
+    (shown here as ␣):
 
-    The signs are spelled as universal character names so this file
-    stays pure ASCII.  One deliberate choice: the precomposed signs
-    of Unicode's "Cuneiform Numbers and Punctuation" block
-    (U+12400..) are NOT used - those are weights-and-measures signs,
-    not the school-text digits of place-value writing.
+    23          = 𒌋𒌋𒁹𒁹𒁹
+    8583        = 𒁹𒁹␣𒌋𒌋𒁹𒁹𒁹␣𒁹𒁹𒁹       (2,23,3: 2 x 3600 + 23 x 60 + 3)
+    1;24,51,10  = 𒁹␣𒌋𒌋𒁹𒁹𒁹𒁹␣𒌋𒌋𒌋𒌋𒌋𒁹␣𒌋  (the square root of 2 on
+                                             the tablet YBC 7289)
 
-    Reference: https://en.wikipedia.org/wiki/Babylonian_numerals
+    The Babylonians had no zero sign for most of their history.  An
+    empty place was just a gap, so here it is written as two spaces:
+    3601 (1,0,1) = 𒁹␣␣␣␣𒁹, the separator, the gap, and the separator.
+    That brings back a real problem the scribes had: a lone DISH
+    could mean 1, 60, or 1/60, and only the context told the reader
+    which.
+
+    The code spells the signs as \U escapes so the exact code point
+    is visible; the comments show the signs themselves.  Unicode also has a "Cuneiform Numbers and
+    Punctuation" block (U+12400 and up), but those signs are for
+    weights and measures, not the place-value digits used here.
+
+    Further reading: https://en.wikipedia.org/wiki/Babylonian_numerals
+      https://en.wikipedia.org/wiki/Cuneiform
+      https://en.wikipedia.org/wiki/0#History_of_the_number_zero
 */
 #include <assert.h>
 #include <string.h>
@@ -31,7 +43,7 @@
 #define GAP_BYTES  2            /* an empty place: two spaces */
 
 /* A value is well-formed when it has 1 to MAX places, every place
-   at most 59, and a radix between 0 and n_places. */
+   is at most 59, and the radix is between 0 and n_places. */
 static int well_formed(pn_base60 v) {
     if (v.n_places == 0 || v.n_places > PN_BASE60_MAX_PLACES) {
         return 0;
@@ -47,7 +59,7 @@ static int well_formed(pn_base60 v) {
     return 1;
 }
 
-/* How many bytes one place's wedges need; a place of 0 is the gap. */
+/* How many bytes one place's wedges take; a 0 place is the two-space gap. */
 static size_t group_bytes(unsigned d) {
     return (d == 0) ? GAP_BYTES : (d / 10u + d % 10u) * SIGN_BYTES;
 }
@@ -80,7 +92,7 @@ char* _Nullable pn_babylonian_render(pn_base60 v, char* _Nonnull buf, size_t buf
         return NULL;
     }
 
-    /* render_size is exact: buflen has to hold its bytes plus NUL */
+    /* render_size is exact, so buflen must hold that many bytes plus the 0 byte */
     size_t need = pn_babylonian_render_size(v);
 
     if (buflen <= need) {
@@ -93,10 +105,10 @@ char* _Nullable pn_babylonian_render(pn_base60 v, char* _Nonnull buf, size_t buf
         return NULL;
     }
 
-    char* q = buf; /* safe: need is exact and already checked */
+    char* q = buf; /* safe: the size was checked above */
 
     if (v.neg) {
-        *q++ = '-'; /* an anachronism; tablets wore no sign */
+        *q++ = '-'; /* a modern addition: tablets had no minus sign */
     }
     for (unsigned i = 0; i < v.n_places; i++) {
         if (i > 0) {
@@ -106,7 +118,7 @@ char* _Nullable pn_babylonian_render(pn_base60 v, char* _Nonnull buf, size_t buf
 
         if (d == 0) {
             *q++ = ' ';
-            *q++ = ' '; /* the historical gap */
+            *q++ = ' '; /* an empty place: the gap a scribe left */
             continue;
         }
         for (unsigned j = 0; j < d / 10u; j++) {
@@ -123,27 +135,25 @@ char* _Nullable pn_babylonian_render(pn_base60 v, char* _Nonnull buf, size_t buf
     return buf;
 }
 
-/* Parsing reads back what rendering wrote.
+/* Reading is the reverse of writing.  The text is groups of wedges
+   separated by runs of spaces, so the reader splits it into those
+   two kinds of piece.  Each empty place adds two spaces, so the
+   number of spaces in a run tells how many empty places it holds:
 
-    A rendered string is wedge groups held apart by runs of spaces,
-   so the parser simply cuts the string into the two kinds of piece:
-    runs of spaces, and runs of signs.  The renderer's spacing law
-    decides what a legal string looks like:
+    before the first group   3k      (k empty places)
+    between two groups        3k+1    (one separator + k empty places)
+    after the last group     3k      (k empty places)
+    only spaces               3k-1    (k empty places, no groups)
 
-    leading run     3k      (k empty places before the first group)
-    between runs    3k+1    (one joiner space plus k two-space gaps)
-    trailing run    3k      (k empty places after the last group)
-    all-space       3k-1    (k empty places, no group at all)
-
-    Every other shape - other bytes, other spacings, groups written
-   out of order - is refused, and that strictness is exactly what
-   makes the parse-after-render round trip exact. */
+   Anything else (other bytes, other run lengths, wedges out of
+   order) is rejected.  Being this strict is what guarantees that
+   reading back written text gives the original value exactly. */
 pn_base60* _Nullable pn_babylonian_parse_from(const char* _Nonnull buffer, size_t buflen,
                                               pn_base60* _Nonnull out,
                                               pn_error* _Nullable* _Nullable error) {
     assert(buffer && out);
 
-    pn_base60 v; /* built here; *out keeps its old value unless all works */
+    pn_base60 v; /* built here; *out changes only if the whole parse succeeds */
 
     memset(&v, 0, sizeof v);
 
@@ -155,7 +165,7 @@ pn_base60* _Nullable pn_babylonian_parse_from(const char* _Nonnull buffer, size_
         p++;
     }
 
-    size_t spaces = 0; /* the space run still pending */
+    size_t spaces = 0; /* spaces seen since the last group */
     int got_group = 0;
     size_t n = 0; /* places stored so far */
 
@@ -170,10 +180,10 @@ pn_base60* _Nullable pn_babylonian_parse_from(const char* _Nonnull buffer, size_
             continue;
         }
 
-        /* A group starts here: hand over the spaces still pending. */
+        /* A group starts here: first account for the spaces before it. */
         size_t zeros;
 
-        if (!got_group) { /* leading run: a multiple of 3 */
+        if (!got_group) { /* before the first group: a multiple of 3 */
             if (spaces % 3u != 0u) {
                 if (error) {
                     *error = pn_error_init(PN_ERROR_SYNTAX,
@@ -187,7 +197,7 @@ pn_base60* _Nullable pn_babylonian_parse_from(const char* _Nonnull buffer, size_
             }
             zeros = spaces / 3u;
         }
-        else { /* between runs: 3k + 1 */
+        else { /* between groups: 3k + 1 */
             if ((spaces - 1u) % 3u != 0u) {
                 if (error) {
                     *error = pn_error_init(PN_ERROR_SYNTAX,
@@ -216,10 +226,9 @@ pn_base60* _Nullable pn_babylonian_parse_from(const char* _Nonnull buffer, size_
             v.places[n++] = 0;
         }
 
-        /*  The group itself: U signs first, then DISH signs, in
-            canonical order with canonical counts only (five tens
-            plus nine ones still sits under 60; a sixth ten is no
-            single place). */
+        /*  The group itself: U signs first, then DISH signs.  At most
+                    5 U (50) and 9 DISH (9), since 59 is the biggest place.
+                    A sixth U would be 60 or more, too big for one place. */
         size_t nu = 0, nd = 0;
 
         while (p + SIGN_BYTES <= end && memcmp(p, U_UTF8, SIGN_BYTES) == 0) {
@@ -272,13 +281,14 @@ pn_base60* _Nullable pn_babylonian_parse_from(const char* _Nonnull buffer, size_
         spaces = 0;
     }
 
-    if (!got_group) { /* all-space: 3k-1 spaces, k empty places */
+    if (!got_group) { /* only spaces: 3k-1 spaces means k empty places */
         if ((spaces + 1u) % 3u != 0u) {
             if (error) {
-                *error = pn_error_init(PN_ERROR_SYNTAX,
-                                       "%zu space(s) with no wedge in"
-                                       " sight name no value",
-                                       spaces); /* "" and "-" land here too */
+                *error =
+                    pn_error_init(PN_ERROR_SYNTAX,
+                                  "%zu space(s) with no wedge in"
+                                  " sight name no value",
+                                  spaces); /* the empty string and a lone "-" end up here too */
             }
             return NULL;
         }
@@ -298,7 +308,7 @@ pn_base60* _Nullable pn_babylonian_parse_from(const char* _Nonnull buffer, size_
             v.places[n++] = 0;
         }
     }
-    else if (spaces % 3u != 0u) { /* trailing run: a multiple of 3 */
+    else if (spaces % 3u != 0u) { /* after the last group: a multiple of 3 */
         if (error) {
             *error = pn_error_init(PN_ERROR_SYNTAX,
                                    "the string trails off with %zu"
@@ -337,7 +347,7 @@ pn_base60* _Nullable pn_babylonian_parse_from(const char* _Nonnull buffer, size_
     }
 
     v.n_places = (uint8_t) n;
-    v.radix = (uint8_t) n; /* no radix point on clay: whole numbers */
+    v.radix = (uint8_t) n; /* clay tablets show no radix point, so read it as a whole number */
     *out = v;
 
     return out;

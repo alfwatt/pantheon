@@ -1,41 +1,45 @@
-/*  brahmi.c — libPantheon: Brahmi numerals, UTF-8.
+/*  brahmi.c — Brahmi numerals in UTF-8, from 0 to 9999.
 
-    Twenty signs, filling four slots from the top down - thousands,
-    hundreds, tens, ones.  Unlike Egypt, no digit here is a
-    repetition: every unit 1..9 and every ten 10..90 got its own
-    dedicated sign, so 47 is two signs, not eleven:
+    Brahmi numerals were used in India from about the 3rd century
+    BCE, and the familiar digits 1 to 9 descend from them.  They were
+    not yet positional.  Instead, every value 1 to 9 and every ten 10
+    to 90 has its own sign, so 47 is two signs (forty, seven), not
+    eleven marks as in Egyptian:
 
-    U+11052..U+1105A BRAHMI NUMBER ONE..NINE      = 1..9
-    U+1105B..U+11063 BRAHMI NUMBER TEN..NINETY    = 10..90
-    U+11064          BRAHMI NUMBER ONE HUNDRED    = 100
-    U+11065          BRAHMI NUMBER ONE THOUSAND   = 1 000
-    U+1107F          BRAHMI NUMBER JOINER        (the ligature join)
+    𑁒 .. 𑁚  U+11052..U+1105A BRAHMI NUMBER ONE..NINE      = 1..9
+    𑁛 .. 𑁣  U+1105B..U+11063 BRAHMI NUMBER TEN..NINETY    = 10..90
+    𑁤       U+11064          BRAHMI NUMBER ONE HUNDRED    = 100
+    𑁥       U+11065          BRAHMI NUMBER ONE THOUSAND   = 1 000
+    𑁿       U+1107F          BRAHMI NUMBER JOINER
 
-    Hundreds and thousands multiply: a digit 2..9 ligatured with its
-    power sign - power first, then the joiner, then the multiplier -
-    so 400 ligates into "hundred join four": one stacked sign for
-    scribes to carve and readers to count.    An additive component
-    stays unligated; 100 plus 4 (Unicode 14.x's ruling): the joiner
-    marks what the two spellings mean apart and never drops out.    One
-    multiplier needs no ligature: the power sign on its own already
-    says 100.
+    47 is 𑁞𑁘 (forty, seven).
 
-    There is no sign above the thousand and no zero at all - a lone
-    blank is the nothing owed - so 0 renders as the empty string, and
-    anything past 9 999 is out of range rather than absurd.
+    Hundreds and thousands use multiplication.  For 200 to 900 the
+    hundred sign is joined to a digit: HUNDRED, JOINER, FOUR means
+    400, drawn as one combined sign.  The joiner is what shows
+    multiplication: HUNDRED, FOUR with no joiner means 100 + 4 = 104.
+    A plain 100 or 1000 is just the power sign alone.  So:
 
-    The parser reads the four slots, not the signs: 2 222 writes "two"
-    three times - thousands multiplier, hundreds multiplier, ones term
-    - and only a second term inside one slot is a blunder.  Two bare
-    power signs in a row, a joiner with no multiplier behind it, a
-    ligature left unligated (hundred four four: 100+4+4, and no slot
-    allows the second four), or signs climbing up the pillar are all
-    refused the way a reader refuses "IIIX".
+    400  = 𑁤𑁿𑁕          HUNDRED JOINER FOUR
+    104  = 𑁤𑁕            HUNDRED FOUR
+    2222 = 𑁥𑁿𑁓𑁤𑁿𑁓𑁜𑁓      THOUSAND JOINER TWO, HUNDRED JOINER TWO,
+                         TWENTY, TWO
 
-    The signs are spelled as universal character names, which keeps
-    this source pure ASCII.
+    There is no zero and no sign above one thousand, so 0 is the
+    empty string and the largest value is 9999.
 
-    Reference: https://en.wikipedia.org/wiki/Brahmi_numerals
+    Reading works slot by slot: thousands, hundreds, tens, ones, each
+    used at most once and in that order.  2222 writes TWO three
+    times, which is fine because each TWO belongs to a different
+    slot.  Rejected: two power signs in a row, a joiner with no
+    digit after it, HUNDRED FOUR FOUR (the ones slot used twice), and
+    slots out of order.
+
+    The code spells the signs as \U escapes so the exact code point
+    is visible; the comments show the signs themselves.
+
+    Further reading: https://en.wikipedia.org/wiki/Brahmi_numerals
+      https://www.unicode.org/charts/PDF/U11000.pdf (the Unicode chart)
 */
 #include <assert.h>
 #include <string.h>
@@ -62,18 +66,18 @@
 #define NINETY     "\U00011063" /* = 90     UTF-8: F0 91 81 A3 */
 #define HUNDRED    "\U00011064" /* = 100    UTF-8: F0 91 81 A4 */
 #define THOUSAND   "\U00011065" /* = 1 000  UTF-8: F0 91 81 A5 */
-#define JOINER     "\U0001107F" /* the ligature join, for numbers only */
-#define SIGN_BYTES 4            /* every sign is astral: 4 bytes of UTF-8 */
+#define JOINER     "\U0001107F" /* the joiner, which marks multiplication */
+#define SIGN_BYTES 4            /* every sign is 4 bytes in UTF-8 */
 
 static const char* const units[9] = {ONE, TWO, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, NINE};
 
 static const char* const tens[9] = {TEN,   TWENTY,  THIRTY, FORTY, FIFTY,
                                     SIXTY, SEVENTY, EIGHTY, NINETY};
 
-/* Write @param n's canonical Brahmi string; @param buf may be NULL,
-   which only counts.  Past PN_BRAHMI_MAX_VALUE the count drops the
-   places above the thousand and its answer means nothing - render
-   turns it down. */
+/* Write n in the standard form described above.  buf may be NULL,
+   which only counts the bytes.  Above PN_BRAHMI_MAX_VALUE the count
+   leaves out the digits above the thousands and means nothing;
+   pn_brahmi_render reports the error. */
 static size_t brahmi_emit(uint64_t n, char* buf) {
     size_t bytes = 0;
 
@@ -84,8 +88,8 @@ static size_t brahmi_emit(uint64_t n, char* buf) {
         bytes += SIGN_BYTES;                      \
     } while (0)
 
-    /* One power term: the power sign alone for digit 1, ligatured as
-	   <power JOINER units-digit> for digits 2..9, and silent for 0. */
+    /* One hundreds or thousands term: the power sign alone for a 1,
+           POWER JOINER DIGIT for 2 to 9, and nothing for 0. */
 #define PUT_POWER(power, d)       \
     do {                          \
         if ((d) >= 1u)            \
@@ -115,8 +119,8 @@ static size_t brahmi_emit(uint64_t n, char* buf) {
 }
 
 size_t pn_brahmi_render_size(uint64_t n) {
-    /* This answer never fails: it is exactly what brahmi_emit
-	 *counts, which is what render will write. */
+    /* Never fails: it counts exactly what brahmi_emit writes, which is
+           what pn_brahmi_render writes. */
     return brahmi_emit(n, NULL);
 }
 
@@ -136,7 +140,7 @@ char* _Nullable pn_brahmi_render(uint64_t n, char* _Nonnull buf, size_t buflen,
         return NULL;
     }
 
-    const size_t need = brahmi_emit(n, NULL); /*exact: buflen must hold +NUL */
+    const size_t need = brahmi_emit(n, NULL); /* exact, so buflen must also hold the 0 byte */
 
     if (buflen <= need) {
         if (error) {
@@ -149,26 +153,25 @@ char* _Nullable pn_brahmi_render(uint64_t n, char* _Nonnull buf, size_t buflen,
         return NULL;
     }
     (void) brahmi_emit(n, buf);
-    buf[need] = '\0'; /* n == 0: just the blank, and the NUL */
+    buf[need] = '\0'; /* n == 0 writes an empty string */
     return buf;
 }
 
-/* Parsing reads back what rendering wrote.
+/* Reading is the reverse of writing, and only the standard form is
+   accepted, so reading back written text always gives the original
+   number.  The text is at most four terms (thousands, hundreds,
+   tens, ones), each at most once, in that order, with nothing
+   between them.  A hundreds or thousands term is the power sign
+   alone (for 1) or POWER JOINER DIGIT (for 2 to 9).  A tens or ones
+   term is its single sign.
 
-   The canonical form is what makes the round trip exact: the twenty
-   number signs plus the joiner, read as at most four terms climbing
-   down - thousands, hundreds, tens, ones - each term at most once,
-   with nothing between them.  A hundreds or thousands term is either
-   the bare power sign (digit 1) or the ligature <power JOINER
-   units-digit> (digits 2..9); the ones and tens terms are their one
-   dedicated sign.  Everything else - foreign bytes, a sign cut off
-   mid-UTF-8, a term out of its slot, a joiner joining anything but a
-   multiplier to its power, a 1-times-100 ligature that should have
-   been the bare sign, or an unligated ligature like "hundred four
-   four" - is refused the way a reader refuses "IIIX". */
+   Rejected: bytes that aren't Brahmi numerals, a sign cut off in
+   the middle, a term out of order, a joiner anywhere else, HUNDRED
+   JOINER ONE (100 is written as the hundred sign alone), and
+   HUNDRED FOUR FOUR. */
 
-/* The full sign inventory in code-point order: units, tens, powers,
-   joiner - the joiner is never a term and never leads a match. */
+/* All the signs in Unicode order: ones, tens, the two powers, then
+   the joiner.  A term never starts with the joiner. */
 #define N_SIGNS 21
 static const char* const signs[N_SIGNS] = {
     ONE,    TWO,   THREE, FOUR,  FIVE,    SIX,    SEVEN,  EIGHT,   NINE,     TEN,   TWENTY,
@@ -180,8 +183,8 @@ static const char* const signs[N_SIGNS] = {
 #define SIG_THOUSAND 19
 #define SIG_JOINER   20
 
-/* Match one whole sign at @param p: its index in the table above, or
-   -1 for a foreign byte or a sign cut off short. */
+/* Read one whole sign at p: returns its index in the table above, or
+   -1 for a byte that isn't a sign or a sign cut off short. */
 static int match_sign(const char* p, const char* end) {
     for (int i = 0; i < N_SIGNS; i++) {
         if (p + SIGN_BYTES <= end && memcmp(p, signs[i], SIGN_BYTES) == 0) {
@@ -195,12 +198,12 @@ uint64_t* _Nullable pn_brahmi_parse(const char* _Nonnull buf, size_t buflen, uin
                                     pn_error* _Nullable* _Nullable error) {
     assert(buf && out);
     if (buflen == 0) {
-        *out = 0; /* the blank reads back as the nothing it was */
+        *out = 0; /* an empty string reads as 0 */
         return out;
     }
 
-    uint64_t sum = 0; /* built here; *out keeps its old value unless all works */
-    int slot = 0;     /* the lowest term not yet spoken: 0 thousands .. 3 ones */
+    uint64_t sum = 0; /* built here; *out changes only if the whole parse succeeds */
+    int slot = 0;     /* the next slot allowed: 0 thousands, 1 hundreds, 2 tens, 3 ones */
     const char *p = buf, *end = buf + buflen;
 
     while (p < end) {
@@ -229,7 +232,7 @@ uint64_t* _Nullable pn_brahmi_parse(const char* _Nonnull buf, size_t buflen, uin
         p += SIGN_BYTES;
 
         uint64_t worth;
-        int next; /* the slot the next term must clear */
+        int next; /* the next term must be in a later slot */
 
         if (s == SIG_THOUSAND || s == SIG_HUNDRED) {
             const int is_thousand = (s == SIG_THOUSAND);
@@ -245,8 +248,8 @@ uint64_t* _Nullable pn_brahmi_parse(const char* _Nonnull buf, size_t buflen, uin
                 return NULL;
             }
 
-            /* The digit: the bare power sign means 1; the ligature
-			   <JOINER units-digit> multiplies it. */
+            /* The digit: the power sign alone means 1; JOINER DIGIT
+                           multiplies it. */
             worth = power;
             if (p + SIGN_BYTES <= end && memcmp(p, JOINER, SIGN_BYTES) == 0) {
                 p += SIGN_BYTES;
@@ -288,7 +291,7 @@ uint64_t* _Nullable pn_brahmi_parse(const char* _Nonnull buf, size_t buflen, uin
             worth = (uint64_t) (s - SIG_TEN + 1) * 10u;
             next = 3;
         }
-        else { /* a bare units sign: the ones term */
+        else { /* a ones sign: the ones term */
             if (slot > 3) {
                 if (error) {
                     *error = pn_error_init(PN_ERROR_SYNTAX, "the ones term is already"
@@ -300,8 +303,8 @@ uint64_t* _Nullable pn_brahmi_parse(const char* _Nonnull buf, size_t buflen, uin
             next = 4;
         }
 
-        /* No overflow possible: four slots filled to the brim are
-		   9 000 + 900 + 90 + 9 = PN_BRAHMI_MAX_VALUE. */
+        /* Can't overflow: all four slots at most is
+                   9000 + 900 + 90 + 9 = PN_BRAHMI_MAX_VALUE. */
         sum += worth;
         slot = next;
     }

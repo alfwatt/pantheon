@@ -1,24 +1,29 @@
-/*  error.c — libPantheon: the note a failed call leaves behind.
+/*  error.c — error reports for libPantheon.
 
-    A success allocates nothing.  A failure is allowed one malloc:
-    one block holding the pn_error struct followed directly by its
-    message text, which the caller frees with pn_error_free.  One
-    block per note means one free per note.  These few functions
-    build, read, and destroy the notes; the numeral modules call them
-    and never touch malloc themselves.
+    When a function fails, it can hand back a pn_error: a code that
+    names the kind of failure plus a sentence that explains it.  This
+    file builds, reads and frees those reports.
 
-    pn_error_init builds a note and hands it to the failing call,
-    which hangs it on the caller's slot itself: it is the prerogative
-    of a function to set its own out parameters.  The house form at
-    every failure site is
+    Successful calls never allocate memory.  A failure allocates
+    exactly once: one block that holds the pn_error struct with its
+    message text stored right after it.  Because it is one block, the
+    caller frees it with one call to pn_error_free.
 
-        if (error) *error = pn_error_init(PN_ERROR_X, "...");
+    Every failing function in the library follows the same pattern:
+
+        if (error) {
+            *error = pn_error_init(PN_ERROR_X, "what went wrong");
+        }
         return NULL;
 
-    A caller who does not want explanations passes a NULL slot: the
-    note is then never built, and the call simply reports failure
-    through its return value - NULL for a pointer, a zeroed value
-    for a struct.
+    A caller that does not need the explanation passes NULL for the
+    error pointer.  Then no report is built, and the caller learns
+    about the failure only from the return value: NULL for a pointer,
+    or a zeroed value for a struct.
+
+    Further reading: https://en.wikipedia.org/wiki/Exception_handling
+    (C has no exceptions; returning an error value is the usual way
+    to report failure in C.)
 */
 #include <stdarg.h>
 #include <stdio.h>
@@ -27,13 +32,12 @@
 
 #include "pantheon.h"
 
-/* The one malloc a failure is allowed: one block holding the struct,
-   then the message bytes packed right behind it with a NUL after
-   them so the sentence can go straight into printf.  vsnprintf once
-   with a NULL buffer to learn the length, then once more to fill the
-   tail.  vsnprintf with a NULL buffer can only fail on a broken
-   format string, which is a programmer's mistake: there is no second
-   voice for that. */
+/* Build one error report in a single malloc: the struct first, then
+   the message text right after it, ending in a 0 byte so it can be
+   printed directly.  vsnprintf runs twice: once with no buffer, to
+   measure how long the message is, then again to write it.  The
+   first call fails only if the format string itself is broken,
+   which is a bug in this library, so the program stops. */
 static pn_error* pn_error_build_fmt(pn_error_code code, const char* format, va_list args) {
     va_list again;
     int room;
@@ -44,12 +48,12 @@ static pn_error* pn_error_build_fmt(pn_error_code code, const char* format, va_l
     room = vsnprintf(NULL, 0u, format, again);
     va_end(again);
     if (room < 0) {
-        abort(); /* a failure to report a failure has no second voice */
+        abort(); /* there is no way to report a failure here */
     }
 
     error = malloc(sizeof *error + (size_t) room + 1u);
     if (error == NULL) {
-        abort(); /* a failure to report a failure has no second voice */
+        abort(); /* there is no way to report a failure here */
     }
     error->code = code;
     text = (char*) (void*) (error + 1);
@@ -58,8 +62,8 @@ static pn_error* pn_error_build_fmt(pn_error_code code, const char* format, va_l
     return error;
 }
 
-/* The code's own name, for the note that has no sentence of its
-   own. */
+/* A short name for each error code, used when a report has no
+   message of its own. */
 static const char* pn_error_code_name(pn_error_code code) {
     static const char* const names[] = {
         "null",   /* PN_ERROR_NULL    */
@@ -87,13 +91,12 @@ pn_error* pn_error_init(pn_error_code code, const char* format, ...) {
 }
 
 void pn_error_free(pn_error* error) {
-    free(error); /* the message rode in the same block */
+    free(error); /* the message is in the same block, so one free covers both */
 }
 
-/* The note's sentence for printf("%s", ...): its own message when it
-   has one, the code's name when it does not, "no error" for a
-   missing note.  The sentence belongs to the note: it stays alive
-   exactly as long as the note does and needs no free of its own. */
+/* Text to print for an error report: its message if it has one, the
+   code's name if not, and "no error" for NULL.  The text lives inside
+   the report, so read it before freeing the report. */
 const char* pn_error_describe(const pn_error* error) {
     if (error == NULL) {
         return "no error";

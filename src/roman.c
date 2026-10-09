@@ -1,46 +1,42 @@
-/*  roman.c — libPantheon: Roman numerals, the canon tally, pure
-    ASCII.
+/*  roman.c — Roman numerals in ASCII, from 1 to 3999.
 
-    The same direct-to-uint64 rule book as the egyptian scribe and
-    the quipu cord: an additive notation has no places to hold, so no
-    struct layer sits between the number and its letters.
+    Roman numerals have no place values: you add up the letters, with
+    a few pairs where a smaller letter before a bigger one means
+    subtract (IV = 4, IX = 9, XL = 40, XC = 90, CD = 400, CM = 900).
+    So, like the Egyptian and quipu modules, this file converts
+    straight between a uint64_t and text, with no struct in between.
 
-    The grammar: four rows per digit, each written out in full - the
-    thousands run (up to three Ms), the hundreds row, the tens row,
-    the units row.    The rows descend; each run of I, X, C or M holds at
-    most three; and the subtractive pairs IV IX XL XC CD CM stand
-    once inside their own digit.  This is the abacist's settled
-    canon: no clock-maker's IIII, no poet's IC, nothing past MMM CM
-    XC IX.
+    Writing a number: each decimal digit becomes a fixed group of
+    letters, one table per place (thousands, hundreds, tens, units).
+    1994 is M + CM + XC + IV = MCMXCIV.  This is the standard modern
+    form: no IIII for 4 (seen on some clock faces), no IC for 99.  The
+    largest number it can write is 3999, MMMCMXCIX.
 
-    The parser walks the greedy canon table - each step takes the
-    largest token the remaining letters still allow to start with.
-    Better still, every numeral it accepts goes back through the
-    renderer: a string that reads to @param n must render out byte
-    for byte as itself, the exact round trip the house inverse law
-    demands.  Misspellings (IIII, IL, VX, XCX, lowercase letters,
-    spaces, foreign bytes) either find no token where the walk
-    demands one, or fail the read-back.  No run bookkeeping can
-    disagree with the renderer, because the renderer is the arbiter.
+    Reading a number: go left to right, each time taking the biggest
+    letter or subtractive pair that fits, and add up the values.  That
+    alone would also accept bad spellings such as IIII or VIV, so the
+    result is then written back out and compared with the input.  If
+    they don't match exactly, the input was not standard and is
+    rejected.  Using the writer as the judge means the reader and the
+    writer can never disagree.
 
-    References: https://en.wikipedia.org/wiki/Roman_numerals
+    Further reading: https://en.wikipedia.org/wiki/Roman_numerals
 */
 #include <assert.h>
 #include <string.h>
 
 #include "pantheon.h"
 
-/* The four rows of tallies, spelled out.    The index inside a row is
-   that digit (the thousands row: 0..3 only). */
+/* The letters for each digit, one table per decimal place.  The
+   table index is the digit; the thousands table only goes to 3. */
 static const char* const th_row[4] = {"", "M", "MM", "MMM"};
 static const char* const h_row[10] = {"", "C", "CC", "CCC", "CD", "D", "DC", "DCC", "DCCC", "CM"};
 static const char* const t_row[10] = {"", "X", "XX", "XXX", "XL", "L", "LX", "LXX", "LXXX", "XC"};
 static const char* const u_row[10] = {"", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"};
 
 size_t pn_roman_render_size(uint64_t n) {
-    /* This answer never fails.  Past 1..PN_ROMAN_MAX_VALUE it answers
-	 *0 — the empty tally — because turning down the number is
-	  *render's job. */
+    /* Never fails: for n outside 1..PN_ROMAN_MAX_VALUE it returns 0,
+           and pn_roman_render is the function that reports the error. */
     if (n == 0u || n > PN_ROMAN_MAX_VALUE) {
         return 0u;
     }
@@ -48,7 +44,7 @@ size_t pn_roman_render_size(uint64_t n) {
            + strlen(t_row[(n / 10u) % 10u]) + strlen(u_row[n % 10u]);
 }
 
-/* Stick one row's letters onto the tally at @w. */
+/* Append one table entry's letters to buf at position *w. */
 static void put_row(const char* row, char* buf, size_t* w) {
     while (*row != '\0') {
         buf[(*w)++] = *row++;
@@ -89,9 +85,8 @@ char* _Nullable pn_roman_render(uint64_t n, char* _Nonnull buf, size_t buflen,
     return buf;
 }
 
-/* The greedy walk's table: how much a token is worth and how it
-   reads, largest first - the very order the renderer's rows write
-   out. */
+/* Every letter and subtractive pair with its value, biggest first,
+   for the left-to-right reading in pn_roman_parse. */
 static const struct {
     uint64_t value;
     char text[3];
@@ -105,14 +100,13 @@ uint64_t* _Nullable pn_roman_parse(const char* _Nonnull buf, size_t buflen, uint
                                    pn_error* _Nullable* _Nullable error) {
     assert(buf && out);
     if (buflen == 0u) {
-        *out = 0u; /* Bede's nulla: the blank tally  */
+        *out = 0u; /* the Romans had no zero numeral; medieval writers used "nulla" */
         return out;
     }
 
-    /* Greedy walk: at each step take the biggest canon token that
-	  *the rest of the string still starts with.    A byte the table has
-	  *no token for — a NUL, a space, a lowercase letter, any non-ASCII
-	  *byte — is the syntax error the abacist's scribe would mark. */
+    /* Take the biggest letter or pair the rest of the string starts
+           with, add its value, and move past it.  Any byte with no match
+           (a space, a lowercase letter, a non-ASCII byte) is an error. */
     uint64_t sum = 0u;
     size_t i = 0u;
 
@@ -142,17 +136,15 @@ uint64_t* _Nullable pn_roman_parse(const char* _Nonnull buf, size_t buflen, uint
         }
     }
 
-    /* The read-back is the real test: what parses has to render back
-	  *to itself byte for byte, so no un-canonical tally (IIII, VIV,
-	  *XCX, MDCCCCLXXXXVIIII) sneaks through on a sum that happens to
-	  *land in range.    pn_roman_render refuses n == 0 with an empty
-	  *string; the guard above keeps that case out, so only a true
-	  *misspelling fails here. */
+    /* Write the sum back out as a numeral and compare.  A non-standard
+           spelling (IIII, VIV, XCX) adds up to a valid number but writes
+           back differently, so it is caught here.  An empty string never
+           gets this far: it was handled above as 0. */
     char back[PN_ROMAN_FORMAT_MAX_LEN];
     pn_error* inner = NULL;
     bool ok = pn_roman_render(sum, back, sizeof back, &inner);
 
-    pn_error_free(inner); /* its verdict is already ours */
+    pn_error_free(inner); /* the comparison below already tells us what we need */
     if (!ok || strlen(back) != buflen || memcmp(back, buf, buflen) != 0) {
         if (error) {
             *error =

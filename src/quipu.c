@@ -1,54 +1,53 @@
-/*  quipu.c — libPantheon: Inca quipu knot notation, UTF-8.
+/*  quipu.c — Inca quipu (knotted cord) numerals in UTF-8.
 
-    Positional decimal strung along a pendant cord: the units line
-    sits nearest the free end, and the powers of ten march toward
-    the main cord (the quipucamayuq read bottom-up; this
-    transcription lays the cord down most-significant-first, the way
-    rods.c linearises the counting board).  Unicode ships no quipu
-    signs - no knot block to borrow, unlike cuneiform's wedges in
-    babylonian.c - so two ordinary BMP glyphs do the transcribing
-    (three UTF-8 bytes each):
+    The Inca kept records on quipus: a main cord with many hanging
+    cords, each one holding a number as clusters of knots.  The
+    clusters are decimal places, with the ones place nearest the
+    loose end of the cord and higher powers of ten closer to the main
+    cord.  Leland Locke worked this out in 1912.
 
-    U+2022 BULLET    E2 80 A2    d of them = d simple knots (Locke's
-                                "d s") in every line above the units
-    U+221E INFINITY  E2 88 9E    d of them = the long knot of d turns
-                                at the units line ("d L"); a lone one
-                                is the figure-eight (Locke's "E") -
-                                a long knot of one turn cannot be
-                                tied
+    Two kinds of knot are used:
+    - In the ones place, a "long knot" with d turns means d.  A long
+      knot can't have just one turn, so 1 is a figure-eight knot.
+    - In every other place, d simple knots mean d.
+    So the knot type also tells you which cluster is the ones place.
 
-    The units line is drawn in the figure-eight family ONLY, and
-    every line above it in simple knots ONLY: Locke's distinctive
-    units knot becomes this grammar's form-must-match-place rule, the
-    knot answer to the rods' alternating sets.  Zero is the ABSENCE
-    of a knot in the right spot - no sign for it exists and none is
-    invented: a blank place ties no knots, every place boundary
-    writes exactly one space, and a well-formed cord holds exactly
-    (places - 1) spaces.  From that the parser recoversthe geometry unaided:
-    places - 1 spaces means places - 1 place steps, so every column
-    ends its run exactly where the next boundary begins.  Ten
-    identical knots is more turns than any digit holds (range, the
-    same ruling the tenth DISH falls under at babylonian.c); a
-    twentieth column is more cord than a uint64_t can hold.  The
-    knots arrive as universal character names through the header's
-    PN_QUIPU_* signs, which keeps this source pure ASCII.
+    Unicode has no quipu signs, so this module borrows two common
+    ones (3 bytes each in UTF-8):
 
-    References: https://en.wikipedia.org/wiki/Quipu ,
-    Locke, The Ancient Quipu or Peruvian Knot Record (1912);
-    Ascher & Ascher, Mathematics of the Incas: Code of the Quipu
-    (1997).
+    •  U+2022 BULLET    E2 80 A2    a simple knot (other places)
+    ∞  U+221E INFINITY  E2 88 9E    one turn of a long knot, or the
+                                   figure-eight (ones place)
+
+    Places are written biggest first with one space between
+    neighbouring places, the same as rods.c.  A zero digit is just no
+    knots, so the number of spaces is always (number of places - 1):
+
+    23   = ••␣∞∞∞
+    101  = •␣␣∞      (empty tens place)
+    10   = •␣        (empty ones place)
+    1    = ∞         (the figure-eight)
+
+    (␣ marks a space.)
+
+    The signs come from the PN_QUIPU_* constants in pantheon.h.
+
+    Further reading: https://en.wikipedia.org/wiki/Quipu
+      Locke, The Ancient Quipu or Peruvian Knot Record (1912)
+      Ascher and Ascher, Mathematics of the Incas: Code of the Quipu
+      (1997)
 */
 #include <assert.h>
 #include <string.h>
 
 #include "pantheon.h"
 
-#define SIMPLE_PREFIX "\u2022" /* whole bullet:   E2 80 A2        */
-#define FIGURE_PREFIX "\u221e" /* whole infinity: E2 88 9E        */
-#define SIGN_BYTES    3        /* both signs are BMP: 3 UTF-8 bytes */
+#define SIMPLE_PREFIX "\u2022" /* the bullet:   E2 80 A2         */
+#define FIGURE_PREFIX "\u221e" /* infinity:     E2 88 9E         */
+#define SIGN_BYTES    3        /* both signs are 3 bytes in UTF-8 */
 
-/* 10^0 through 10^(PN_QUIPU_MAX_PLACES - 1): the weight of every
-   line a pendant holds, on a cord a uint64_t can carry. */
+/* The powers of ten from 10^0 to 10^(PN_QUIPU_MAX_PLACES - 1): the
+   value of a knot in each place. */
 static const uint64_t pow10[PN_QUIPU_MAX_PLACES] = {1ull,
                                                     10ull,
                                                     100ull,
@@ -69,13 +68,11 @@ static const uint64_t pow10[PN_QUIPU_MAX_PLACES] = {1ull,
                                                     100000000000000000ull,
                                                     1000000000000000000ull};
 
-/* Which knot sits at p, where at least SIGN_BYTES of room remains
-   before end: 0 for the simple knot, 1 for the figure-eight family,
-   -1 for anything else.  Whole knots or nothing: near misses
-   (U+2023 TOP BULLET, U+221D PROPORTIONAL TO, U+00B7 MIDDLE DOT, the
-   Mayan, Brahmi and rod glyphs) all fall through, and so does a knot
-   cut off in the middle of its UTF-8 - the room check says its bytes
-   are no knot. */
+/* Which knot is at p (at least SIGN_BYTES bytes must remain before
+   end): 0 for a simple knot, 1 for a long-knot turn, -1 for
+   anything else.  Look-alike characters (U+2023 TRIANGULAR BULLET,
+   U+221D PROPORTIONAL TO, U+00B7 MIDDLE DOT) and a sign cut off in
+   the middle all return -1. */
 static int quipu_match_knot(const char* p, const char* end) {
     if (p + SIGN_BYTES > end) {
         return -1;
@@ -89,48 +86,46 @@ static int quipu_match_knot(const char* p, const char* end) {
     return -1;
 }
 
-/* The shared emit-and-count helper: buf == NULL counts bytes,
-   otherwise it writes them - the count never includes the
-   terminating NUL.   +1 place: the count keeps going one digit past
-   the domain, giving answers above PN_QUIPU_MAX_VALUE that are
-   meaningless but never fatal - render turns down such n with
-   PN_ERROR_RANGE before it ever writes. */
+/* Write n's knots, or only count the bytes when buf is NULL.  The
+   count leaves out the 0 byte at the end.  It handles one place
+   more than the library allows, so for n above PN_QUIPU_MAX_VALUE it
+   returns a number that means nothing instead of crashing;
+   pn_quipu_render reports PN_ERROR_RANGE before writing anything. */
 static size_t quipu_emit(uint64_t n, char* buf) {
     uint8_t dig[PN_QUIPU_MAX_PLACES + 2];
     int m = 0;
 
-    do { /*least significant place first */
+    do { /* smallest place first */
         dig[m++] = (uint8_t) (n % 10u);
         n /= 10u;
     } while (n != 0);
 
     size_t bytes = 0;
 
-    for (int i = m - 1; i >= 0; i--) { /*top of the pendant */
+    for (int i = m - 1; i >= 0; i--) { /* the biggest place */
         if (i != m - 1) {
             if (buf != NULL) {
-                buf[bytes] = ' '; /*one boundary per place step */
+                buf[bytes] = ' '; /* one space between neighbouring places */
             }
             bytes += 1u;
         }
         const char* sign = (i == 0) ? FIGURE_PREFIX : SIMPLE_PREFIX;
 
-        for (size_t k = 0; k < (size_t) dig[i]; k++) { /*whole knots only */
+        for (size_t k = 0; k < (size_t) dig[i]; k++) { /* whole signs only */
             if (buf != NULL) {
                 memcpy(buf + bytes + k * SIGN_BYTES, sign, SIGN_BYTES);
             }
         }
-        bytes += (size_t) dig[i] * SIGN_BYTES; /*a blank place adds none */
+        bytes += (size_t) dig[i] * SIGN_BYTES; /* a zero place adds no knots */
     }
     return bytes;
 }
 
 size_t pn_quipu_render_size(uint64_t n) {
-    /*  This answer never fails: it is exactly what quipu_emit writes.
-  Past PN_QUIPU_MAX_VALUE the count runs on and the answer means
-  nothing - render turns down such n with a PN_ERROR_RANGE note
-  anyway.
-*/
+    /*  Never fails: it counts exactly what quipu_emit writes.  Above
+            PN_QUIPU_MAX_VALUE the number means nothing, and
+            pn_quipu_render reports PN_ERROR_RANGE.
+        */
     return quipu_emit(n, NULL);
 }
 
@@ -147,7 +142,7 @@ char* _Nullable pn_quipu_render(uint64_t n, char* _Nonnull buf, size_t buflen,
         return NULL;
     }
 
-    const size_t need = quipu_emit(n, NULL); /*exact: buflen must hold +NUL */
+    const size_t need = quipu_emit(n, NULL); /* exact, so buflen must also hold the 0 byte */
 
     if (buflen <= need) {
         if (error) {
@@ -164,26 +159,20 @@ char* _Nullable pn_quipu_render(uint64_t n, char* _Nonnull buf, size_t buflen,
     return buf;
 }
 
-/* Parsing reads the cord back.
+/* Reading is the reverse of writing.  The number of places is the
+   number of spaces + 1, the same rule as rods.c.  Each place's knot
+   type is fixed by its position (long knots only in the ones place,
+   simple knots everywhere else), and a cluster of knots must end
+   exactly where the next space begins.
 
-   The whole cord is knots and boundary spaces in canonical spacing.
-   The space count pins the geometry (places = spaces + 1, the rods'
-   law), and the column's OWN place decides which knot family is
-   legal in it - captured the moment the column opens, so trailing
-   boundaries can never frame an innocent knot.  A column must also
-   END exactly where its last boundary begins: that check is what
-   makes "well-formed" mean something.  An interior gutter would end
-   a column a place too early, and the topmost column may not sit
-   under a gutter either, since the first space always steps down.
-   Ten of any knot overfills a digit long before the cord can
-   overfill a uint64_t: the babylonian tenth-DISH ruling moved from
-   syntax to range on the knot count, while the twentieth place stays
-   the page-overrun range call. */
+   Ten or more knots in one cluster is PN_ERROR_RANGE: a digit only
+   goes up to 9, the same way babylonian.c treats too many wedges.
+   More places than a uint64_t can hold is PN_ERROR_RANGE too. */
 uint64_t* _Nullable pn_quipu_parse(const char* _Nonnull buf, size_t buflen, uint64_t* _Nonnull out,
                                    pn_error* _Nullable* _Nullable error) {
     assert(buf && out);
     if (buflen == 0) {
-        *out = 0; /*the empty cord: no knot was tied   */
+        *out = 0; /* an empty string reads as 0      */
         return out;
     }
     if (buf[0] == ' ') {
@@ -194,7 +183,7 @@ uint64_t* _Nullable pn_quipu_parse(const char* _Nonnull buf, size_t buflen, uint
         return NULL;
     }
 
-    size_t spaces = 0; /*counted first: it defines the places */
+    size_t spaces = 0; /* counted first: it gives the number of places */
 
     for (size_t i = 0; i < buflen; i++) {
         if (buf[i] == ' ') {
@@ -211,18 +200,18 @@ uint64_t* _Nullable pn_quipu_parse(const char* _Nonnull buf, size_t buflen, uint
         return NULL;
     }
 
-    uint64_t sum = 0;         /**out keeps its old value unless all works */
-    int place = (int) spaces; /*topmost line; steps down each gutter     */
-    int col_kind = -1;        /*the column being tied                    */
+    uint64_t sum = 0;         /* *out changes only on success      */
+    int place = (int) spaces; /* the current place; each space steps down one */
+    int col_kind = -1;        /* the knot cluster being read           */
     int col_count = 0;
-    int col_place = -1; /*where it OPENED - the anchor             */
+    int col_place = -1; /* the place where this cluster started  */
     const char* p = buf;
     const char* end = buf + buflen;
 
     while (p < end) {
         if (*p == ' ') {
-            if (col_count != 0) {      /*a boundary ends this column */
-                if (col_place != place /*gutter inside the run, or   */
+            if (col_count != 0) {      /* a space ends this cluster */
+                if (col_place != place /* a space inside the cluster, or */
                     || (col_kind == 1) != (place == 0)) {
                     if (error) {
                         *error =
@@ -255,7 +244,7 @@ uint64_t* _Nullable pn_quipu_parse(const char* _Nonnull buf, size_t buflen, uint
             }
             return NULL;
         }
-        if (col_count == 0) { /*the column opens right here */
+        if (col_count == 0) { /* a cluster starts here */
             if (place < 0) {
                 if (error) {
                     *error = pn_error_init(PN_ERROR_SYNTAX, "knots dangling past the free"
@@ -286,7 +275,7 @@ uint64_t* _Nullable pn_quipu_parse(const char* _Nonnull buf, size_t buflen, uint
         col_count++;
         p += SIGN_BYTES;
     }
-    if (col_count != 0) { /*the units column closes */
+    if (col_count != 0) { /* the ones-place cluster ends */
         if ((col_kind == 1) != (place == 0)) {
             if (error) {
                 *error = pn_error_init(PN_ERROR_SYNTAX,
@@ -298,14 +287,13 @@ uint64_t* _Nullable pn_quipu_parse(const char* _Nonnull buf, size_t buflen, uint
         }
         sum += (uint64_t) col_count * pow10[place];
     }
-    /*  No "walk ended at place -1" demand copied from muscle memory
-  of a full-cord parser: a cord may END on a blank place (10
-  renders one bullet then a space - the units line stays
-  empty), and with places = spaces + 1 already enforced up
-  front, the walk cannot land anywhere else.  The one
-  structural demand left is made by the columns themselves:
-  col_place must equal the place they close at.
-*/
+    /*  No final check is needed on where the walk ended.  A string
+                may end with an empty place (10 is a bullet and a space,
+                with nothing in the ones place), and since the number of
+                places was already fixed by counting spaces, the walk
+                can only end in the right spot.  Each cluster has
+                already checked that it ended at its own place.
+            */
     *out = sum;
     return out;
 }

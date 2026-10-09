@@ -1,14 +1,22 @@
-/*  fraction.c — libPantheon: common fractions.
+/*  fraction.c — fractions as a numerator over a denominator.
 
-    A numerator over a denominator, both uint64_t, the sign kept
-    apart.  The road in from double is the continued fraction: unroll
-    the value one term at a time into its convergents, stop at the
-    denominator bound, and weigh the last semiconvergent that still
-    fits.  Success allocates nothing except in pn_fraction_format,
-    which hands its buffer to the caller.
+    A pn_fraction stores a fraction like 355/113 as two whole numbers
+    plus a sign, always reduced to lowest terms.
 
-    References: https://en.wikipedia.org/wiki/Continued_fraction ,
-    https://en.wikipedia.org/wiki/Continued_fraction#Best_rational_approximations
+    The interesting part is turning a double into a fraction.  Every
+    number has a continued fraction: write it as a whole part plus 1
+    over something, then do the same to the something, and so on.
+    pi = 3 + 1/(7 + 1/(15 + 1/(1 + ...))).  Stopping early gives a
+    fraction close to the number, called a convergent: 3, 22/7,
+    333/106, 355/113.  These are the best possible approximations for
+    their size.  pn_fraction_from_double finds the closest fraction
+    whose denominator is no bigger than a limit the caller picks.
+
+    Nothing here allocates memory except pn_fraction_format, which
+    returns a string the caller must free.
+
+    Further reading: https://en.wikipedia.org/wiki/Continued_fraction
+      https://en.wikipedia.org/wiki/Continued_fraction#Best_rational_approximations
 */
 #include <assert.h>
 #include <math.h>
@@ -18,20 +26,24 @@
 
 #include "pantheon.h"
 
-/* 2^64, the first double that no longer fits a uint64_t */
+/* 2^64, the smallest double too big for a uint64_t */
 #define PN_FRACTION_TWO_64 18446744073709551616.0
 
-/* A finite double is exactly m / 2^s with m < 2^53, so its continued
-   fraction is Euclid's ladder on two whole numbers - but 2^s runs as
-   deep as 2^1074.  Past s = 120 the value sits below 2^-67, nearer 0/1
-   than any 1/k a uint64_t denominator allows, so 128 bits cover every
-   ladder worth climbing. */
+/* Every finite double is exactly m / 2^s for whole numbers m and s,
+   with m < 2^53, so its continued fraction can be found with exact
+   whole-number arithmetic (Euclid's algorithm) instead of rounded
+   floating point.  2^s can be as large as 2^1074, though.  When
+   s > 120 the value is below 2^-67, closer to 0 than to any fraction
+   1/k with k in a uint64_t, so the answer is just 0.  Up to that
+   point, 128-bit integers are big enough. */
 #define PN_FRACTION_MAX_SHIFT 120
 
 __extension__ typedef unsigned __int128 pn_u128;
 
-/* Euclid's ladder (Elements VII.2), kept private: the public
-   pn_math_gcd reports through an out-param this file has no use for. */
+/* Greatest common divisor by Euclid's algorithm (Elements, Book VII,
+   Proposition 2).  pn_math_gcd does the same but reports through an
+   out-parameter, which this file doesn't need.
+   https://en.wikipedia.org/wiki/Euclidean_algorithm */
 static uint64_t gcd(uint64_t a, uint64_t b) {
     while (b != 0) {
         uint64_t r = a % b;
@@ -46,7 +58,7 @@ static uint64_t gcd(uint64_t a, uint64_t b) {
 pn_fraction pn_fraction_make(uint64_t numerator, uint64_t denominator, bool neg) {
     assert(denominator != 0);
 
-    uint64_t divisor = gcd(numerator, denominator); /* never 0: denominator is not */
+    uint64_t divisor = gcd(numerator, denominator); /* never 0, because the denominator isn't 0 */
 
     return (pn_fraction) {
         .numerator = numerator / divisor,
@@ -55,8 +67,9 @@ pn_fraction pn_fraction_make(uint64_t numerator, uint64_t denominator, bool neg)
     };
 }
 
-/* The sign of a/b - c/d for b, d > 0, by walking both continued
-   fractions side by side: no product, so nothing overflows. */
+/* Compare a/b with c/d (b and d above 0): returns 1, 0 or -1.  It
+   compares the continued fractions term by term instead of
+   cross-multiplying, so no product can overflow. */
 static int compare_ratio(pn_u128 a, pn_u128 b, pn_u128 c, pn_u128 d) {
     assert(b != 0 && d != 0);
 
@@ -93,33 +106,36 @@ pn_fraction pn_fraction_from_double(double value, uint64_t max_denominator) {
     bool neg = signbit(value) != 0;
     double x = fabs(value);
 
-    if (x >= PN_FRACTION_TWO_64) { /* past the ledger: saturate */
+    if (x >= PN_FRACTION_TWO_64) { /* too big for a uint64_t: return the largest value instead */
         return (pn_fraction) {.numerator = UINT64_MAX, .denominator = 1, .neg = neg};
     }
     if (x == 0.0) {
         return pn_fraction_make(0, 1, false);
     }
 
-    /* x = m / 2^shift exactly, with the shift as small as m allows */
+    /* x = m / 2^shift exactly, with shift as small as possible */
     int exponent = 0;
-    uint64_t m = (uint64_t) ldexp(frexp(x, &exponent), 53); /* frexp's half-to-one, made whole */
+    uint64_t m = (uint64_t) ldexp(
+        frexp(x, &exponent),
+        53); /* frexp gives a value from 0.5 to 1; times 2^53 it is a whole number */
     int shift = 53 - exponent;
 
     while (shift > 0 && (m & 1u) == 0) {
         m >>= 1;
         shift--;
     }
-    if (shift <= 0) { /* a whole number, and under 2^64 */
+    if (shift <= 0) { /* a whole number below 2^64 */
         return pn_fraction_make(m << -shift, 1, neg);
     }
     if (shift > PN_FRACTION_MAX_SHIFT) {
         return pn_fraction_make(0, 1, false);
     }
 
-    /*  The two latest convergents, h1/k1 the newer and h2/k2 the one
-  before, seeded with the formal 1/0 and 0/1 so the recurrence
-  h = a*h1 + h2, k = a*k1 + k2 starts the first term as a/1.
-*/
+    /*  The last two convergents: h1/k1 (newest) and h2/k2 (the one
+            before).  Each new term a gives the next convergent:
+            h = a x h1 + h2, k = a x k1 + k2.  Starting from 1/0 and 0/1
+            makes the first convergent a/1.
+        */
     pn_u128 num = m;
     pn_u128 den = (pn_u128) 1 << shift;
     uint64_t h1 = 1, k1 = 0;
@@ -129,16 +145,16 @@ pn_fraction pn_fraction_from_double(double value, uint64_t max_denominator) {
         pn_u128 a = num / den;
         pn_u128 rem = num - a * den;
 
-        /* the largest term that keeps k within the bound; h never
-           overflows, every numerator on the ladder stays at or under m */
+        /* the largest term that keeps k within the limit; h can't
+                   overflow, since every numerator here is at most m */
         pn_u128 limit = k1 == 0 ? UINT64_MAX : (max_denominator - k2) / k1;
 
-        /*  The next convergent would pass the bound: the semiconvergent
-  t*h1 + h2 over t*k1 + k2 with the largest t that fits beats
-  h1/k1 by the half rule - when 2t > a, or when 2t == a and
-  k2/k1 > rem/den (the reversed and the remaining expansions
-  weighed against each other).  Ties keep the convergent.
-*/
+        /*  The next convergent's denominator would be over the limit.
+                    A "semiconvergent" (t x h1 + h2) / (t x k1 + k2), using the
+                    largest t that fits, may still be closer than h1/k1.  The
+                    "half rule" decides: it is closer when 2t > a, or when
+                    2t == a and k2/k1 > rem/den.  On an exact tie, keep h1/k1.
+                */
         if (a > limit) {
             uint64_t t = (uint64_t) limit;
             bool semi_wins = (pn_u128) t * 2 > a
@@ -160,14 +176,14 @@ pn_fraction pn_fraction_from_double(double value, uint64_t max_denominator) {
         h1 = h;
         k1 = k;
 
-        if (rem == 0) { /* the ladder ends: h1/k1 is the value itself */
+        if (rem == 0) { /* no remainder: h1/k1 is exactly the value */
             break;      // for
         }
         num = den;
         den = rem;
     }
 
-    /* convergents are already in lowest terms; make only settles the sign of zero */
+    /* convergents are already in lowest terms; make only fixes the sign of 0 */
     return pn_fraction_make(h1, k1, neg);
 }
 
@@ -191,8 +207,9 @@ double pn_fraction_to_double(pn_fraction value) {
     return value.neg ? -magnitude : magnitude;
 }
 
-/* Read one run of decimal digits at *cursor into *out; 0 when the run
-   is empty, -1 when it tops UINT64_MAX, 1 on success. */
+/* Read decimal digits at *cursor into *out.  Returns 0 if there are
+   no digits, -1 if the number is bigger than UINT64_MAX, 1 on
+   success. */
 static int read_digits(const char* _Nonnull* _Nonnull cursor, uint64_t* _Nonnull out) {
     assert(cursor && *cursor && out);
 
@@ -309,10 +326,10 @@ char* _Nullable pn_fraction_format_into(pn_fraction value, char* _Nonnull buffer
         return NULL;
     }
 
-    /*  Written in scratch space first, so a short buffer can never
-  hold half a number.  Worst case: '-' + 20 digits + '/' + 20
-  digits + NUL = 43 bytes, the declared maximum.
-*/
+    /*  Write into a scratch buffer first, so a short buffer never
+            holds half a number.  The worst case is '-' + 20 digits + '/'
+            + 20 digits + the 0 byte = 43 bytes, the declared maximum.
+        */
     char tmp[PN_FRACTION_FORMAT_MAX_LEN];
     int written = value.denominator == 1
                       ? snprintf(tmp, sizeof tmp, "%s%llu", value.neg ? "-" : "",

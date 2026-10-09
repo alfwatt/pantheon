@@ -1,51 +1,53 @@
-/*  greek.c — libPantheon: Greek alphabetic (Milesian/Ionic) numerals,
-    UTF-8.
+/*  greek.c — Greek alphabetic numerals in UTF-8, from 1 to 999 999.
 
-    The rule book here is the same one the uint64 notations follow:
-    no place-value struct sits between the number and its cord, just
-    like the egyptian scribe, the counting rods and the quipu - an
-    additive notation has no places to hold.
+    The ancient Greeks wrote numbers with letters.  Twenty-seven
+    letters stand for 1 to 9, 10 to 90 and 100 to 900 (three of them
+    are old letters kept just for numbers: digamma or stigma for 6,
+    koppa for 90, sampi for 900).  Like Roman and Egyptian numerals,
+    the system adds up values instead of using place value, so this
+    file converts straight between a uint64_t and text.
 
-    The cord is made of: an optional low keraia (U+0375) that
-    announces the thousands run, the thousands run itself, ONE
-    separating space when both runs are alive, the units run, and
-    always the trailing keraia (U+0374).  A run reads its three
-    decimal digits as letters: at most one sign from the hundreds row
-     (rho..sampi), then one from the tens row (iota..koppa), then one
-    from the units row (alpha..theta).  The digit d of a row is that
-    row's d-th sign, written ONCE: the market kept its own dedicated
-    letter for every one of the 27 digits, so 900 is sampi - not nine
-    sampis packed together.  The space kills the butt-joint
-    collisions (10001 reads "low-keraia iota, space, alpha" against
-    11000's "low-keraia iota alpha"), and it belongs to the canonical
-    cord.
+    A group of up to three letters writes 1 to 999: at most one
+    hundreds letter, then one tens letter, then one ones letter, with
+    zero digits left out.  999 is sampi, koppa, theta: ϡϟθ.  Each
+    letter is written once; 900 is one sampi, not nine of anything.
 
-    Every sign here is a 2-byte BMP code point: the encoder writes
-    canonical 2-byte sequences only, and the decoder lets in no code
-    point outside the 27 numeral signs and the two keraia.  Capitals,
-    the lunate sigma U+03F2, the final sigma, the digamma U+03DD, the
-    tonos, and the NFC twin of the dexia (U+02B9) hold no table entry
-    and fall out as syntax errors - which is exactly the culture's
-    own verdict on a misspelled number.
+    Thousands use the same letters with a small mark in front, the
+    lower keraia (U+0375 ͵).  A number always ends with the keraia
+    (U+0374 ʹ), which marks the letters as a number, not a word:
 
-    References: https://en.wikipedia.org/wiki/Greek_numerals
-    Unicode block Greek and Coptic; keraia at U+0374/U+0375.
+    23     = κγʹ
+    1000   = ͵αʹ
+    1001   = ͵α αʹ      (thousands group, space, ones group)
+    11000  = ͵ιαʹ
+
+    This module puts one space between the thousands group and the
+    rest.  Without it, 10 001 (͵ι then α) and 11 000 (͵ια) would be
+    the same letters.
+
+    Every sign is 2 bytes in UTF-8.  The reader accepts only the 27
+    numeral letters and the two keraia; capitals, other sigma forms,
+    accent marks and look-alike characters are syntax errors.
+
+    Further reading: https://en.wikipedia.org/wiki/Greek_numerals
+      https://en.wikipedia.org/wiki/Keraia
 */
 #include <assert.h>
 #include <string.h>
 
 #include "pantheon.h"
 
-#define GREEK_LOWK  0x375u /* the low keraia: announces the thousands     */
-#define GREEK_DEXIA 0x374u /* the trailing keraia: proof of a number      */
-#define GREEK_SPACE 0x020u /* the run separator, a canonical byte         */
+#define GREEK_LOWK  0x375u /* the lower keraia: marks the thousands      */
+#define GREEK_DEXIA 0x374u /* the keraia at the end: marks a number      */
+#define GREEK_SPACE 0x020u /* the space between the two groups           */
 #define GREEK_MAX_TOKS \
-    12u /* low keraia, 3 signs, space, 3 signs, dexia:
-                                 nine tokens; a tenth is no cord             */
+    12u /* lower keraia, 3 letters, space, 3 letters,
+                                         keraia: at most nine signs               */
 
-/* The three rows, descending: row j (0 = hundreds, 1 = tens,
-   2 = units) holds its nine signs, and sign i (0..8) is worth (i+1)
-   times the row's scale.  The descent rank is 3 - j. */
+/* The three rows of letters: row j (0 hundreds, 1 tens, 2 ones)
+   holds nine letters, and letter i (0 to 8) is worth (i + 1) times
+   the row's value.  A group must use the rows in order, so each row
+   gets a rank, 3 - j. */
 static const uint32_t row_hund[9] = {0x3C1u, 0x3C3u, 0x3C4u, 0x3C5u, 0x3C6u,
                                      0x3C7u, 0x3C8u, 0x3C9u, 0x3E1u};
 static const uint32_t row_ten[9] = {0x3B9u, 0x3BAu, 0x3BBu, 0x3BCu, 0x3BDu,
@@ -54,9 +56,8 @@ static const uint32_t row_unit[9] = {0x3B1u, 0x3B2u, 0x3B3u, 0x3B4u, 0x3B5u,
                                      0x3DBu, 0x3B6u, 0x3B7u, 0x3B8u};
 static const uint32_t* const rows[3] = {row_hund, row_ten, row_unit};
 
-/* Count the live digits of k (k <= 999): each nonzero decimal digit
-   gets its row's dedicated sign, once; the blank digit writes
-   nothing. */
+/* The number of letters needed for k (k <= 999): one for each
+   nonzero digit. */
 static unsigned run_signs(uint64_t k) {
     unsigned c = 0u;
 
@@ -69,16 +70,15 @@ static unsigned run_signs(uint64_t k) {
     return c;
 }
 
-/* The canonical 2-byte UTF-8 of one BMP code point below 0x800 —
-   every sign in the tables above obeys; the two keraia are CD
-   B4/B5. */
+/* The 2-byte UTF-8 form of a code point below 0x800.  Every letter in
+   the tables uses it; the two keraia are CD B4 and CD B5.
+   https://en.wikipedia.org/wiki/UTF-8#Encoding */
 static void put_sign(char* buf, size_t* w, uint32_t cp) {
     buf[(*w)++] = (char) (0xC0u | ((cp >> 6) & 0x1Fu));
     buf[(*w)++] = (char) (0x80u | (cp & 0x3Fu));
 }
 
-/* Write the run of k (k <= 999): rows descending, one sign per live
-   digit. */
+/* Write the letters for k (k <= 999): one per nonzero digit, biggest first. */
 static void put_run(uint64_t k, char* buf, size_t* w) {
     static const uint64_t scales[3] = {100u, 10u, 1u};
     unsigned j;
@@ -93,9 +93,8 @@ static void put_run(uint64_t k, char* buf, size_t* w) {
 }
 
 size_t pn_greek_render_size(uint64_t n) {
-    /* This answer never fails.    Outside 1..PN_GREEK_MAX_VALUE it
-	 *answers 0 — the blank cord — because refusing the number is
-	  *render's job, not the counter's. */
+    /* Never fails.  Outside 1..PN_GREEK_MAX_VALUE it returns 0;
+           pn_greek_render is the function that reports the error. */
     uint64_t th, un;
     size_t bytes;
 
@@ -106,11 +105,11 @@ size_t pn_greek_render_size(uint64_t n) {
     un = n % 1000u;
     bytes = 2u * (size_t) (run_signs(th) + run_signs(un));
     if (th != 0u) {
-        bytes += 2u; /*the low keraia             */
+        bytes += 2u; /* the lower keraia          */
     }
-    bytes += 2u; /*the trailing keraia        */
+    bytes += 2u; /* the keraia at the end     */
     if (th != 0u && un != 0u) {
-        bytes += 1u; /*the run-separating space   */
+        bytes += 1u; /* the space between groups  */
     }
     return bytes;
 }
@@ -157,11 +156,10 @@ char* _Nullable pn_greek_render(uint64_t n, char* _Nonnull buf, size_t buflen,
     return buf;
 }
 
-/* Look one decoded code point up in the three rows.    The descent
-   rank @rank (3, 2, 1: the order a run must walk) and the worth
-   @val come back only for a sign with a table entry.    Everything
-   else - the capitals, the lunate and final sigmas, the digamma, the
-   tonos, the prime twin, Latin letters - misses and turns into a
+/* Find a code point in the three rows.  On a match, returns its
+   rank (3, 2 or 1, the order a group must follow) in *rank and its
+   value in *val.  Anything else (capitals, other sigma forms,
+   digamma, accent marks, Latin letters) doesn't match and becomes a
    syntax error. */
 static int sign_info(uint32_t cp, unsigned* rank, unsigned* val) {
     static const uint64_t scales[3] = {100u, 10u, 1u};
@@ -181,11 +179,10 @@ static int sign_info(uint32_t cp, unsigned* rank, unsigned* val) {
     return 0;
 }
 
-/* The worth of a legal run — at most one sign per row, the rows
-   strictly descending, every sign pulled from the tables - or 0 when
-   the run is empty or malformed.  No run of a legal number is worth
-   0: a blank row writes nothing and a written row is worth its
-   sign. */
+/* The value of a group of letters, or 0 if the group is empty or
+   badly formed.  A well-formed group is at most one letter per row,
+   rows in order.  A real group is never worth 0, so 0 can safely
+   mean "bad". */
 static uint64_t run_value(const uint32_t* toks, size_t len) {
     uint64_t sum = 0u;
     unsigned prev_rank = 4u;
@@ -204,21 +201,20 @@ static uint64_t run_value(const uint32_t* toks, size_t len) {
     return sum;
 }
 
-/* Parsing reads back what rendering wrote. */
+/* Reading is the reverse of writing. */
 uint64_t* _Nullable pn_greek_parse(const char* _Nonnull buf, size_t buflen, uint64_t* _Nonnull out,
                                    pn_error* _Nullable* _Nullable error) {
     assert(buf && out);
     if (buflen == 0u) {
-        *out = 0u; /* the blank cord honors zero       */
+        *out = 0u; /* an empty string reads as 0      */
         return out;
     }
 
-    /* First pass: decode the signs, 2 bytes each.    Anything with
-	  *no table entry below — a lone byte under 0x80 (Latin, NUL), a
-	  *run that is too long, a continuation byte with no lead, a
-	  *3-byte sequence, or any other shape that is canonical but
-	  *foreign — is rejected right here, and the sign table rejects
-	  *the stranger further down. */
+    /* First pass: decode the signs, 2 bytes each.  Rejected here: a
+           single byte below 0x80 (Latin letters, the 0 byte), a sign cut
+           short, a stray continuation byte, a 3-byte sequence, or any
+           other wrong shape.  Characters that decode fine but aren't
+           numeral signs are rejected later by the table lookup. */
     uint32_t toks[GREEK_MAX_TOKS];
     size_t n_tok = 0u, i = 0u, body, k;
     int low, sp_at = -1;
@@ -256,7 +252,7 @@ uint64_t* _Nullable pn_greek_parse(const char* _Nonnull buf, size_t buflen, uint
         }
     }
 
-    /* The trailing keraia sits at the very end and nowhere else. */
+    /* The keraia goes at the very end and nowhere else. */
     if (toks[n_tok - 1u] != GREEK_DEXIA) {
         if (error) {
             *error = pn_error_init(PN_ERROR_SYNTAX, "a cord ends with the trailing"
@@ -283,8 +279,7 @@ uint64_t* _Nullable pn_greek_parse(const char* _Nonnull buf, size_t buflen, uint
         return NULL;
     }
 
-    /* The low keraia announces the cord from the front, exactly
-	  *once. */
+    /* The lower keraia, if present, comes first, and only once. */
     low = (toks[0] == GREEK_LOWK);
     i = low ? 1u : 0u;
     if (i >= body) {
@@ -304,10 +299,10 @@ uint64_t* _Nullable pn_greek_parse(const char* _Nonnull buf, size_t buflen, uint
         }
     }
 
-    /* The separator: at most one, touching neither edge, and only
-	  *under the low keraia — a cord below 1000 has no second run and
-	  *no gutter to spare.    @sp_at keeps the TOKEN index of the
-	  *space, not a byte offset. */
+    /* The space: at most one, never first or last, and only after a
+           lower keraia, since a number below 1000 has only one group.
+           sp_at is the index of the space among the signs, not a byte
+           offset. */
     for (k = i; k < body; k++) {
         if (toks[k] != GREEK_SPACE) {
             continue;

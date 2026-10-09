@@ -1,28 +1,30 @@
-/*  chinese.c — libPantheon: hanzi numerals, UTF-8.
+/*  chinese.c — Chinese numerals (hanzi) in UTF-8, from 0 to 99 999 999.
 
-    Decimal written with multipliers instead of place-value digits:
-    the value is A * 10^4 + B, and each section writes its nonzero
-    digits from high to low as (digit + 千/百/十), with the section's
-    units digit bare and last:
+    Chinese numerals are decimal, but instead of using position to
+    show each digit's value, they write the digit followed by a
+    multiplier sign: 千 (thousand), 百 (hundred), 十 (ten).  The ones
+    digit has no multiplier.  Numbers from 10 000 up are split into
+    two sections around 万 (ten thousand): the value is A x 10 000 + B,
+    each section written the same way.
 
-    四千六百二十二 = 4622     (Wikipedia's worked example)
+    四千六百二十二 = 4622     (4 thousand, 6 hundred, 2 ten, 2)
     五千万 五      = 50 000 005
 
-    The blank for zero follows the Egyptian ruling: a skipped digit
-    is not written at all, and the skip is admitted by exactly one
-    space between the terms on both sides of it - 一千 五 = 1005,
-    一千 五十 = 1050, where a later scribe would write 零.  The space
-    carries no value (the multipliers pin every digit's place), so it
-    is a pure canonical marker and the round trip stays exact.
-    Canonical form means the full formal reading: 一十四, never the
-    spoken elision 十四.  The domain stops at 万 - no sign above it
-    lives here, just as Egypt had none above the Heh - so
-    PN_HANZI_MAX_VALUE is 99 999 999.
+    A zero digit is simply left out.  Because the multipliers say
+    where each digit belongs, nothing is lost, but this module marks
+    each skip with one space so the reader can see it: 一千 五 = 1005,
+    一千 五十 = 1050.  (Modern writers use the sign 零 for this.)  The
+    space has no value of its own, so reading the text back always
+    gives the same number.
 
-    The signs are spelled as universal character names, which keeps
-    this source pure ASCII.
+    This module uses the full formal form, 一十四 for 14, not the
+    everyday short form 十四.  There is no sign above 万 here, so the
+    largest value is 99 999 999 (PN_HANZI_MAX_VALUE).
 
-    Reference: https://en.wikipedia.org/wiki/Chinese_numerals
+    The code spells the signs as \U escapes so the exact code point
+    is visible; the comments show the signs themselves.
+
+    Further reading: https://en.wikipedia.org/wiki/Chinese_numerals
 */
 #include <assert.h>
 #include <string.h>
@@ -42,24 +44,24 @@
 #define BAI        "\U0000767E" /* 百 = 100  UTF-8: E7 99 BE */
 #define QIAN       "\U00005343" /* 千 = 1k   UTF-8: E5 8D 83 */
 #define WAN        "\U00004E07" /* 万 = 10k  UTF-8: E4 B8 87 */
-#define SIGN_BYTES 3            /* every sign is BMP: 3 bytes of UTF-8 */
+#define SIGN_BYTES 3            /* every sign is 3 bytes in UTF-8 */
 
 static const char* const digits[9] = {YI, ER, SAN, SI, WU, LIU, QI, BA, JIU};
 
-/* A section's multipliers, largest first: place 3, 2, 1. */
+/* The multipliers within a section, biggest first: places 3, 2, 1. */
 static const char* const mults[3] = {QIAN, BAI, SHI};
 
-/* What a digit at place k (0 = units) inside its section is worth. */
+/* The value of a digit at place k in a section (0 is the ones place). */
 static const uint64_t pow10s[4] = {1u, 10u, 100u, 1000u};
 
-/* Write @param n's canonical hanzi string; @param buf may be NULL,
-   which only counts.  Past PN_HANZI_MAX_VALUE the count drops the
-   places above 万 and its answer means nothing - render turns down
-   such n with a PN_ERROR_RANGE note anyway. */
+/* Write n in the standard form described above.  buf may be NULL,
+   which only counts the bytes.  Above PN_HANZI_MAX_VALUE the count
+   leaves out the digits above 万 and means nothing; pn_hanzi_render
+   reports PN_ERROR_RANGE for those. */
 static size_t hanzi_emit(uint64_t n, char* buf) {
     size_t bytes = 0;
     const uint64_t secs[2] = {n / 10000u, n % 10000u};
-    int prev = -1; /* the absolute place of the last term written */
+    int prev = -1; /* the place of the last term written, counting from the ones (0) */
 
 #define PUT(s, len)                                   \
     do {                                              \
@@ -76,12 +78,12 @@ static size_t hanzi_emit(uint64_t n, char* buf) {
             const unsigned d = (unsigned) ((sec / pow10s[k]) % 10u);
 
             if (d == 0u) {
-                continue; /* zero: not written, just skipped */
+                continue; /* a zero digit is not written */
             }
             const int place = base + k;
 
             if (prev >= 0 && prev - place > 1) {
-                PUT(" ", 1u); /* the blank: 零's predecessor */
+                PUT(" ", 1u); /* one space marks skipped digits (where modern text writes 零) */
             }
             PUT(digits[d - 1u], SIGN_BYTES);
             if (k > 0) {
@@ -90,7 +92,7 @@ static size_t hanzi_emit(uint64_t n, char* buf) {
             prev = place;
         }
         if (s == 0 && sec != 0u) {
-            PUT(WAN, SIGN_BYTES); /* 万 rides the top section's last term */
+            PUT(WAN, SIGN_BYTES); /* 万 comes right after the top section */
         }
     }
 #undef PUT
@@ -98,8 +100,8 @@ static size_t hanzi_emit(uint64_t n, char* buf) {
 }
 
 size_t pn_hanzi_render_size(uint64_t n) {
-    /* This answer never fails: it is exactly what hanzi_emit writes —
-	 *and that is what render will write. */
+    /* Never fails: it counts exactly what hanzi_emit writes, which is
+           what pn_hanzi_render writes. */
     return hanzi_emit(n, NULL);
 }
 
@@ -117,7 +119,7 @@ char* _Nullable pn_hanzi_render(uint64_t n, char* _Nonnull buf, size_t buflen,
         return NULL;
     }
 
-    const size_t need = hanzi_emit(n, NULL); /*exact: buflen must hold +NUL */
+    const size_t need = hanzi_emit(n, NULL); /* exact, so buflen must also hold the 0 byte */
 
     if (buflen <= need) {
         if (error) {
@@ -130,24 +132,23 @@ char* _Nullable pn_hanzi_render(uint64_t n, char* _Nonnull buf, size_t buflen,
         return NULL;
     }
     (void) hanzi_emit(n, buf);
-    buf[need] = '\0'; /* n == 0 writes just the NUL */
+    buf[need] = '\0'; /* n == 0 writes only the 0 byte: an empty string */
     return buf;
 }
 
-/* Parsing reads back what rendering wrote.
+/* Reading is the reverse of writing, and only the standard form is
+   accepted, so reading back written text always gives the original
+   number.  The text is a list of terms, each a digit with a
+   multiplier (千, 百, 十) or a lone ones digit, going from bigger
+   places to smaller.  At most one 万 may appear, right after the top
+   section.  Two terms are separated by a space exactly when digits
+   were skipped between them; otherwise they touch.
 
-   The canonical form is what makes the round trip exact.  A string
-   is terms - (digit [千|百|十]) or a bare digit - strictly descending
-   in place inside each section, with at most one 万 written right
-   after the top section's last term.  Between two terms in a row a
-   space shows up if and only if they sit more than one place apart;
-   neighboring terms must touch.  Everything else - foreign bytes, a
-   sign cut off mid-UTF-8, 十四 missing its 一, 四百 三十一 with an
-   unearned space, 五千万五 missing its blank - is refused the way a
-   reader refuses "IIIX". */
+   Rejected: bytes that aren't numeral signs, a sign cut off in the
+   middle, 十四 without its 一, 四百 三十一 (a space where nothing was
+   skipped), and 五千万五 (a skip with no space). */
 
-/* Match a digit sign at @param p: the digit 1..9 comes back, or -1
-   for anything else. */
+/* Read a digit sign at p: returns 1 to 9, or -1 if p holds something else. */
 static int match_digit(const char* p, const char* end) {
     for (int i = 0; i < 9; i++) {
         if (p + SIGN_BYTES <= end && memcmp(p, digits[i], SIGN_BYTES) == 0) {
@@ -157,9 +158,8 @@ static int match_digit(const char* p, const char* end) {
     return -1;
 }
 
-/* Match a section multiplier at @param p: 3/2/1 for 千/百/十, 0 for
-   none at all.    万 is not a section multiplier; the string is split
-   at it first. */
+/* Read a multiplier at p: 3 for 千, 2 for 百, 1 for 十, 0 for none.
+   万 is not handled here; the text is split at 万 first. */
 static int match_mult(const char* p, const char* end) {
     if (p + SIGN_BYTES > end) {
         return 0;
@@ -180,7 +180,7 @@ uint64_t* _Nullable pn_hanzi_parse(const char* _Nonnull buf, size_t buflen, uint
                                    pn_error* _Nullable* _Nullable error) {
     assert(buf && out);
     if (buflen == 0) {
-        *out = 0; /* the blank reads back as the nothing it was */
+        *out = 0; /* an empty string reads as 0 */
         return out;
     }
     if (buf[0] == ' ' || buf[buflen - 1] == ' ') {
@@ -193,11 +193,11 @@ uint64_t* _Nullable pn_hanzi_parse(const char* _Nonnull buf, size_t buflen, uint
 
     const char* end = buf + buflen;
 
-    /* Split at 万 first: at most one, written right after the top
-	   *section's last term — so never at either border, and no 万 means
-	   *no top section at all.    E4 can only ever be a sign's lead byte
-	   *(continuations run 80..BF), so a byte scan locates it exactly
-	   *where a reader sees it. */
+    /* Split the text at 万 first.  There can be at most one, right
+           after the top section, so never at the very start or end; with
+           no 万 there is no top section.  In UTF-8, the byte E4 can only
+           start a sign, never appear in the middle of one (middle bytes
+           are 80 to BF), so a simple byte search finds 万 exactly. */
     const char* wan = NULL;
 
     for (const char* w = buf; w + SIGN_BYTES <= end; w++) {
@@ -222,17 +222,17 @@ uint64_t* _Nullable pn_hanzi_parse(const char* _Nonnull buf, size_t buflen, uint
 
     const char* const starts[2] = {buf, wan != NULL ? wan + SIGN_BYTES : buf};
     const char* const stops[2] = {wan != NULL ? wan : buf, end};
-    const int bases[2] = {4, 0}; /* the 万 section rides four places up */
+    const int bases[2] = {4, 0}; /* the section before 万 starts four places up */
 
-    uint64_t secs[2] = {0u, 0u}; /* built here; *out keeps its old value unless all works */
-    int prev_k[2] = {4, 4};      /* last term's place per section: strict descent */
-    int prev = -1;               /* the absolute place of the last term, for spacing */
+    uint64_t secs[2] = {0u, 0u}; /* built here; *out changes only if the whole parse succeeds */
+    int prev_k[2] = {4, 4};      /* each section's last place, so places must keep going down */
+    int prev = -1;               /* the place of the last term, to check the spacing */
 
     for (int s = 0; s < 2; s++) {
         const char* p = starts[s];
 
         while (p < stops[s]) {
-            int run = 0; /* spaces ahead of this term */
+            int run = 0; /* spaces before this term */
 
             while (p + (size_t) run < stops[s] && p[run] == ' ') {
                 run++;
@@ -253,7 +253,8 @@ uint64_t* _Nullable pn_hanzi_parse(const char* _Nonnull buf, size_t buflen, uint
                 return NULL;
             }
             const char* q = p + run + SIGN_BYTES;
-            int k = match_mult(q, stops[s]); /* 3/2/1 = the term's place, else bare units */
+            int k =
+                match_mult(q, stops[s]); /* 3, 2 or 1 is the term's place; 0 means a ones digit */
 
             if (k >= 1 && k <= 3) {
                 q += SIGN_BYTES;
@@ -326,8 +327,8 @@ uint64_t* _Nullable pn_hanzi_parse(const char* _Nonnull buf, size_t buflen, uint
         }
     }
 
-    /* The grammar lets in no value past PN_HANZI_MAX_VALUE: each
-	   *section tops out at 9999, so no overflow check is needed. */
+    /* No overflow check needed: each section is at most 9999, so the
+           total can't pass PN_HANZI_MAX_VALUE. */
     *out = secs[0] * 10000u + secs[1];
     return out;
 }

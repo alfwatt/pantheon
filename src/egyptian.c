@@ -1,60 +1,64 @@
-/*  egyptian.c — libPantheon: hieroglyphic numerals, UTF-8.
+/*  egyptian.c — Egyptian hieroglyphic numerals in UTF-8.
 
-    Seven signs do all the work, one per power of ten, each repeated
-    as many times as its digit calls for.  It is a decimal system
-    with no place values at all.
+    Ancient Egypt (from about 3000 BCE) wrote numbers with seven
+    signs, one for each power of ten, repeating each sign as many
+    times as its digit says.  It is a decimal system with no place
+    values: the signs look different, so their position doesn't
+    matter for the value.
 
-    U+133E4 EGYPTIAN HIEROGLYPH Z001  (single stroke)   = 1
-    U+13386 EGYPTIAN HIEROGLYPH V020  (cattle hobble)   = 10
-    U+13362 EGYPTIAN HIEROGLYPH V001  (coil of rope)    = 100
-    U+131BC EGYPTIAN HIEROGLYPH M012  (lotus)           = 1 000
-    U+130AD EGYPTIAN HIEROGLYPH D050  (bent finger)     = 10 000
-    U+13190 EGYPTIAN HIEROGLYPH I008  (tadpole)         = 100 000
-    U+13068 EGYPTIAN HIEROGLYPH C011  (Heh god)         = 1 000 000
+    𓏤  U+133E4 EGYPTIAN HIEROGLYPH Z001  (single stroke)   = 1
+    𓎆  U+13386 EGYPTIAN HIEROGLYPH V020  (cattle hobble)   = 10
+    𓍢  U+13362 EGYPTIAN HIEROGLYPH V001  (coil of rope)    = 100
+    𓆼  U+131BC EGYPTIAN HIEROGLYPH M012  (lotus)           = 1 000
+    𓂭  U+130AD EGYPTIAN HIEROGLYPH D050  (bent finger)     = 10 000
+    𓆐  U+13190 EGYPTIAN HIEROGLYPH I008  (tadpole)         = 100 000
+    𓁨  U+13068 EGYPTIAN HIEROGLYPH C011  (Heh god)         = 1 000 000
 
-    Signs are written in runs from the biggest power down, with no
-    separators between them: each sign looks different, so a reader
-    always knows where one run stops and the next starts.  There is
-    no sign above the Heh and no sign for zero: the scribe simply
-    left a blank for nothing.  So 0 renders as the empty string, and
-    any value larger than nine of every sign is out of range rather
-    than absurdly long.
+    This module writes the signs biggest first, each sign in one
+    group, with no spaces:
 
-    The signs are spelled as universal character names so this file
-    stays pure ASCII.
+    4622     = 𓆼𓆼𓆼𓆼𓍢𓍢𓍢𓍢𓍢𓍢𓎆𓎆𓏤𓏤
+    1111111  = 𓁨𓆐𓂭𓆼𓍢𓎆𓏤
 
-    Reference: https://en.wikipedia.org/wiki/Egyptian_numerals
+    There is no sign above one million and no sign for zero (a
+    scribe just left a blank), so 0 is the empty string and the
+    largest value is 9 999 999, nine of every sign.
+
+    The code spells the signs as \U escapes so the exact code point
+    is visible; the comments show the signs themselves.
+
+    Further reading: https://en.wikipedia.org/wiki/Egyptian_numerals
+      https://en.wikipedia.org/wiki/UTF-8
 */
 #include <assert.h>
 #include <string.h>
 
 #include "pantheon.h"
 
-#define STROKE_UTF8  "\U000133E4" /* bytes: F0 93 8F A4 */
-#define HOBBLE_UTF8  "\U00013386" /* bytes: F0 93 8E 86 */
-#define COIL_UTF8    "\U00013362" /* bytes: F0 93 8D A2 */
-#define LOTUS_UTF8   "\U000131BC" /* bytes: F0 93 86 BC */
-#define FINGER_UTF8  "\U000130AD" /* bytes: F0 93 82 AD */
-#define TADPOLE_UTF8 "\U00013190" /* bytes: F0 93 86 90 */
-#define HEH_UTF8     "\U00013068" /* bytes: F0 93 81 A8 */
+#define STROKE_UTF8  "\U000133E4" /* 𓏤 bytes: F0 93 8F A4 */
+#define HOBBLE_UTF8  "\U00013386" /* 𓎆 bytes: F0 93 8E 86 */
+#define COIL_UTF8    "\U00013362" /* 𓍢 bytes: F0 93 8D A2 */
+#define LOTUS_UTF8   "\U000131BC" /* 𓆼 bytes: F0 93 86 BC */
+#define FINGER_UTF8  "\U000130AD" /* 𓂭 bytes: F0 93 82 AD */
+#define TADPOLE_UTF8 "\U00013190" /* 𓆐 bytes: F0 93 86 90 */
+#define HEH_UTF8     "\U00013068" /* 𓁨 bytes: F0 93 81 A8 */
 #define SIGN_BYTES   4            /* every sign is 4 UTF-8 bytes */
 
 #define N_SIGNS 7 /* powers 10^0 through 10^6; nothing above the Heh */
 
-/* Biggest sign first, stroke last, as carved on the temple wall. */
+/* Biggest sign first, the order they are written in. */
 static const char* const signs[N_SIGNS] = {HEH_UTF8,  TADPOLE_UTF8, FINGER_UTF8, LOTUS_UTF8,
                                            COIL_UTF8, HOBBLE_UTF8,  STROKE_UTF8};
 
-/* What each sign one row above is worth. */
+/* The value of each sign in the table above. */
 static const uint64_t values[N_SIGNS] = {1000000u, 100000u, 10000u, 1000u, 100u, 10u, 1u};
 
 size_t pn_egyptian_render_size(uint64_t n) {
-    /*  This answer never fails.  For n up to PN_EGYPTIAN_MAX_VALUE it
-  is exactly 4 times the sum of the decimal digits.  Past that
-  it keeps counting copies as if every digit above 10^6 could
-  still be carved, so the answer is only meaningless - render
-  turns down such n with PN_ERROR_RANGE anyway.
-*/
+    /*  Never fails.  For n up to PN_EGYPTIAN_MAX_VALUE the answer is
+            exactly 4 bytes times the sum of n's decimal digits.  Above
+            that the number is meaningless, and pn_egyptian_render
+            reports PN_ERROR_RANGE.
+        */
     size_t bytes = 0;
 
     while (n != 0) {
@@ -68,9 +72,9 @@ char* _Nullable pn_egyptian_render(uint64_t n, char* _Nonnull buf, size_t buflen
                                    pn_error* _Nullable* _Nullable error) {
     assert(buf);
     if (n > PN_EGYPTIAN_MAX_VALUE) {
-        /*  There is no sign above the Heh, so ten Heh signs are
-  not something this module writes.
-*/
+        /*  No sign is bigger than the Heh (one million), so a digit in
+                    the ten-millions place or above cannot be written.
+                */
         if (error) {
             *error = pn_error_init(PN_ERROR_RANGE,
                                    "%llu needs ten or more signs of one kind;"
@@ -80,7 +84,7 @@ char* _Nullable pn_egyptian_render(uint64_t n, char* _Nonnull buf, size_t buflen
         return NULL;
     }
 
-    /* render_size is exact: buflen has to hold its bytes plus a NUL */
+    /* render_size is exact, so buflen must also hold the 0 byte */
     size_t need = pn_egyptian_render_size(n);
     if (buflen <= need) {
         if (error) {
@@ -92,7 +96,7 @@ char* _Nullable pn_egyptian_render(uint64_t n, char* _Nonnull buf, size_t buflen
         return NULL;
     }
 
-    char* q = buf; /* safe: need is exact and already checked */
+    char* q = buf; /* safe: the size was checked above */
     for (unsigned i = 0; i < N_SIGNS; i++) {
         uint64_t digit = (n / values[i]) % 10u;
 
@@ -101,22 +105,18 @@ char* _Nullable pn_egyptian_render(uint64_t n, char* _Nonnull buf, size_t buflen
             q += SIGN_BYTES;
         }
     }
-    *q = '\0'; /* n == 0 lands here: the blank, then the NUL */
+    *q = '\0'; /* for n == 0 this writes only the 0 byte: an empty string */
     return buf;
 }
 
-/* Parsing reads back what rendering wrote.
-
-    Only the canonical spelling round-trips: the seven signs grouped
-    into one run each, the runs stepping down in power, every run
-    holding 1 to 9 copies.  Anything else - a byte that is not a
-    sign, a sign sliced off short, a run built from the bottom up, or
-    one sign written in two places - is rejected the way a reader
-    today rejects "IIIX".  Ten copies of one sign is not bad spelling
-    but bad arithmetic: the scribe would have carried to the next
-    power, so that string names no canonical number.  That reply is
-    PN_ERROR_RANGE, not PN_ERROR_SYNTAX - the same reply six U
-    wedges get from pn_babylonian_parse. */
+/* Reading is the reverse of writing, and only the standard form is
+   accepted: one group per sign, groups going from biggest to
+   smallest, each group 1 to 9 signs.  A byte that isn't a sign, a
+   sign cut short, groups out of order, or a sign used in two places
+   is PN_ERROR_SYNTAX.  Ten of one sign is PN_ERROR_RANGE instead: a
+   scribe would have written one sign of the next power, so that
+   group is a value too big for its place, not a spelling mistake.
+   pn_babylonian_parse_from treats six tens-wedges the same way. */
 uint64_t* _Nullable pn_egyptian_parse(const char* _Nonnull buf, size_t buflen,
                                       uint64_t* _Nonnull out,
                                       pn_error* _Nullable* _Nullable error) {
@@ -136,9 +136,9 @@ uint64_t* _Nullable pn_egyptian_parse(const char* _Nonnull buf, size_t buflen,
             }
         }
         if (found < 0) {
-            /*  a byte no sign starts with, or a sign with
-  bytes cut off its end
-*/
+            /*  a byte that starts no sign, or a sign with bytes missing
+                            at the end
+                        */
             size_t room = (size_t) (end - p);
 
             if (error) {
@@ -182,15 +182,14 @@ uint64_t* _Nullable pn_egyptian_parse(const char* _Nonnull buf, size_t buflen,
             }
         } while (p + SIGN_BYTES <= end && memcmp(p, signs[found], SIGN_BYTES) == 0);
 
-        /*  Nothing can overflow here: at most 9 copies over seven
-  different descending signs, the sum stops at
-  9 * (10^6 + ... + 1) = 9 999 999, the domain's top.
-*/
+        /*  Can't overflow: with at most 9 of each of the 7 signs the
+                    total is at most 9 999 999.
+                */
         sum += count * values[found];
         prev = found;
     }
 
-    /* An empty string is the scribe's blank: it reads back as 0. */
+    /* An empty string is a blank: it reads as 0. */
     *out = sum;
     return out;
 }

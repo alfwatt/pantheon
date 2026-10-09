@@ -1,42 +1,43 @@
-/*  mayan.c — libPantheon: Maya bar-and-dot numerals over pn_base20.
+/*  mayan.c — Maya bar-and-dot numerals in UTF-8.
 
-    The renderer is thinner on purpose than babylonian.c over the
-    same core.  Cuneiform builds each place out of tens-signs and
-    units-signs and writes an empty place as two blank spaces
-    (Unicode ships no Babylonian placeholder, and on the clay the
-    gap really was ambiguous).  The Maya block, by contrast, hands
-    over one ready-made sign for every place from 0 to 19 - the
-    shell included.  So: one sign per place, one space per boundary.
-    The string counts its own rows out loud; there is no spacing
-    arithmetic around a two-space gap, and no lone dot needing
-    context to rescue it.
+    The Maya wrote each base-20 place as a stack of dots (ones) and
+    bars (fives): 13 is two bars and three dots.  They also had a
+    real zero sign, usually drawn as a shell.  Unicode has one
+    ready-made sign for each place value 0 to 19:
 
-    The signs are spelled as universal character names (C11
-    escapes), which keeps this file pure ASCII; the Unicode chart
-    checks every byte below:
+    𝋠 𝋡 𝋢 ... 𝋳   U+1D2E0..U+1D2F3  MAYAN NUMERAL ZERO..NINETEEN
+                    UTF-8: F0 9D 8B, then A0..B3
 
-    U+1D2E0..U+1D2F3  MAYAN NUMERAL ZERO..NINETEEN
-                       UTF-8 stem F0 9D 8B, last byte A0..B3
+    13 is 𝋭 (two bars, three dots) and 0 is 𝋠 (the shell).
 
-    The codex stacks rows from the floor up (least significant at
-    the bottom); our transcription reads the stack from the top
-    down and lays it left to right - 429 renders as dot dot nine.
+    So this file is simpler than babylonian.c: one sign per place
+    and one space between places.  Because there is a zero sign, an
+    empty place is never ambiguous, unlike the Babylonian gap.
 
-    References: https://en.wikipedia.org/wiki/Maya_numerals
-    Unicode block Mayan Numerals (U+1D2E0..U+1D2F3), proposal
-    L2/16-264 (Jameson Quinn), Unicode 10.0 (2017).
+    The Maya stacked places vertically with the smallest at the
+    bottom.  This module writes them left to right with the biggest
+    first, the way we write decimal numbers (␣ is a space):
+
+    429   = 𝋡␣𝋡␣𝋩       (1 x 400 + 1 x 20 + 9)
+    8800  = 𝋡␣𝋢␣𝋠␣𝋠    (1 x 8000 + 2 x 400 + 0 + 0)
+
+    The code spells the signs as \U escapes so the exact code point
+    is visible; the comments show the signs themselves.
+
+    Further reading: https://en.wikipedia.org/wiki/Maya_numerals
+      https://www.unicode.org/charts/PDF/U1D2E0.pdf (the Unicode chart)
 */
 #include <assert.h>
 #include <string.h>
 
 #include "pantheon.h"
 
-#define MAYAN_PREFIX "\xF0\x9D\x8B" /* F0 9D 8B: the shared 3-byte stem of all 20 */
-#define MAYAN_LO     0xA0           /* last byte of U+1D2E0, the shell             */
+#define MAYAN_PREFIX "\xF0\x9D\x8B" /* F0 9D 8B: the first 3 bytes of all 20 signs */
+#define MAYAN_LO     0xA0           /* last byte of U+1D2E0, zero (the shell)      */
 #define MAYAN_HI     0xB3           /* last byte of U+1D2F3, nineteen              */
-#define SIGN_BYTES   4              /* all twenty are SMP: 4 UTF-8 bytes           */
+#define SIGN_BYTES   4              /* each sign is 4 bytes in UTF-8               */
 
-/* digit_signs[d] = U+1D2E0 + d: bars, dots and shell, precomposed whole. */
+/* digit_signs[d] is the sign for d, which is U+1D2E0 + d. */
 static const char* const digit_signs[20] = {
     "\U0001D2E0", "\U0001D2E1", "\U0001D2E2", "\U0001D2E3", "\U0001D2E4",
     "\U0001D2E5", "\U0001D2E6", "\U0001D2E7", "\U0001D2E8", "\U0001D2E9",
@@ -44,9 +45,10 @@ static const char* const digit_signs[20] = {
     "\U0001D2EF", "\U0001D2F0", "\U0001D2F1", "\U0001D2F2", "\U0001D2F3",
 };
 
-/* A struct may only be carved from whole rows: every translation
-   unit watches its own front door (sex60.c keeps a well_formed,
-   babylonian.c keeps one, and so does this file). */
+/* A value is well-formed when it has 1 to MAX places, every place
+   is at most 19, and the radix is between 0 and n_places.  Each
+   file checks this itself (base20.c and babylonian.c have their own
+   copies). */
 static int well_formed(pn_base20 v) {
     if (v.n_places == 0 || v.n_places > PN_BASE20_MAX_PLACES) {
         return 0;
@@ -62,17 +64,17 @@ static int well_formed(pn_base20 v) {
     return 1;
 }
 
-/* Match one digit sign at p (where at least SIGN_BYTES bytes remain):
-   the digit 0..19 comes back in *digit, and anything else - the
-   block's empty space past U+1D2F3, U+1D2F4..U+1D2FF, which is
-   unassigned and carves nothing - gives -1. */
+/* Read one digit sign at p (at least SIGN_BYTES bytes must remain).
+   Returns the digit 0 to 19 in *digit, or -1 if the bytes are not
+   one of the twenty signs.  U+1D2F4 to U+1D2FF are in the same
+   Unicode block but unassigned, so they return -1 too. */
 static int match_mayan(const char* p, const char* end, unsigned* digit) {
     if (p + SIGN_BYTES > end || memcmp(p, MAYAN_PREFIX, 3) != 0) {
         return -1;
     }
     const unsigned char b = (unsigned char) p[3];
 
-    if (b >= MAYAN_LO && b <= MAYAN_HI) { /* U+1D2E0..U+1D2F3 */
+    if (b >= MAYAN_LO && b <= MAYAN_HI) { /* U+1D2E0 to U+1D2F3 */
         *digit = (unsigned) (b - MAYAN_LO);
         return 0;
     }
@@ -80,17 +82,16 @@ static int match_mayan(const char* p, const char* end, unsigned* digit) {
 }
 
 size_t pn_mayan_render_size(pn_base20 v) {
-    /*  This answer never fails: '-' when neg, one sign per place, one
-  gutter per boundary.  For a well-formed v it is exactly what
-  render will write; on a malformed one the count simply runs on
-  and means nothing - render turns down such v with
-  PN_ERROR_DOMAIN anyway.
-*/
+    /*  Never fails: '-' if negative, one sign per place, and one
+            space between places.  For a well-formed v this is exactly
+            what render writes.  For a malformed v the number means
+            nothing, and render reports PN_ERROR_DOMAIN.
+        */
     size_t n = v.neg ? 1u : 0u;
 
     for (unsigned i = 0; i < v.n_places; i++) {
         if (i > 0) {
-            n += 1u; /* one gutter between rows */
+            n += 1u; /* one space between places */
         }
         n += SIGN_BYTES;
     }
@@ -112,7 +113,7 @@ char* _Nullable pn_mayan_render(pn_base20 v, char* _Nonnull buf, size_t buflen,
         return NULL;
     }
 
-    /* render_size is exact: buflen has to hold its bytes plus NUL */
+    /* render_size is exact, so buflen must hold that many bytes plus the 0 byte */
     const size_t need = pn_mayan_render_size(v);
 
     if (buflen <= need) {
@@ -125,10 +126,10 @@ char* _Nullable pn_mayan_render(pn_base20 v, char* _Nonnull buf, size_t buflen,
         return NULL;
     }
 
-    char* q = buf; /* safe: need is exact and already checked */
+    char* q = buf; /* safe: the size was checked above */
 
     if (v.neg) {
-        *q++ = '-'; /* an anachronism, carved anyway */
+        *q++ = '-'; /* a modern addition: the Maya had no minus sign */
     }
     for (unsigned i = 0; i < v.n_places; i++) {
         if (i > 0) {
@@ -141,16 +142,11 @@ char* _Nullable pn_mayan_render(pn_base20 v, char* _Nonnull buf, size_t buflen,
     return buf;
 }
 
-/* Parsing reads back what rendering wrote.
-
-   The grammar is '-? (sign ' ')* sign' - rows that count themselves.
-   The shell is welcome anywhere a whole place sits: a zero row whose
-   blank a reader would otherwise have to guess at is exactly what
-   the shell exists to spell, and a shell at the front is kept
-   exactly as written, since the reader counts rows off the gutters.
-   More rows than the codex page holds
-   (PN_BASE20_MAX_PLACES) is the scribe's page overrun:
-   PN_ERROR_RANGE, not a grammar fault. */
+/* Reading is the reverse of writing.  The format is an optional
+   '-', then signs separated by single spaces.  A zero sign can be in
+   any place, including the first, and is kept as written.  More
+   than PN_BASE20_MAX_PLACES places is PN_ERROR_RANGE (too big),
+   not a syntax error. */
 pn_base20* _Nullable pn_mayan_parse(const char* _Nonnull buf, size_t buflen,
                                     pn_base20* _Nonnull out, pn_error* _Nullable* _Nullable error) {
     assert(buf && out);
@@ -165,7 +161,7 @@ pn_base20* _Nullable pn_mayan_parse(const char* _Nonnull buf, size_t buflen,
 
     const char *p = buf, *end = buf + buflen;
 
-    pn_base20 v; /* *out keeps its old value unless all works */
+    pn_base20 v; /* *out changes only if the whole parse succeeds */
 
     memset(&v, 0, sizeof v);
 
@@ -229,10 +225,9 @@ pn_base20* _Nullable pn_mayan_parse(const char* _Nonnull buf, size_t buflen,
         p++;
     }
     v.n_places = (uint8_t) k;
-    v.radix = v.n_places; /*  the carved stack carries no point:
-  period style, the same answer the
-  cuneiform parser gives
-*/
+    v.radix = v.n_places; /*  the signs show no radix point, so read it as a whole
+                                      number, the same as the cuneiform reader does
+                                  */
     *out = v;
     return out;
 }

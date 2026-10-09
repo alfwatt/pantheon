@@ -1,52 +1,54 @@
-/*  rods.c — libPantheon: counting rod numerals, UTF-8.
+/*  rods.c — Chinese counting rod numerals in UTF-8.
 
-    True positional decimal on the counting board: one bundle of rods
-    per column, with the columns alternating between the two forms of
-    the digits so a lone rod can never be mixed up with its rotated
-    twin.  The Unicode block carries both forms (SMP, 4 UTF-8 bytes
-    each; all of them share the stem F0 9D 8D, and the last byte runs
-    A0..B1):
+    Chinese mathematicians calculated with small rods laid out in
+    columns on a counting board, one column per decimal place.  This
+    was true place-value decimal, more than a thousand years before
+    it reached Europe.
 
-    U+1D360..U+1D368  COUNTING ROD UNIT DIGIT ONE..NINE
-    U+1D369..U+1D371  COUNTING ROD TENS DIGIT ONE..NINE
+    Each digit 1 to 9 has two forms, one the other turned sideways.
+    Columns alternate between the forms, so a reader could tell where
+    one column ended and the next began.  Unicode has both sets (each
+    sign is 4 bytes in UTF-8, all starting F0 9D 8D):
 
-    The units column takes the unit set, the tens takes the tens set,
-    the hundreds take the unit set again - the Song dynasty
-    orientation, and what the Unicode names assume.
+    𝍠 .. 𝍨  U+1D360..U+1D368  COUNTING ROD UNIT DIGIT ONE..NINE
+    𝍩 .. 𝍱  U+1D369..U+1D371  COUNTING ROD TENS DIGIT ONE..NINE
 
-    The rods had no zero: an empty column stayed literally empty and
-    the reader counted columns.  We keep the blank as a space, the
-    cuneiform gap grown to base ten - every place boundary writes
-    exactly one space and a blank place writes one of its own, so a
-    well-formed string holds exactly (places - 1) spaces:
+    The ones column uses the unit set, the tens column the tens set,
+    the hundreds the unit set again, and so on.
 
-    rod-nine rod-three   = 23
-    rod-one  [blank] rod-one = 101     (the blank tens column)
-    rod-one  [blank][blank]   = 100    (trailing blanks are spaces too)
+    For most of their history the rods had no zero: an empty column
+    was just left empty.  Here every pair of neighbouring columns is
+    separated by one space, and an empty column writes nothing, so
+    the number of spaces is always (number of columns - 1):
 
-    That law is what lets the blank survive the round trip: the
-    parser sets places = spaces + 1, reads the leftmost glyph at
-    place places - 1, and every glyph's form must match its place's
-    parity - the unit-set rod for 11 where the tens-set one belongs
-    is the rod version of a Babylonian missing-zero.
+    𝍪␣𝍢     = 23    (tens-form two, unit-form three)
+    𝍠␣␣𝍠    = 101   (empty tens column)
+    𝍠␣␣     = 100   (empty tens and ones columns)
 
-    The signs are spelled as universal character names, which keeps
-    this source pure ASCII.
+    (␣ marks a space.)
 
-    Reference: https://en.wikipedia.org/wiki/Counting_rods
+    That rule lets an empty column survive being written and read
+    back: the reader counts the spaces to find how many columns there
+    are, then checks that each rod uses the right form for its
+    column.
+
+    The code spells the signs as \U escapes so the exact code point
+    is visible; the comments show the signs themselves.
+
+    Further reading: https://en.wikipedia.org/wiki/Counting_rods
 */
 #include <assert.h>
 #include <string.h>
 
 #include "pantheon.h"
 
-#define RODS_PREFIX "\xF0\x9D\x8D" /* F0 9D 8D: the shared 3-byte stem of all 18 rods */
+#define RODS_PREFIX "\xF0\x9D\x8D" /* F0 9D 8D: the first 3 bytes of all 18 rods */
 #define RODS_LO     0xA0           /* last byte of U+1D360 ROD UNIT ONE   */
 #define RODS_MID    0xA9           /* last byte of U+1D369 ROD TENS ONE  */
 #define RODS_HI     0xB1           /* last byte of U+1D371 ROD TENS NINE */
-#define SIGN_BYTES  4              /* all rods are SMP: 4 UTF-8 bytes    */
+#define SIGN_BYTES  4              /* each rod is 4 bytes in UTF-8      */
 
-/* set 0 = unit digits (even places), set 1 = tens digits (odd places). */
+/* set 0: unit digits (ones, hundreds, ...); set 1: tens digits (tens, thousands, ...). */
 static const char* const signs[2][9] = {
     {"\U0001D360", "\U0001D361", "\U0001D362", "\U0001D363", "\U0001D364", "\U0001D365",
      "\U0001D366", "\U0001D367", "\U0001D368"},
@@ -75,12 +77,11 @@ static const uint64_t pow10[PN_ROD_MAX_PLACES] = {1ull,
                                                   1000000000000000000ull};
 
 size_t pn_rods_render_size(uint64_t n) {
-    /* This answer never fails.  For n within PN_ROD_MAX_VALUE it is
-	 *exactly 4 * (count of nonzero digits) + (count of digits - 1):
-	  *each place boundary from the top down to the units writes one
-	  *space.  A bigger n keeps counting as though the extra columns
-	  *could still be drawn, and the answer simply means nothing —
-	  *render turns it down with a PN_ERROR_RANGE note anyway. */
+    /* Never fails.  For n up to PN_ROD_MAX_VALUE it is exactly
+           4 x (number of nonzero digits) + (number of digits - 1): 4 bytes
+           per rod, plus one space between neighbouring columns.  For a
+           bigger n the answer means nothing, and pn_rods_render reports
+           PN_ERROR_RANGE. */
     size_t bytes = 0;
     int n_digits = 0;
 
@@ -107,7 +108,7 @@ char* _Nullable pn_rods_render(uint64_t n, char* _Nonnull buf, size_t buflen,
         return NULL;
     }
 
-    const size_t need = pn_rods_render_size(n); /*exact: buflen must hold +NUL */
+    const size_t need = pn_rods_render_size(n); /* exact, so buflen must also hold the 0 byte */
 
     if (buflen <= need) {
         if (error) {
@@ -120,7 +121,7 @@ char* _Nullable pn_rods_render(uint64_t n, char* _Nonnull buf, size_t buflen,
         return NULL;
     }
 
-    uint8_t dig[PN_ROD_MAX_PLACES]; /*dig[i] = the digit at place i */
+    uint8_t dig[PN_ROD_MAX_PLACES]; /* dig[i] is the digit in column i (0 is the ones) */
     int m = 0;
 
     while (n != 0) {
@@ -128,11 +129,11 @@ char* _Nullable pn_rods_render(uint64_t n, char* _Nonnull buf, size_t buflen,
         n /= 10u;
     }
 
-    char* q = buf; /* safe: need is exact and checked against buflen */
+    char* q = buf; /* safe: the size was checked above */
 
-    for (int i = m - 1; i >= 0; i--) { /*most significant first */
+    for (int i = m - 1; i >= 0; i--) { /* biggest column first */
         if (i != m - 1) {
-            *q++ = ' '; /*one space per place boundary */
+            *q++ = ' '; /* one space between neighbouring columns */
         }
         if (dig[i] != 0u) {
             const char* g = signs[i & 1][dig[i] - 1u];
@@ -141,38 +142,37 @@ char* _Nullable pn_rods_render(uint64_t n, char* _Nonnull buf, size_t buflen,
             q += SIGN_BYTES;
         }
     }
-    *q = '\0'; /* n == 0: the blank board, then the NUL */
+    *q = '\0'; /* n == 0 writes an empty string */
     return buf;
 }
 
-/* Parsing reads the board back.
+/* Reading is the reverse of writing.  The text is rods and spaces
+   following the spacing rule above, so the number of columns is the
+   number of spaces + 1.  The first rod is in the top column; each
+   space moves one column down.  Each rod's form (unit or tens set)
+   must match its column.
 
-   The whole string is rods and spaces in canonical spacing.  The
-   blank column - for two thousand years it had no symbol - is a
-   space, so the spaces count exactly (places - 1) and the parser
-   recovers places = spaces + 1 from it: the leftmost glyph sits at
-   place places - 1, each run of r spaces moves the place along by
-   r, and each glyph's set must match its place's parity (the
-   alternating orientation is how the reader kept count of columns).
-   A foreign byte, a sign cut off short, a leading space, two glyphs
-   touching, or a digit in the wrong column is malformed; more than
-   PN_ROD_MAX_PLACES places is beyond the board, not bad grammar -
-   the same ruling the Egyptian scribe hands ten strokes. */
+   Rejected as PN_ERROR_SYNTAX: bytes that aren't rods, a rod cut off
+   in the middle, a leading space, two rods with no space between
+   them, or a rod in the wrong form for its column.  More than
+   PN_ROD_MAX_PLACES columns is PN_ERROR_RANGE instead (too big, not
+   misspelled), the same way the Egyptian reader treats ten of one
+   sign. */
 
-/* Match a rod at @param p, where at least SIGN_BYTES of room remains
-   to @param end: the set (0 unit, 1 tens) comes back as the answer
-   and the digit 1..9 through @param digit; anything else gives -1. */
+/* Read a rod at p (at least SIGN_BYTES bytes must remain before
+   end).  Returns its set (0 unit, 1 tens) and puts the digit 1 to 9
+   in *digit, or returns -1 if p holds something else. */
 static int match_rod(const char* p, const char* end, int* digit) {
     if (p + SIGN_BYTES > end || memcmp(p, RODS_PREFIX, 3) != 0) {
         return -1;
     }
     const unsigned char b = (unsigned char) p[3];
 
-    if (b >= RODS_LO && b <= RODS_LO + 8u) { /*U+1D360..U+1D368 */
+    if (b >= RODS_LO && b <= RODS_LO + 8u) { /* U+1D360 to U+1D368 */
         *digit = (int) (b - RODS_LO) + 1;
         return 0;
     }
-    if (b >= RODS_MID && b <= RODS_HI) { /*U+1D369..U+1D371 */
+    if (b >= RODS_MID && b <= RODS_HI) { /* U+1D369 to U+1D371 */
         *digit = (int) (b - RODS_MID) + 1;
         return 1;
     }
@@ -183,7 +183,7 @@ uint64_t* _Nullable pn_rods_parse(const char* _Nonnull buf, size_t buflen, uint6
                                   pn_error* _Nullable* _Nullable error) {
     assert(buf && out);
     if (buflen == 0) {
-        *out = 0; /* the empty board reads back as 0 */
+        *out = 0; /* an empty string reads as 0 */
         return out;
     }
     if (buf[0] == ' ') {
@@ -193,14 +193,14 @@ uint64_t* _Nullable pn_rods_parse(const char* _Nonnull buf, size_t buflen, uint6
         return NULL;
     }
 
-    size_t spaces = 0; /*counted first: it defines the places */
+    size_t spaces = 0; /* counted first: it gives the number of columns */
 
     for (size_t i = 0; i < buflen; i++) {
         if (buf[i] == ' ') {
             spaces++;
         }
     }
-    const int m = (int) (spaces + 1u); /*the top place is m - 1 */
+    const int m = (int) (spaces + 1u); /* the top column is m - 1 */
 
     if (m > PN_ROD_MAX_PLACES) {
         if (error) {
@@ -213,7 +213,7 @@ uint64_t* _Nullable pn_rods_parse(const char* _Nonnull buf, size_t buflen, uint6
         return NULL;
     }
 
-    uint64_t sum = 0; /*built here; *out keeps its old value unless all works */
+    uint64_t sum = 0; /* built here; *out changes only if the whole parse succeeds */
     int place = m - 1;
     int glyphs = 0;
     bool after_glyph = false;
@@ -221,7 +221,7 @@ uint64_t* _Nullable pn_rods_parse(const char* _Nonnull buf, size_t buflen, uint6
 
     while (p < end) {
         if (*p == ' ') {
-            place--; /*every space advances one place */
+            place--; /* each space moves down one column */
             after_glyph = false;
             p++;
             continue;
@@ -263,8 +263,8 @@ uint64_t* _Nullable pn_rods_parse(const char* _Nonnull buf, size_t buflen, uint6
             return NULL;
         }
 
-        /* No overflow possible: place < m <= PN_ROD_MAX_PLACES caps
-		   *the sum at 9 * (10^18 + ... + 1) = PN_ROD_MAX_VALUE. */
+        /* Can't overflow: with at most PN_ROD_MAX_PLACES columns the
+                   total is at most 9 x (10^18 + ... + 1) = PN_ROD_MAX_VALUE. */
         sum += (uint64_t) digit * pow10[place];
         glyphs++;
         after_glyph = true;
