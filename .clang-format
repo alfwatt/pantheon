@@ -1,9 +1,9 @@
-# Derived from the c-style-guide skill (the house style authority).
-# Choices the guide lists that clang-format cannot express — `else`
-# dedent producing outer-level closing braces, blank line before
-# `return`, mandatory braces, ///-doc rhythm — are enforced by review,
-# not here.  See the guide as the source of truth; this file as best
-# effort.
+# House layout: the single source of truth for how C, Objective-C
+# and C++ source is laid out.  Kept in the tidy skill
+# (~/.claude/skills/tidy/house.clang-format) and copied verbatim into
+# each project as .clang-format.  The c-style-guide skill covers
+# naming, API shape and documentation, and defers all layout to this
+# file: if the output looks wrong, change this file, not the code.
 Language: Cpp
 BasedOnStyle: LLVM
 IndentWidth: 4
@@ -22,7 +22,8 @@ BraceWrapping:
   AfterCaseLabel: false
   BeforeElse: true
 
-# Star binds to the type: pn_error *error -> pn_error* error.
+# Star binds to the type: char *key -> char* key, and the error
+# out-param spells lit_error* _Nullable* _Nullable error.
 PointerAlignment: Left
 DerivePointerAlignment: false
 
@@ -31,20 +32,28 @@ ReflowComments: false
 
 ColumnLimit: 100
 
-# #define values align in a column (Guide: Formatting).
+# #define values align in a column.
 AlignConsecutiveMacros: AcrossComments
 AlignConsecutiveAssignments: None
 AlignConsecutiveDeclarations: None
 AlignEscapedNewlines: Left
 
-# (type) value — the guide's preferred cast spelling.
+# Hanging chains lead with the operator, aligned under the start of
+# the condition: `&& b`, `|| c`, `? x`, `: y`.
+BreakBeforeBinaryOperators: NonAssignment
+BreakBeforeTernaryOperators: true
+AlignOperands: Align
+
+# Casts are spelled (type) value.
 SpaceAfterCStyleCast: true
 
-# The house include order (own header, stdlib, POSIX) is deliberate.
+# Include order (own header, stdlib, POSIX, frameworks, vendored) is
+# deliberate; see c-style-guide Headers and includes.
 SortIncludes: false
 
-# Keep one-statement bodies on their own line; the guide wants braces
-# added around them, which is a review fix, not a merge.
+# All control statements are braced, even one-statement bodies;
+# the braced body sits on its own lines.
+InsertBraces: true
 AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
 AllowShortBlocksOnASingleLine: Never

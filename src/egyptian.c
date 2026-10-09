@@ -71,20 +71,24 @@ char* _Nullable pn_egyptian_render(uint64_t n, char* _Nonnull buf, size_t buflen
         /*  There is no sign above the Heh, so ten Heh signs are
   not something this module writes.
 */
-        if (error) *error = pn_error_init(PN_ERROR_RANGE,
-                                          "%llu needs ten or more signs of one kind;"
-                                          " the biggest sign is the Heh at 1000000",
-                                          (unsigned long long) n);
+        if (error) {
+            *error = pn_error_init(PN_ERROR_RANGE,
+                                   "%llu needs ten or more signs of one kind;"
+                                   " the biggest sign is the Heh at 1000000",
+                                   (unsigned long long) n);
+        }
         return NULL;
     }
 
     /* render_size is exact: buflen has to hold its bytes plus a NUL */
     size_t need = pn_egyptian_render_size(n);
     if (buflen <= need) {
-        if (error) *error = pn_error_init(PN_ERROR_BUFFER,
-                                          "buffer holds %zu bytes; %llu needs %zu plus"
-                                          " the terminating NUL",
-                                          buflen, (unsigned long long) n, need);
+        if (error) {
+            *error = pn_error_init(PN_ERROR_BUFFER,
+                                   "buffer holds %zu bytes; %llu needs %zu plus"
+                                   " the terminating NUL",
+                                   buflen, (unsigned long long) n, need);
+        }
         return NULL;
     }
 
@@ -125,35 +129,40 @@ uint64_t* _Nullable pn_egyptian_parse(const char* _Nonnull buf, size_t buflen,
     while (p < end) {
         int found = -1;
 
-        for (int i = 0; i < N_SIGNS; i++)
+        for (int i = 0; i < N_SIGNS; i++) {
             if (p + SIGN_BYTES <= end && memcmp(p, signs[i], SIGN_BYTES) == 0) {
                 found = i;
                 break;
             }
+        }
         if (found < 0) {
             /*  a byte no sign starts with, or a sign with
   bytes cut off its end
 */
             size_t room = (size_t) (end - p);
 
-            if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                              "byte at position %zu of %zu does not"
-                                              " start a hieroglyphic sign (%zu bytes"
-                                              " left there: not enough)"
-                                              "%s",
-                                              (size_t) (p - buf), buflen, room,
-                                              room < SIGN_BYTES ? " - a sign is 4"
-                                              " bytes whole"
-                                              : "");
+            if (error) {
+                *error = pn_error_init(PN_ERROR_SYNTAX,
+                                       "byte at position %zu of %zu does not"
+                                       " start a hieroglyphic sign (%zu bytes"
+                                       " left there: not enough)"
+                                       "%s",
+                                       (size_t) (p - buf), buflen, room,
+                                       room < SIGN_BYTES ? " - a sign is 4"
+                                                           " bytes whole"
+                                                         : "");
+            }
             return NULL;
         }
         if (prev >= 0 && found <= prev) {
-            if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                              "the sign at position %zu does not step"
-                                              " down in power: runs must go from the"
-                                              " Heh toward the stroke, and one sign"
-                                              " gets a single run",
-                                              (size_t) (p - buf));
+            if (error) {
+                *error = pn_error_init(PN_ERROR_SYNTAX,
+                                       "the sign at position %zu does not step"
+                                       " down in power: runs must go from the"
+                                       " Heh toward the stroke, and one sign"
+                                       " gets a single run",
+                                       (size_t) (p - buf));
+            }
             return NULL;
         }
 
@@ -161,12 +170,14 @@ uint64_t* _Nullable pn_egyptian_parse(const char* _Nonnull buf, size_t buflen,
         do {
             p += SIGN_BYTES;
             if (++count > 9u) {
-                if (error) *error = pn_error_init(PN_ERROR_RANGE,
-                                                  "ten copies of one sign at"
-                                                  " position %zu: ten strokes are"
-                                                  " written as one hobble, scribe"
-                                                  " - a run holds 1 to 9",
-                                                  (size_t) (p - buf) - SIGN_BYTES);
+                if (error) {
+                    *error = pn_error_init(PN_ERROR_RANGE,
+                                           "ten copies of one sign at"
+                                           " position %zu: ten strokes are"
+                                           " written as one hobble, scribe"
+                                           " - a run holds 1 to 9",
+                                           (size_t) (p - buf) - SIGN_BYTES);
+                }
                 return NULL;
             }
         } while (p + SIGN_BYTES <= end && memcmp(p, signs[found], SIGN_BYTES) == 0);

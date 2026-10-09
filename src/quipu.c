@@ -77,12 +77,15 @@ static const uint64_t pow10[PN_QUIPU_MAX_PLACES] = {1ull,
    cut off in the middle of its UTF-8 - the room check says its bytes
    are no knot. */
 static int quipu_match_knot(const char* p, const char* end) {
-    if (p + SIGN_BYTES > end)
+    if (p + SIGN_BYTES > end) {
         return -1;
-    if (memcmp(p, SIMPLE_PREFIX, SIGN_BYTES) == 0)
+    }
+    if (memcmp(p, SIMPLE_PREFIX, SIGN_BYTES) == 0) {
         return 0;
-    if (memcmp(p, FIGURE_PREFIX, SIGN_BYTES) == 0)
+    }
+    if (memcmp(p, FIGURE_PREFIX, SIGN_BYTES) == 0) {
         return 1;
+    }
     return -1;
 }
 
@@ -105,15 +108,17 @@ static size_t quipu_emit(uint64_t n, char* buf) {
 
     for (int i = m - 1; i >= 0; i--) { /*top of the pendant */
         if (i != m - 1) {
-            if (buf != NULL)
+            if (buf != NULL) {
                 buf[bytes] = ' '; /*one boundary per place step */
+            }
             bytes += 1u;
         }
         const char* sign = (i == 0) ? FIGURE_PREFIX : SIMPLE_PREFIX;
 
         for (size_t k = 0; k < (size_t) dig[i]; k++) { /*whole knots only */
-            if (buf != NULL)
+            if (buf != NULL) {
                 memcpy(buf + bytes + k * SIGN_BYTES, sign, SIGN_BYTES);
+            }
         }
         bytes += (size_t) dig[i] * SIGN_BYTES; /*a blank place adds none */
     }
@@ -133,21 +138,25 @@ char* _Nullable pn_quipu_render(uint64_t n, char* _Nonnull buf, size_t buflen,
                                 pn_error* _Nullable* _Nullable error) {
     assert(buf);
     if (n > PN_QUIPU_MAX_VALUE) {
-        if (error) *error = pn_error_init(PN_ERROR_RANGE,
-                                          "%llu needs a twentieth line: 10^19"
-                                          " no longer fits the cord",
-                                          (unsigned long long) n);
+        if (error) {
+            *error = pn_error_init(PN_ERROR_RANGE,
+                                   "%llu needs a twentieth line: 10^19"
+                                   " no longer fits the cord",
+                                   (unsigned long long) n);
+        }
         return NULL;
     }
 
     const size_t need = quipu_emit(n, NULL); /*exact: buflen must hold +NUL */
 
     if (buflen <= need) {
-        if (error) *error = pn_error_init(PN_ERROR_BUFFER,
-                                          "buffer holds %zu bytes; this cord"
-                                          " needs %zu plus the terminating"
-                                          " NUL",
-                                          buflen, need);
+        if (error) {
+            *error = pn_error_init(PN_ERROR_BUFFER,
+                                   "buffer holds %zu bytes; this cord"
+                                   " needs %zu plus the terminating"
+                                   " NUL",
+                                   buflen, need);
+        }
         return NULL;
     }
     (void) quipu_emit(n, buf);
@@ -178,22 +187,27 @@ uint64_t* _Nullable pn_quipu_parse(const char* _Nonnull buf, size_t buflen, uint
         return out;
     }
     if (buf[0] == ' ') {
-        if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                          "the cord never starts inside a"
-                                          " gutter");
+        if (error) {
+            *error = pn_error_init(PN_ERROR_SYNTAX, "the cord never starts inside a"
+                                                    " gutter");
+        }
         return NULL;
     }
 
     size_t spaces = 0; /*counted first: it defines the places */
 
-    for (size_t i = 0; i < buflen; i++)
-        if (buf[i] == ' ')
+    for (size_t i = 0; i < buflen; i++) {
+        if (buf[i] == ' ') {
             spaces++;
+        }
+    }
     if (spaces + 1u > (size_t) PN_QUIPU_MAX_PLACES) {
-        if (error) *error = pn_error_init(PN_ERROR_RANGE,
-                                          "%zu space(s) ask for %zu places:"
-                                          " more cord than a uint64_t holds",
-                                          spaces, spaces + 1u);
+        if (error) {
+            *error = pn_error_init(PN_ERROR_RANGE,
+                                   "%zu space(s) ask for %zu places:"
+                                   " more cord than a uint64_t holds",
+                                   spaces, spaces + 1u);
+        }
         return NULL;
     }
 
@@ -210,12 +224,15 @@ uint64_t* _Nullable pn_quipu_parse(const char* _Nonnull buf, size_t buflen, uint
             if (col_count != 0) {      /*a boundary ends this column */
                 if (col_place != place /*gutter inside the run, or   */
                     || (col_kind == 1) != (place == 0)) {
-                    if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                                      "%d knot(s) of the %s family sit"
-                                                      " in the wrong line (the %s line"
-                                                      " alone takes them)",
-                                                      col_count, (col_kind == 1) ? "figure-eight" : "simple",
-                                                      (place == 0) ? "units" : "upper");
+                    if (error) {
+                        *error =
+                            pn_error_init(PN_ERROR_SYNTAX,
+                                          "%d knot(s) of the %s family sit"
+                                          " in the wrong line (the %s line"
+                                          " alone takes them)",
+                                          col_count, (col_kind == 1) ? "figure-eight" : "simple",
+                                          (place == 0) ? "units" : "upper");
+                    }
                     return NULL;
                 }
                 sum += (uint64_t) col_count * pow10[place];
@@ -230,34 +247,40 @@ uint64_t* _Nullable pn_quipu_parse(const char* _Nonnull buf, size_t buflen, uint
         const int kind = quipu_match_knot(p, end);
 
         if (kind < 0) {
-            if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                              "position %zu of the cord holds a"
-                                              " foreign byte or half a knot",
-                                              (size_t) (p - buf));
+            if (error) {
+                *error = pn_error_init(PN_ERROR_SYNTAX,
+                                       "position %zu of the cord holds a"
+                                       " foreign byte or half a knot",
+                                       (size_t) (p - buf));
+            }
             return NULL;
         }
         if (col_count == 0) { /*the column opens right here */
             if (place < 0) {
-                if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                                  "knots dangling past the free"
-                                                  " end of the cord");
+                if (error) {
+                    *error = pn_error_init(PN_ERROR_SYNTAX, "knots dangling past the free"
+                                                            " end of the cord");
+                }
                 return NULL;
             }
             col_kind = kind;
             col_place = place;
         }
         else if (kind != col_kind) {
-            if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                              "one column never mixes the two"
-                                              " knot families - position %zu"
-                                              " switches families",
-                                              (size_t) (p - buf));
+            if (error) {
+                *error = pn_error_init(PN_ERROR_SYNTAX,
+                                       "one column never mixes the two"
+                                       " knot families - position %zu"
+                                       " switches families",
+                                       (size_t) (p - buf));
+            }
             return NULL;
         }
         if (col_count == 9) {
-            if (error) *error = pn_error_init(PN_ERROR_RANGE,
-                                              "a tenth turn in this column:"
-                                              " a digit holds at most 9");
+            if (error) {
+                *error = pn_error_init(PN_ERROR_RANGE, "a tenth turn in this column:"
+                                                       " a digit holds at most 9");
+            }
             return NULL;
         }
         col_count++;
@@ -265,10 +288,12 @@ uint64_t* _Nullable pn_quipu_parse(const char* _Nonnull buf, size_t buflen, uint
     }
     if (col_count != 0) { /*the units column closes */
         if ((col_kind == 1) != (place == 0)) {
-            if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                              "%d knot(s) of the %s family sit"
-                                              " in the wrong line",
-                                              col_count, (col_kind == 1) ? "figure-eight" : "simple");
+            if (error) {
+                *error = pn_error_init(PN_ERROR_SYNTAX,
+                                       "%d knot(s) of the %s family sit"
+                                       " in the wrong line",
+                                       col_count, (col_kind == 1) ? "figure-eight" : "simple");
+            }
             return NULL;
         }
         sum += (uint64_t) col_count * pow10[place];

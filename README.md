@@ -61,6 +61,10 @@ Consume the library with `-Iinclude build/libpantheon.a` and a single
 - [x] [Roman numerals](https://en.wikipedia.org/wiki/Roman_numerals)
 -       canonical tallied form in ASCII: I V X L C D M with the subtractive digraphs IV IX XL XC CD CM, no clock-maker IIII, Bede's nulla for zero, 0..3,999
 
+#### Fractions
+- [x] [continued fractions](https://en.wikipedia.org/wiki/Continued_fraction)
+-       `pn_fraction`: numerator over denominator in lowest terms, the best rational approximation of a double under a denominator bound (Archimedes' 22/7, Zu Chongzhi's 355/113), parse and format as `355/113`
+
 ### Worked examples
 
 Every rendering below came out of the library itself

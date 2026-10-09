@@ -179,11 +179,13 @@ int main(void) {
     for (uint64_t d = 1; d <= 9; d++) {
         for (unsigned k = 2; k <= 5; k++) {
             uint64_t p = 1;
-            for (unsigned j = 0; j < k; j++)
+            for (unsigned j = 0; j < k; j++) {
                 p *= 10u;
+            }
             uint64_t n = d * p;
-            if (n > PN_GREEK_MAX_VALUE)
+            if (n > PN_GREEK_MAX_VALUE) {
                 continue;
+            }
             char b2[64];
             CHECK_OK(pn_greek_render(n, b2, sizeof b2, &err_), err_);
             uint64_t back = 0;
@@ -286,7 +288,6 @@ int main(void) {
     buf[0] = '?';
     CHECK_ERROR(pn_greek_render(999999u, buf, nine, &err_), err_, PN_ERROR_BUFFER);
     CHECK(buf[0] == '?');
-
 
     return CHECK_RUN();
 }

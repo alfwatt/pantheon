@@ -41,35 +41,41 @@ size_t pn_roman_render_size(uint64_t n) {
     /* This answer never fails.  Past 1..PN_ROMAN_MAX_VALUE it answers
 	 *0 — the empty tally — because turning down the number is
 	  *render's job. */
-    if (n == 0u || n > PN_ROMAN_MAX_VALUE)
+    if (n == 0u || n > PN_ROMAN_MAX_VALUE) {
         return 0u;
-    return strlen(th_row[n / 1000u]) + strlen(h_row[(n / 100u) % 10u]) +
-           strlen(t_row[(n / 10u) % 10u]) + strlen(u_row[n % 10u]);
+    }
+    return strlen(th_row[n / 1000u]) + strlen(h_row[(n / 100u) % 10u])
+           + strlen(t_row[(n / 10u) % 10u]) + strlen(u_row[n % 10u]);
 }
 
 /* Stick one row's letters onto the tally at @w. */
 static void put_row(const char* row, char* buf, size_t* w) {
-    while (*row != '\0')
+    while (*row != '\0') {
         buf[(*w)++] = *row++;
+    }
 }
 
 char* _Nullable pn_roman_render(uint64_t n, char* _Nonnull buf, size_t buflen,
                                 pn_error* _Nullable* _Nullable error) {
     assert(buf);
     if (n > PN_ROMAN_MAX_VALUE) {
-        if (error) *error = pn_error_init(PN_ERROR_RANGE,
-                                          "%llu runs past %llu: the tally"
-                                          " walks no higher than MMM CM XC"
-                                          " IX",
-                                          (unsigned long long) n, (unsigned long long) PN_ROMAN_MAX_VALUE);
+        if (error) {
+            *error = pn_error_init(PN_ERROR_RANGE,
+                                   "%llu runs past %llu: the tally"
+                                   " walks no higher than MMM CM XC"
+                                   " IX",
+                                   (unsigned long long) n, (unsigned long long) PN_ROMAN_MAX_VALUE);
+        }
         return NULL;
     }
     if (buflen < pn_roman_render_size(n) + 1u) {
-        if (error) *error = pn_error_init(PN_ERROR_BUFFER,
-                                          "buffer holds %zu byte(s); this"
-                                          " numeral needs %zu plus a"
-                                          " terminating 0 byte",
-                                          buflen, pn_roman_render_size(n));
+        if (error) {
+            *error = pn_error_init(PN_ERROR_BUFFER,
+                                   "buffer holds %zu byte(s); this"
+                                   " numeral needs %zu plus a"
+                                   " terminating 0 byte",
+                                   buflen, pn_roman_render_size(n));
+        }
         return NULL;
     }
 
@@ -124,12 +130,14 @@ uint64_t* _Nullable pn_roman_parse(const char* _Nonnull buf, size_t buflen, uint
             }
         }
         if (!matched) {
-            if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                              "position %zu starts no"
-                                              " Roman token: a run of"
-                                              " letters the canon does"
-                                              " not spell ends the walk",
-                                              i);
+            if (error) {
+                *error = pn_error_init(PN_ERROR_SYNTAX,
+                                       "position %zu starts no"
+                                       " Roman token: a run of"
+                                       " letters the canon does"
+                                       " not spell ends the walk",
+                                       i);
+            }
             return NULL;
         }
     }
@@ -146,11 +154,14 @@ uint64_t* _Nullable pn_roman_parse(const char* _Nonnull buf, size_t buflen, uint
 
     pn_error_free(inner); /* its verdict is already ours */
     if (!ok || strlen(back) != buflen || memcmp(back, buf, buflen) != 0) {
-        if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                          "\"%.*s\" does not spell the"
-                                          " canon for %llu: the tally"
-                                          " must render back to itself",
-                                          (int) (buflen > 64 ? 64 : buflen), buf, (unsigned long long) sum);
+        if (error) {
+            *error =
+                pn_error_init(PN_ERROR_SYNTAX,
+                              "\"%.*s\" does not spell the"
+                              " canon for %llu: the tally"
+                              " must render back to itself",
+                              (int) (buflen > 64 ? 64 : buflen), buf, (unsigned long long) sum);
+        }
         return NULL;
     }
 

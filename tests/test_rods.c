@@ -55,8 +55,8 @@ int main(void) {
     render_ok(1u, buf, sizeof buf);
     CHECK(strcmp(buf, U1) == 0);
     /* the one's raw bytes pinned, as the stroke's are */
-    CHECK((unsigned char) buf[0] == 0xF0 && (unsigned char) buf[1] == 0x9D &&
-          (unsigned char) buf[2] == 0x8D && (unsigned char) buf[3] == 0xA0);
+    CHECK((unsigned char) buf[0] == 0xF0 && (unsigned char) buf[1] == 0x9D
+          && (unsigned char) buf[2] == 0x8D && (unsigned char) buf[3] == 0xA0);
 
     /* golden renderings */
 
@@ -91,8 +91,9 @@ int main(void) {
         char want[96];
         size_t w = 0;
         for (int i = 18; i >= 0; i--) {
-            if (i != 18)
+            if (i != 18) {
                 want[w++] = ' ';
+            }
             const char* g = (i & 1) == 0 ? U9 : T9;
             memcpy(want + w, g, 4);
             w += 4;
@@ -113,7 +114,6 @@ int main(void) {
     CHECK_ERROR(pn_rods_render(UINT64_MAX, buf, sizeof buf, &err_), err_, PN_ERROR_RANGE);
 
     /* parse error cases */
-
 
     uint64_t probe;
     CHECK_OK(parse_str("", &probe, &err_), err_); /* the empty board is 0 */
@@ -143,8 +143,9 @@ int main(void) {
         char long_str[128]; /* 20 glyphs, 19 joiners */
         size_t w = 0;
         for (int i = 19; i >= 0; i--) {
-            if (i != 19)
+            if (i != 19) {
                 long_str[w++] = ' ';
+            }
             const char* g = (i & 1) == 0 ? U1 : T1; /* 1s in the right sets */
             memcpy(long_str + w, g, 4);
             w += 4;
@@ -155,10 +156,12 @@ int main(void) {
 
     /* round-trip sweep */
 
-    for (uint64_t n = 0; n < 10000; n++)
+    for (uint64_t n = 0; n < 10000; n++) {
         roundtrip(n); /* two places of every shape */
-    for (uint64_t p = 1; p <= 1000000000000000000ull; p *= 10)
-        roundtrip(p);    /* one rod at each height */
+    }
+    for (uint64_t p = 1; p <= 1000000000000000000ull; p *= 10) {
+        roundtrip(p); /* one rod at each height */
+    }
     roundtrip(1010101u); /* blank after blank */
     roundtrip(9090909u);
     roundtrip(10001u);

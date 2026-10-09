@@ -43,12 +43,14 @@ static pn_error* pn_error_build_fmt(pn_error_code code, const char* format, va_l
     va_copy(again, args);
     room = vsnprintf(NULL, 0u, format, again);
     va_end(again);
-    if (room < 0)
+    if (room < 0) {
         abort(); /* a failure to report a failure has no second voice */
+    }
 
     error = malloc(sizeof *error + (size_t) room + 1u);
-    if (error == NULL)
+    if (error == NULL) {
         abort(); /* a failure to report a failure has no second voice */
+    }
     error->code = code;
     text = (char*) (void*) (error + 1);
     vsnprintf(text, (size_t) room + 1u, format, args);
@@ -67,8 +69,9 @@ static const char* pn_error_code_name(pn_error_code code) {
         "buffer"  /* PN_ERROR_BUFFER  */
     };
 
-    if ((unsigned) code < sizeof names / sizeof names[0])
+    if ((unsigned) code < sizeof names / sizeof names[0]) {
         return names[code];
+    }
     return "unknown error";
 }
 
@@ -92,9 +95,11 @@ void pn_error_free(pn_error* error) {
    missing note.  The sentence belongs to the note: it stays alive
    exactly as long as the note does and needs no free of its own. */
 const char* pn_error_describe(const pn_error* error) {
-    if (error == NULL)
+    if (error == NULL) {
         return "no error";
-    if (error->message != NULL)
+    }
+    if (error->message != NULL) {
         return error->message;
+    }
     return pn_error_code_name(error->code);
 }

@@ -399,15 +399,17 @@ static void t_factorize(void) {
     static const uint64_t want_2[] = {2ull};
     CHECK_OK(pn_math_factorize(2ull, f, 72u, &icount, &err_), err_);
     CHECK(icount == 1u); /* factorize(2) */
-    for (size_t i = 0u; i < icount; i++)
+    for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_2[i]);
+    }
     CHECK(pn_math_factorize_size(2ull) == 1u);
     icount = 999u;
     static const uint64_t want_360[] = {2ull, 2ull, 2ull, 3ull, 3ull, 5ull};
     CHECK_OK(pn_math_factorize(360ull, f, 72u, &icount, &err_), err_);
     CHECK(icount == 6u); /* factorize(360) */
-    for (size_t i = 0u; i < icount; i++)
+    for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_360[i]);
+    }
     CHECK(pn_math_factorize_size(360ull) == 6u);
     icount = 999u;
     static const uint64_t want_9223372036854775808[] = {
@@ -418,30 +420,34 @@ static void t_factorize(void) {
         2ull, 2ull, 2ull, 2ull, 2ull, 2ull, 2ull, 2ull, 2ull, 2ull, 2ull};
     CHECK_OK(pn_math_factorize(9223372036854775808ull, f, 72u, &icount, &err_), err_);
     CHECK(icount == 63u); /* factorize(9223372036854775808) */
-    for (size_t i = 0u; i < icount; i++)
+    for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_9223372036854775808[i]);
+    }
     CHECK(pn_math_factorize_size(9223372036854775808ull) == 63u);
     icount = 999u;
     static const uint64_t want_496[] = {2ull, 2ull, 2ull, 2ull, 31ull};
     CHECK_OK(pn_math_factorize(496ull, f, 72u, &icount, &err_), err_);
     CHECK(icount == 5u); /* factorize(496) */
-    for (size_t i = 0u; i < icount; i++)
+    for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_496[i]);
+    }
     CHECK(pn_math_factorize_size(496ull) == 5u);
     icount = 999u;
     static const uint64_t want_8128[] = {2ull, 2ull, 2ull, 2ull, 2ull, 2ull, 127ull};
     CHECK_OK(pn_math_factorize(8128ull, f, 72u, &icount, &err_), err_);
     CHECK(icount == 7u); /* factorize(8128) */
-    for (size_t i = 0u; i < icount; i++)
+    for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_8128[i]);
+    }
     CHECK(pn_math_factorize_size(8128ull) == 7u);
     icount = 999u;
     static const uint64_t want_33550336[] = {2ull, 2ull, 2ull, 2ull, 2ull, 2ull,   2ull,
                                              2ull, 2ull, 2ull, 2ull, 2ull, 8191ull};
     CHECK_OK(pn_math_factorize(33550336ull, f, 72u, &icount, &err_), err_);
     CHECK(icount == 13u); /* factorize(33550336) */
-    for (size_t i = 0u; i < icount; i++)
+    for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_33550336[i]);
+    }
     CHECK(pn_math_factorize_size(33550336ull) == 13u);
     icount = 999u;
     static const uint64_t want_8589869056[] = {2ull, 2ull, 2ull, 2ull, 2ull,     2ull,
@@ -449,8 +455,9 @@ static void t_factorize(void) {
                                                2ull, 2ull, 2ull, 2ull, 131071ull};
     CHECK_OK(pn_math_factorize(8589869056ull, f, 72u, &icount, &err_), err_);
     CHECK(icount == 17u); /* factorize(8589869056) */
-    for (size_t i = 0u; i < icount; i++)
+    for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_8589869056[i]);
+    }
     CHECK(pn_math_factorize_size(8589869056ull) == 17u);
     icount = 999u;
     static const uint64_t want_137438691328[] = {2ull, 2ull, 2ull, 2ull, 2ull,     2ull, 2ull,
@@ -458,8 +465,9 @@ static void t_factorize(void) {
                                                  2ull, 2ull, 2ull, 2ull, 524287ull};
     CHECK_OK(pn_math_factorize(137438691328ull, f, 72u, &icount, &err_), err_);
     CHECK(icount == 19u); /* factorize(137438691328) */
-    for (size_t i = 0u; i < icount; i++)
+    for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_137438691328[i]);
+    }
     CHECK(pn_math_factorize_size(137438691328ull) == 19u);
     icount = 999u;
     static const uint64_t want_1152921504576299008[] = {2ull, 2ull, 2ull, 2ull,   2ull,
@@ -467,87 +475,99 @@ static void t_factorize(void) {
                                                         2ull, 2ull, 2ull, 643ull, 218876342693ull};
     CHECK_OK(pn_math_factorize(1152921504576299008ull, f, 72u, &icount, &err_), err_);
     CHECK(icount == 15u); /* factorize(1152921504576299008) */
-    for (size_t i = 0u; i < icount; i++)
+    for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_1152921504576299008[i]);
+    }
     CHECK(pn_math_factorize_size(1152921504576299008ull) == 15u);
     icount = 999u;
     static const uint64_t want_1000000016000000063[] = {1000000007ull, 1000000009ull};
     CHECK_OK(pn_math_factorize(1000000016000000063ull, f, 72u, &icount, &err_), err_);
     CHECK(icount == 2u); /* factorize(1000000016000000063) */
-    for (size_t i = 0u; i < icount; i++)
+    for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_1000000016000000063[i]);
+    }
     CHECK(pn_math_factorize_size(1000000016000000063ull) == 2u);
     icount = 999u;
     static const uint64_t want_1000073001431003663[] = {1000003ull, 1000033ull, 1000037ull};
     CHECK_OK(pn_math_factorize(1000073001431003663ull, f, 72u, &icount, &err_), err_);
     CHECK(icount == 3u); /* factorize(1000073001431003663) */
-    for (size_t i = 0u; i < icount; i++)
+    for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_1000073001431003663[i]);
+    }
     CHECK(pn_math_factorize_size(1000073001431003663ull) == 3u);
     icount = 999u;
     static const uint64_t want_18446744073709551613[] = {13ull, 3889ull, 364870227143809ull};
     CHECK_OK(pn_math_factorize(18446744073709551613ull, f, 72u, &icount, &err_), err_);
     CHECK(icount == 3u); /* factorize(18446744073709551613) */
-    for (size_t i = 0u; i < icount; i++)
+    for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_18446744073709551613[i]);
+    }
     CHECK(pn_math_factorize_size(18446744073709551613ull) == 3u);
     icount = 999u;
     static const uint64_t want_90[] = {2ull, 3ull, 3ull, 5ull};
     CHECK_OK(pn_math_factorize(90ull, f, 72u, &icount, &err_), err_);
     CHECK(icount == 4u); /* factorize(90) */
-    for (size_t i = 0u; i < icount; i++)
+    for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_90[i]);
+    }
     CHECK(pn_math_factorize_size(90ull) == 4u);
     icount = 999u;
     static const uint64_t want_137438953471[] = {223ull, 616318177ull};
     CHECK_OK(pn_math_factorize(137438953471ull, f, 72u, &icount, &err_), err_);
     CHECK(icount == 2u); /* factorize(137438953471) */
-    for (size_t i = 0u; i < icount; i++)
+    for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_137438953471[i]);
+    }
     CHECK(pn_math_factorize_size(137438953471ull) == 2u);
     icount = 999u;
     static const uint64_t want_8191[] = {8191ull};
     CHECK_OK(pn_math_factorize(8191ull, f, 72u, &icount, &err_), err_);
     CHECK(icount == 1u); /* factorize(8191) */
-    for (size_t i = 0u; i < icount; i++)
+    for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_8191[i]);
+    }
     CHECK(pn_math_factorize_size(8191ull) == 1u);
     icount = 999u;
     static const uint64_t want_18446744073709551615[] = {3ull,   5ull,     17ull,     257ull,
                                                          641ull, 65537ull, 6700417ull};
     CHECK_OK(pn_math_factorize(18446744073709551615ull, f, 72u, &icount, &err_), err_);
     CHECK(icount == 7u); /* factorize(18446744073709551615) */
-    for (size_t i = 0u; i < icount; i++)
+    for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_18446744073709551615[i]);
+    }
     CHECK(pn_math_factorize_size(18446744073709551615ull) == 7u);
     icount = 999u;
     static const uint64_t want_1152921504606846975[] = {
         3ull, 3ull, 5ull, 5ull, 7ull, 11ull, 13ull, 31ull, 41ull, 61ull, 151ull, 331ull, 1321ull};
     CHECK_OK(pn_math_factorize(1152921504606846975ull, f, 72u, &icount, &err_), err_);
     CHECK(icount == 13u); /* factorize(1152921504606846975) */
-    for (size_t i = 0u; i < icount; i++)
+    for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_1152921504606846975[i]);
+    }
     CHECK(pn_math_factorize_size(1152921504606846975ull) == 13u);
     icount = 999u;
     static const uint64_t want_649[] = {11ull, 59ull};
     CHECK_OK(pn_math_factorize(649ull, f, 72u, &icount, &err_), err_);
     CHECK(icount == 2u); /* factorize(649) */
-    for (size_t i = 0u; i < icount; i++)
+    for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_649[i]);
+    }
     CHECK(pn_math_factorize_size(649ull) == 2u);
     icount = 999u;
     static const uint64_t want_23[] = {23ull};
     CHECK_OK(pn_math_factorize(23ull, f, 72u, &icount, &err_), err_);
     CHECK(icount == 1u); /* factorize(23) */
-    for (size_t i = 0u; i < icount; i++)
+    for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_23[i]);
+    }
     CHECK(pn_math_factorize_size(23ull) == 1u);
     icount = 999u;
     static const uint64_t want_18446744073709551557[] = {18446744073709551557ull};
     CHECK_OK(pn_math_factorize(18446744073709551557ull, f, 72u, &icount, &err_), err_);
     CHECK(icount == 1u); /* factorize(18446744073709551557) */
-    for (size_t i = 0u; i < icount; i++)
+    for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_18446744073709551557[i]);
+    }
     CHECK(pn_math_factorize_size(18446744073709551557ull) == 1u);
     icount = 999u;
     static const uint64_t want_12157665459056928801[] = {
@@ -556,8 +576,9 @@ static void t_factorize(void) {
         3ull, 3ull, 3ull, 3ull, 3ull, 3ull, 3ull, 3ull, 3ull, 3ull, 3ull, 3ull};
     CHECK_OK(pn_math_factorize(12157665459056928801ull, f, 72u, &icount, &err_), err_);
     CHECK(icount == 40u); /* factorize(12157665459056928801) */
-    for (size_t i = 0u; i < icount; i++)
+    for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_12157665459056928801[i]);
+    }
     CHECK(pn_math_factorize_size(12157665459056928801ull) == 40u);
     icount = 999u;
     /* cap short of the 40 threes of 3^40: buffer error, count silent */
@@ -576,8 +597,9 @@ static void t_factorize_sweep(void) {
         CHECK(cnt == pn_math_factorize_size(n));
         for (size_t i = 0u; i < cnt; i++) {
             CHECK(f[i] >= 2ull);
-            if (i > 0u)
+            if (i > 0u) {
                 CHECK(f[i - 1u] <= f[i]); /* ascending */
+            }
             prod *= f[i];
         }
         CHECK(prod == n); /* the braid re-weaves */

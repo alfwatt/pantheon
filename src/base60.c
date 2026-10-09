@@ -39,13 +39,17 @@ static const uint64_t pow60_exact[] = {
    at the struct by hand must not be able to push the other
    functions into misbehaving. */
 static int well_formed(pn_base60 v) {
-    if (v.n_places == 0 || v.n_places > PN_BASE60_MAX_PLACES)
+    if (v.n_places == 0 || v.n_places > PN_BASE60_MAX_PLACES) {
         return 0;
-    if (v.radix > v.n_places)
+    }
+    if (v.radix > v.n_places) {
         return 0;
-    for (unsigned i = 0; i < v.n_places; i++)
-        if (v.places[i] > 59)
+    }
+    for (unsigned i = 0; i < v.n_places; i++) {
+        if (v.places[i] > 59) {
             return 0;
+        }
+    }
     return 1;
 }
 
@@ -77,52 +81,63 @@ pn_base60 pn_base60_parse(const char* _Nonnull text, pn_error* _Nullable* _Nulla
             nd++;
         }
         if (nd == 0) {
-            if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                              "a place needs one or two digits;"
-                                              " found none at byte %zu of the"
-                                              " string",
-                                              (size_t) (p - text));
+            if (error) {
+                *error = pn_error_init(PN_ERROR_SYNTAX,
+                                       "a place needs one or two digits;"
+                                       " found none at byte %zu of the"
+                                       " string",
+                                       (size_t) (p - text));
+            }
             return (pn_base60) {0};
         }
         if (nd > 2 || d > 59u) {
-            if (error) *error = pn_error_init(PN_ERROR_RANGE,
-                                              "place %u reads %u: a place holds 0"
-                                              " to 59, written with 1 to 2 digits"
-                                              " \"%.*s...\" included %s",
-                                              v.n_places, d, nd > 3 ? 3 : nd, p - nd,
-                                              nd > 2 ? "(three or more digits)" : "(a place above 59)");
+            if (error) {
+                *error = pn_error_init(PN_ERROR_RANGE,
+                                       "place %u reads %u: a place holds 0"
+                                       " to 59, written with 1 to 2 digits"
+                                       " \"%.*s...\" included %s",
+                                       v.n_places, d, nd > 3 ? 3 : nd, p - nd,
+                                       nd > 2 ? "(three or more digits)" : "(a place above 59)");
+            }
             return (pn_base60) {0};
         }
         if (v.n_places == PN_BASE60_MAX_PLACES) {
-            if (error) *error = pn_error_init(PN_ERROR_RANGE,
-                                              "a value holds at most %u places"
-                                              " (60^%u runs past what the type"
-                                              " stores)",
-                                              PN_BASE60_MAX_PLACES, PN_BASE60_MAX_PLACES);
+            if (error) {
+                *error = pn_error_init(PN_ERROR_RANGE,
+                                       "a value holds at most %u places"
+                                       " (60^%u runs past what the type"
+                                       " stores)",
+                                       PN_BASE60_MAX_PLACES, PN_BASE60_MAX_PLACES);
+            }
             return (pn_base60) {0};
         }
 
         v.places[v.n_places++] = (uint8_t) d;
 
-        if (*p == '\0')
+        if (*p == '\0') {
             break;
+        }
         if (*p == ';') {
             if (radix >= 0) {
-                if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                                  "a second ';' at byte %zu:"
-                                                  " the string gets one radix"
-                                                  " point at most",
-                                                  (size_t) (p - text));
+                if (error) {
+                    *error = pn_error_init(PN_ERROR_SYNTAX,
+                                           "a second ';' at byte %zu:"
+                                           " the string gets one radix"
+                                           " point at most",
+                                           (size_t) (p - text));
+                }
                 return (pn_base60) {0};
             }
             radix = v.n_places; /* places left of the point */
         }
         else if (*p != ',' && *p != ':') {
-            if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                              "byte %zu of the string must join"
-                                              " places with ',' ':' or ';' or"
-                                              " end the value",
-                                              (size_t) (p - text));
+            if (error) {
+                *error = pn_error_init(PN_ERROR_SYNTAX,
+                                       "byte %zu of the string must join"
+                                       " places with ',' ':' or ';' or"
+                                       " end the value",
+                                       (size_t) (p - text));
+            }
             return (pn_base60) {0};
         }
         p++;
@@ -138,9 +153,10 @@ char* _Nullable pn_base60_format(pn_base60 value, char place_sep,
     char* buffer = malloc(PN_BASE60_FORMAT_MAX_LEN);
 
     if (buffer == NULL) {
-        if (error) *error = pn_error_init(PN_ERROR_BUFFER,
-                                          "no room for a %u byte buffer",
-                                          (unsigned) PN_BASE60_FORMAT_MAX_LEN);
+        if (error) {
+            *error = pn_error_init(PN_ERROR_BUFFER, "no room for a %u byte buffer",
+                                   (unsigned) PN_BASE60_FORMAT_MAX_LEN);
+        }
         return NULL;
     }
 
@@ -156,19 +172,23 @@ char* _Nullable pn_base60_format_into(pn_base60 value, char place_sep, char* _No
                                       size_t buflen, pn_error* _Nullable* _Nullable error) {
     assert(buffer);
     if (place_sep != ',' && place_sep != ':' && place_sep != ';') {
-        if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                          "places may be joined with ',' ':'"
-                                          " or ';' only, not '%c'",
-                                          place_sep);
+        if (error) {
+            *error = pn_error_init(PN_ERROR_SYNTAX,
+                                   "places may be joined with ',' ':'"
+                                   " or ';' only, not '%c'",
+                                   place_sep);
+        }
         return NULL;
     }
     if (!well_formed(value)) {
-        if (error) *error = pn_error_init(PN_ERROR_DOMAIN,
-                                          "the value is not well-formed:"
-                                          " %u places, radix %u - places need"
-                                          " 1 to %u slots, each 0 to 59, and"
-                                          " the radix cannot pass n_places",
-                                          value.n_places, value.radix, PN_BASE60_MAX_PLACES);
+        if (error) {
+            *error = pn_error_init(PN_ERROR_DOMAIN,
+                                   "the value is not well-formed:"
+                                   " %u places, radix %u - places need"
+                                   " 1 to %u slots, each 0 to 59, and"
+                                   " the radix cannot pass n_places",
+                                   value.n_places, value.radix, PN_BASE60_MAX_PLACES);
+        }
         return NULL;
     }
 
@@ -180,26 +200,31 @@ char* _Nullable pn_base60_format_into(pn_base60 value, char place_sep, char* _No
     char tmp[PN_BASE60_FORMAT_MAX_LEN];
     char* q = tmp;
 
-    if (value.neg)
+    if (value.neg) {
         *q++ = '-';
+    }
     for (unsigned i = 0; i < value.n_places; i++) {
-        if (i > 0)
+        if (i > 0) {
             *q++ = (i == value.radix && value.radix < value.n_places) ? ';' : place_sep;
+        }
         unsigned d = value.places[i];
 
-        if (i > 0 || d >= 10) /* the first place drops its leading zero */
+        if (i > 0 || d >= 10) { /* the first place drops its leading zero */
             *q++ = (char) ('0' + (int) (d / 10u));
+        }
         *q++ = (char) ('0' + (int) (d % 10u));
     }
 
     size_t len = (size_t) (q - tmp);
 
     if (len + 1 > buflen) {
-        if (error) *error = pn_error_init(PN_ERROR_BUFFER,
-                                          "buffer holds %zu bytes; this value"
-                                          " needs %zu plus the terminating"
-                                          " NUL",
-                                          buflen, len);
+        if (error) {
+            *error = pn_error_init(PN_ERROR_BUFFER,
+                                   "buffer holds %zu bytes; this value"
+                                   " needs %zu plus the terminating"
+                                   " NUL",
+                                   buflen, len);
+        }
         return NULL;
     }
     memcpy(buffer, tmp, len);
@@ -225,12 +250,14 @@ pn_base60* _Nullable pn_base60_from_u64(uint64_t n, pn_base60* _Nonnull out,
 
     do {
         if (k == PN_BASE60_MAX_PLACES) {
-            if (error) *error = pn_error_init(PN_ERROR_RANGE,
-                                              "this many base-60 places will not"
-                                              " fit the value (the guard reads as"
-                                              " unreachable: 2^64 needs 11 places,"
-                                              " the type holds %u)",
-                                              PN_BASE60_MAX_PLACES);
+            if (error) {
+                *error = pn_error_init(PN_ERROR_RANGE,
+                                       "this many base-60 places will not"
+                                       " fit the value (the guard reads as"
+                                       " unreachable: 2^64 needs 11 places,"
+                                       " the type holds %u)",
+                                       PN_BASE60_MAX_PLACES);
+            }
             return NULL;
         }
         p[k++] = (uint8_t) (n % 60u);
@@ -253,18 +280,22 @@ uint64_t* _Nullable pn_base60_to_u64(pn_base60 v, uint64_t* _Nonnull out,
                                      pn_error* _Nullable* _Nullable error) {
     assert(out);
     if (v.n_places == 0 || v.n_places > PN_BASE60_MAX_PLACES || v.radix > v.n_places) {
-        if (error) *error = pn_error_init(PN_ERROR_DOMAIN,
-                                          "the value is not well-formed:"
-                                          " %u places, radix %u",
-                                          v.n_places, v.radix);
+        if (error) {
+            *error = pn_error_init(PN_ERROR_DOMAIN,
+                                   "the value is not well-formed:"
+                                   " %u places, radix %u",
+                                   v.n_places, v.radix);
+        }
         return NULL;
     }
     if (v.radix != v.n_places) {
-        if (error) *error = pn_error_init(PN_ERROR_DOMAIN,
-                                          "the value has %u fractional place(s)"
-                                          " after the radix point, so it is no"
-                                          " whole number",
-                                          (unsigned) v.n_places - v.radix);
+        if (error) {
+            *error = pn_error_init(PN_ERROR_DOMAIN,
+                                   "the value has %u fractional place(s)"
+                                   " after the radix point, so it is no"
+                                   " whole number",
+                                   (unsigned) v.n_places - v.radix);
+        }
         return NULL;
     }
 
@@ -274,17 +305,21 @@ uint64_t* _Nullable pn_base60_to_u64(pn_base60 v, uint64_t* _Nonnull out,
         uint64_t d = v.places[i];
 
         if (d > 59u) {
-            if (error) *error = pn_error_init(PN_ERROR_DOMAIN,
-                                              "place %u holds %u: a place runs 0"
-                                              " to 59",
-                                              i, (unsigned) d);
+            if (error) {
+                *error = pn_error_init(PN_ERROR_DOMAIN,
+                                       "place %u holds %u: a place runs 0"
+                                       " to 59",
+                                       i, (unsigned) d);
+            }
             return NULL;
         }
         if (acc > (UINT64_MAX - d) / 60u) {
-            if (error) *error = pn_error_init(PN_ERROR_RANGE,
-                                              "the value needs %u base-60 places:"
-                                              " more than a uint64_t can count",
-                                              v.n_places);
+            if (error) {
+                *error = pn_error_init(PN_ERROR_RANGE,
+                                       "the value needs %u base-60 places:"
+                                       " more than a uint64_t can count",
+                                       v.n_places);
+            }
             return NULL;
         }
         acc = acc * 60u + d;
@@ -301,10 +336,12 @@ double* _Nullable pn_base60_to_double(pn_base60 v, double* _Nonnull out,
                                       pn_error* _Nullable* _Nullable error) {
     assert(out);
     if (!well_formed(v)) {
-        if (error) *error = pn_error_init(PN_ERROR_DOMAIN,
-                                          "the value is not well-formed:"
-                                          " %u places, radix %u",
-                                          v.n_places, v.radix);
+        if (error) {
+            *error = pn_error_init(PN_ERROR_DOMAIN,
+                                   "the value is not well-formed:"
+                                   " %u places, radix %u",
+                                   v.n_places, v.radix);
+        }
         return NULL;
     }
 
@@ -325,9 +362,11 @@ double* _Nullable pn_base60_to_double(pn_base60 v, double* _Nonnull out,
         acc = acc * 60u + d;
     }
     val = (double) acc;
-    if (overflowed) /* past uint64 territory: carry on in double */
-        for (; i < v.radix; i++)
+    if (overflowed) { /* past uint64 territory: carry on in double */
+        for (; i < v.radix; i++) {
             val = val * 60.0 + (double) v.places[i];
+        }
+    }
 
     /*  the fraction: one exact whole number F over one exact power
   60^k, which is a single correctly-rounded division while
@@ -339,15 +378,17 @@ double* _Nullable pn_base60_to_double(pn_base60 v, double* _Nonnull out,
         if (k < POW60_COUNT) {
             uint64_t f = 0;
 
-            for (i = v.radix; i < v.n_places; i++)
+            for (i = v.radix; i < v.n_places; i++) {
                 f = f * 60u + v.places[i];
+            }
             val += (double) f / (double) pow60_exact[k];
         }
         else { /* too deep down for exact integers */
             double frac = 0.0;
 
-            for (i = v.n_places; i-- > v.radix;)
+            for (i = v.n_places; i-- > v.radix;) {
                 frac = (frac + (double) v.places[i]) / 60.0;
+            }
             val += frac;
         }
     }
@@ -360,16 +401,19 @@ pn_base60* _Nullable pn_base60_from_double(double x, uint8_t frac_places, pn_bas
                                            pn_error* _Nullable* _Nullable error) {
     assert(out);
     if (isnan(x) || isinf(x)) {
-        if (error) *error = pn_error_init(PN_ERROR_DOMAIN,
-                                          "NaN and infinity name no number a"
-                                          " tablet could hold");
+        if (error) {
+            *error = pn_error_init(PN_ERROR_DOMAIN, "NaN and infinity name no number a"
+                                                    " tablet could hold");
+        }
         return NULL;
     }
     if ((int) frac_places > PN_BASE60_MAX_PLACES) {
-        if (error) *error = pn_error_init(PN_ERROR_DOMAIN,
-                                          "asked for %u fractional places;"
-                                          " the value holds %u places total",
-                                          (unsigned) frac_places, PN_BASE60_MAX_PLACES);
+        if (error) {
+            *error = pn_error_init(PN_ERROR_DOMAIN,
+                                   "asked for %u fractional places;"
+                                   " the value holds %u places total",
+                                   (unsigned) frac_places, PN_BASE60_MAX_PLACES);
+        }
         return NULL;
     }
 
@@ -388,10 +432,12 @@ pn_base60* _Nullable pn_base60_from_double(double x, uint8_t frac_places, pn_bas
 
     while (ip >= 1.0) {
         if (ki == PN_BASE60_MAX_PLACES) {
-            if (error) *error = pn_error_init(PN_ERROR_RANGE,
-                                              "the whole part needs more than %u"
-                                              " base-60 places",
-                                              PN_BASE60_MAX_PLACES);
+            if (error) {
+                *error = pn_error_init(PN_ERROR_RANGE,
+                                       "the whole part needs more than %u"
+                                       " base-60 places",
+                                       PN_BASE60_MAX_PLACES);
+            }
             return NULL;
         }
         double q = floor(ip / 60.0);
@@ -419,18 +465,21 @@ pn_base60* _Nullable pn_base60_from_double(double x, uint8_t frac_places, pn_bas
 
     for (size_t j = 0; j < kf; j++) {
         if (ki + j == PN_BASE60_MAX_PLACES) {
-            if (error) *error = pn_error_init(PN_ERROR_RANGE,
-                                              "%u whole places plus this fraction"
-                                              " will not share %u slots",
-                                              (unsigned) ki, PN_BASE60_MAX_PLACES);
+            if (error) {
+                *error = pn_error_init(PN_ERROR_RANGE,
+                                       "%u whole places plus this fraction"
+                                       " will not share %u slots",
+                                       (unsigned) ki, PN_BASE60_MAX_PLACES);
+            }
             return NULL;
         }
         fp *= 60.0;
         uint8_t dgt = (uint8_t) fp; /* floor: fp cannot go below 0 */
 
         fp -= (double) dgt;
-        if (j + 1 == kf && fp >= 0.5)
+        if (j + 1 == kf && fp >= 0.5) {
             dgt++; /* may reach 60; the carry chain below fixes it */
+        }
         fpd[j] = dgt;
     }
 
@@ -442,14 +491,17 @@ pn_base60* _Nullable pn_base60_from_double(double x, uint8_t frac_places, pn_bas
 */
     int carry = (kf == 0 && fp >= 0.5);
 
-    for (size_t i = kf; i-- > 0;)
+    for (size_t i = kf; i-- > 0;) {
         if (fpd[i] == 60) {
             fpd[i] = 0;
-            if (i > 0)
+            if (i > 0) {
                 fpd[i - 1]++;
-            else
+            }
+            else {
                 carry = 1;
+            }
         }
+    }
 
     /*  The whole-part carry chain, least to most significant; a carry
   that walks clean off the top becomes a new leading 1 - every
@@ -465,8 +517,9 @@ pn_base60* _Nullable pn_base60_from_double(double x, uint8_t frac_places, pn_bas
                 carry_out = 1;
                 break;
             }
-            if (++ipd[j] != 60)
+            if (++ipd[j] != 60) {
                 break;
+            }
             ipd[j++] = 0;
         }
     }
@@ -480,11 +533,13 @@ pn_base60* _Nullable pn_base60_from_double(double x, uint8_t frac_places, pn_bas
 
     if (carry_out) {
         if (total == PN_BASE60_MAX_PLACES) {
-            if (error) *error = pn_error_init(PN_ERROR_RANGE,
-                                              "rounding grew the value past its"
-                                              " %u places; there is no room for"
-                                              " the new leading place",
-                                              PN_BASE60_MAX_PLACES);
+            if (error) {
+                *error = pn_error_init(PN_ERROR_RANGE,
+                                       "rounding grew the value past its"
+                                       " %u places; there is no room for"
+                                       " the new leading place",
+                                       PN_BASE60_MAX_PLACES);
+            }
             return NULL;
         }
         v.places[0] = 1;
@@ -492,13 +547,16 @@ pn_base60* _Nullable pn_base60_from_double(double x, uint8_t frac_places, pn_bas
         v.radix = (uint8_t) (ki + 1);
     }
     else {
-        for (size_t i = 0; i < ki; i++)
+        for (size_t i = 0; i < ki; i++) {
             v.places[i] = ipd[ki - 1 - i]; /* whole side flipped to MSB-first */
-        for (size_t i = 0; i < kf; i++)
+        }
+        for (size_t i = 0; i < kf; i++) {
             v.places[ki + i] = fpd[i]; /* fraction is MSB-first already */
+        }
         v.radix = (uint8_t) ki;
-        if (total == 0)
+        if (total == 0) {
             total = 1; /* everything rounded to nought: {0} */
+        }
     }
 
     v.n_places = (uint8_t) total;

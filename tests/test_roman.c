@@ -195,6 +195,5 @@ int main(void) {
     CHECK_ERROR(pn_roman_render(3888u, buf, fifteen, &err_), err_, PN_ERROR_BUFFER);
     CHECK(buf[0] == '?');
 
-
     return CHECK_RUN();
 }

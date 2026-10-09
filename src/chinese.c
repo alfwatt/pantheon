@@ -75,19 +75,23 @@ static size_t hanzi_emit(uint64_t n, char* buf) {
         for (int k = 3; k >= 0; k--) {
             const unsigned d = (unsigned) ((sec / pow10s[k]) % 10u);
 
-            if (d == 0u)
+            if (d == 0u) {
                 continue; /* zero: not written, just skipped */
+            }
             const int place = base + k;
 
-            if (prev >= 0 && prev - place > 1)
+            if (prev >= 0 && prev - place > 1) {
                 PUT(" ", 1u); /* the blank: 零's predecessor */
+            }
             PUT(digits[d - 1u], SIGN_BYTES);
-            if (k > 0)
+            if (k > 0) {
                 PUT(mults[3 - k], SIGN_BYTES);
+            }
             prev = place;
         }
-        if (s == 0 && sec != 0u)
+        if (s == 0 && sec != 0u) {
             PUT(WAN, SIGN_BYTES); /* 万 rides the top section's last term */
+        }
     }
 #undef PUT
     return bytes;
@@ -103,22 +107,26 @@ char* _Nullable pn_hanzi_render(uint64_t n, char* _Nonnull buf, size_t buflen,
                                 pn_error* _Nullable* _Nullable error) {
     assert(buf);
     if (n > PN_HANZI_MAX_VALUE) {
-        if (error) *error = pn_error_init(PN_ERROR_RANGE,
-                                          "%llu runs past %llu: no sign"
-                                          " above \U00004E07 lives in this module"
-                                          " (\U00004EBF is not written here)",
-                                          (unsigned long long) n, (unsigned long long) PN_HANZI_MAX_VALUE);
+        if (error) {
+            *error = pn_error_init(PN_ERROR_RANGE,
+                                   "%llu runs past %llu: no sign"
+                                   " above \U00004E07 lives in this module"
+                                   " (\U00004EBF is not written here)",
+                                   (unsigned long long) n, (unsigned long long) PN_HANZI_MAX_VALUE);
+        }
         return NULL;
     }
 
     const size_t need = hanzi_emit(n, NULL); /*exact: buflen must hold +NUL */
 
     if (buflen <= need) {
-        if (error) *error = pn_error_init(PN_ERROR_BUFFER,
-                                          "buffer holds %zu bytes; this"
-                                          " string needs %zu plus the"
-                                          " terminating NUL",
-                                          buflen, need);
+        if (error) {
+            *error = pn_error_init(PN_ERROR_BUFFER,
+                                   "buffer holds %zu bytes; this"
+                                   " string needs %zu plus the"
+                                   " terminating NUL",
+                                   buflen, need);
+        }
         return NULL;
     }
     (void) hanzi_emit(n, buf);
@@ -141,9 +149,11 @@ char* _Nullable pn_hanzi_render(uint64_t n, char* _Nonnull buf, size_t buflen,
 /* Match a digit sign at @param p: the digit 1..9 comes back, or -1
    for anything else. */
 static int match_digit(const char* p, const char* end) {
-    for (int i = 0; i < 9; i++)
-        if (p + SIGN_BYTES <= end && memcmp(p, digits[i], SIGN_BYTES) == 0)
+    for (int i = 0; i < 9; i++) {
+        if (p + SIGN_BYTES <= end && memcmp(p, digits[i], SIGN_BYTES) == 0) {
             return i + 1;
+        }
+    }
     return -1;
 }
 
@@ -151,14 +161,18 @@ static int match_digit(const char* p, const char* end) {
    none at all.    万 is not a section multiplier; the string is split
    at it first. */
 static int match_mult(const char* p, const char* end) {
-    if (p + SIGN_BYTES > end)
+    if (p + SIGN_BYTES > end) {
         return 0;
-    if (memcmp(p, QIAN, SIGN_BYTES) == 0)
+    }
+    if (memcmp(p, QIAN, SIGN_BYTES) == 0) {
         return 3;
-    if (memcmp(p, BAI, SIGN_BYTES) == 0)
+    }
+    if (memcmp(p, BAI, SIGN_BYTES) == 0) {
         return 2;
-    if (memcmp(p, SHI, SIGN_BYTES) == 0)
+    }
+    if (memcmp(p, SHI, SIGN_BYTES) == 0) {
         return 1;
+    }
     return 0;
 }
 
@@ -170,9 +184,10 @@ uint64_t* _Nullable pn_hanzi_parse(const char* _Nonnull buf, size_t buflen, uint
         return out;
     }
     if (buf[0] == ' ' || buf[buflen - 1] == ' ') {
-        if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                          "the blank sits between terms,"
-                                          " never at a border");
+        if (error) {
+            *error = pn_error_init(PN_ERROR_SYNTAX, "the blank sits between terms,"
+                                                    " never at a border");
+        }
         return NULL;
     }
 
@@ -185,20 +200,23 @@ uint64_t* _Nullable pn_hanzi_parse(const char* _Nonnull buf, size_t buflen, uint
 	   *where a reader sees it. */
     const char* wan = NULL;
 
-    for (const char* w = buf; w + SIGN_BYTES <= end; w++)
+    for (const char* w = buf; w + SIGN_BYTES <= end; w++) {
         if (memcmp(w, WAN, SIGN_BYTES) == 0) {
             if (wan != NULL) {
-                if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                                  "a second \U00004E07 in one string:"
-                                                  " there is one \U00004E07 at most");
+                if (error) {
+                    *error = pn_error_init(PN_ERROR_SYNTAX, "a second \U00004E07 in one string:"
+                                                            " there is one \U00004E07 at most");
+                }
                 return NULL;
             }
             wan = w;
         }
+    }
     if (wan != NULL && wan == buf) {
-        if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                          "\U00004E07 with no top section for it to"
-                                          " ride on");
+        if (error) {
+            *error = pn_error_init(PN_ERROR_SYNTAX, "\U00004E07 with no top section for it to"
+                                                    " ride on");
+        }
         return NULL;
     }
 
@@ -216,39 +234,46 @@ uint64_t* _Nullable pn_hanzi_parse(const char* _Nonnull buf, size_t buflen, uint
         while (p < stops[s]) {
             int run = 0; /* spaces ahead of this term */
 
-            while (p + (size_t) run < stops[s] && p[run] == ' ')
+            while (p + (size_t) run < stops[s] && p[run] == ' ') {
                 run++;
+            }
 
             const int d = match_digit(p + run, stops[s]);
 
             if (d < 0) {
-                if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                                  "position %zu holds no digit"
-                                                  " sign (a foreign byte, a"
-                                                  " cut-off sign, or a space"
-                                                  " right where a digit"
-                                                  " belongs)",
-                                                  (size_t) (p - buf));
+                if (error) {
+                    *error = pn_error_init(PN_ERROR_SYNTAX,
+                                           "position %zu holds no digit"
+                                           " sign (a foreign byte, a"
+                                           " cut-off sign, or a space"
+                                           " right where a digit"
+                                           " belongs)",
+                                           (size_t) (p - buf));
+                }
                 return NULL;
             }
             const char* q = p + run + SIGN_BYTES;
             int k = match_mult(q, stops[s]); /* 3/2/1 = the term's place, else bare units */
 
-            if (k >= 1 && k <= 3)
+            if (k >= 1 && k <= 3) {
                 q += SIGN_BYTES;
-            else
+            }
+            else {
                 k = 0;
+            }
             const int place = bases[s] + k;
 
             if (k >= prev_k[s]) {
-                if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                                  "the multiplier at position"
-                                                  " %zu climbs or repeats"
-                                                  " (or follows a section's"
-                                                  " bare units digit): each"
-                                                  " section walks its places"
-                                                  " downward",
-                                                  (size_t) (q - buf - (k > 0 ? SIGN_BYTES : 0)));
+                if (error) {
+                    *error = pn_error_init(PN_ERROR_SYNTAX,
+                                           "the multiplier at position"
+                                           " %zu climbs or repeats"
+                                           " (or follows a section's"
+                                           " bare units digit): each"
+                                           " section walks its places"
+                                           " downward",
+                                           (size_t) (q - buf - (k > 0 ? SIGN_BYTES : 0)));
+                }
                 return NULL;
             }
             prev_k[s] = k;
@@ -256,36 +281,43 @@ uint64_t* _Nullable pn_hanzi_parse(const char* _Nonnull buf, size_t buflen, uint
 
             if (prev < 0) {
                 if (run != 0) {
-                    if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                                      "%d space(s) ahead of"
-                                                      " the first term: a"
-                                                      " string starts on a"
-                                                      " term",
-                                                      run);
+                    if (error) {
+                        *error = pn_error_init(PN_ERROR_SYNTAX,
+                                               "%d space(s) ahead of"
+                                               " the first term: a"
+                                               " string starts on a"
+                                               " term",
+                                               run);
+                    }
                     return NULL;
                 }
             }
             else if (gap <= 0) {
-                if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                                  "terms cannot step"
-                                                  " backwards in place");
+                if (error) {
+                    *error = pn_error_init(PN_ERROR_SYNTAX, "terms cannot step"
+                                                            " backwards in place");
+                }
                 return NULL;
             }
             else if (gap == 1 && run != 0) {
-                if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                                  "%d space(s) between terms"
-                                                  " only one place apart:"
-                                                  " neighbors touch",
-                                                  run);
+                if (error) {
+                    *error = pn_error_init(PN_ERROR_SYNTAX,
+                                           "%d space(s) between terms"
+                                           " only one place apart:"
+                                           " neighbors touch",
+                                           run);
+                }
                 return NULL;
             }
             else if (gap > 1 && run != 1) {
-                if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                                  "%d space(s) across a skip"
-                                                  " of %d places: a skip is"
-                                                  " admitted by exactly one"
-                                                  " blank",
-                                                  run, gap);
+                if (error) {
+                    *error = pn_error_init(PN_ERROR_SYNTAX,
+                                           "%d space(s) across a skip"
+                                           " of %d places: a skip is"
+                                           " admitted by exactly one"
+                                           " blank",
+                                           run, gap);
+                }
                 return NULL;
             }
             secs[s] += (uint64_t) d * pow10s[k];

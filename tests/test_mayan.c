@@ -35,11 +35,13 @@ static const char* const digit_signs[20] = {
 */
 static void expect_render(pn_base20 v, char* out) {
     char* p = out;
-    if (v.neg)
+    if (v.neg) {
         *p++ = '-';
+    }
     for (unsigned i = 0; i < v.n_places; i++) {
-        if (i > 0)
+        if (i > 0) {
             *p++ = ' ';
+        }
         memcpy(p, digit_signs[v.places[i]], 4);
         p += 4;
     }
@@ -78,8 +80,8 @@ int main(void) {
     CHECK_OK(pn_mayan_render(v, buf, sizeof buf, &err_), err_);
     CHECK(strcmp(buf, SHELL) == 0);
     /* its raw bytes pinned, as the strokes' are in the other suites */
-    CHECK((unsigned char) buf[0] == 0xF0 && (unsigned char) buf[1] == 0x9D &&
-          (unsigned char) buf[2] == 0x8B && (unsigned char) buf[3] == 0xA0);
+    CHECK((unsigned char) buf[0] == 0xF0 && (unsigned char) buf[1] == 0x9D
+          && (unsigned char) buf[2] == 0x8B && (unsigned char) buf[3] == 0xA0);
 
     /* every whole digit renders as exactly one sign */
     for (unsigned d = 0; d < 20u; d++) {
@@ -112,8 +114,9 @@ int main(void) {
         CHECK_OK(pn_base20_from_u64(n, &v, &err_), err_);
         (void) expect_render(v, want);
         CHECK(pn_mayan_render_size(v) == strlen(want));
-        if (pn_fails)
+        if (pn_fails) {
             break;
+        }
     }
 
     /* errors: render — the well_formed rule book */
@@ -155,13 +158,14 @@ int main(void) {
         pn_base20 back;
         memset(&back, 0xEE, sizeof back); /* junk sentinel */
         CHECK_OK(pn_mayan_parse(rendered, need, &back, &err_), err_);
-        CHECK(back.n_places == v.n_places && back.radix == v.n_places && !back.neg &&
-              memcmp(back.places, v.places, v.n_places) == 0);
+        CHECK(back.n_places == v.n_places && back.radix == v.n_places && !back.neg
+              && memcmp(back.places, v.places, v.n_places) == 0);
         back.radix = 7; /* period style, both spellings */
         CHECK_OK(pn_mayan_parse(rendered, strlen(rendered), &back, &err_), err_);
         CHECK(back.radix == v.n_places);
-        if (pn_fails)
+        if (pn_fails) {
             break; /* the first failure names n */
+        }
     }
 
     /* the shell alone parses to {0}; period style and exact count both */
@@ -175,14 +179,14 @@ int main(void) {
 	   whole signs of four bytes each make the exact count 14
 	*/
     CHECK_OK(pn_mayan_parse(SHELL " " DOT " " THREE, 14, &back, &err_), err_);
-    CHECK(back.n_places == 3 && back.radix == 3 && back.places[0] == 0 && back.places[1] == 1 &&
-          back.places[2] == 3);
+    CHECK(back.n_places == 3 && back.radix == 3 && back.places[0] == 0 && back.places[1] == 1
+          && back.places[2] == 3);
 
     /* negative: the '-' reads out of the period-style places */
     const char* negs = "-" DOT " " SHELL; /* [1,0] neg = -20 */
     CHECK_OK(pn_mayan_parse(negs, strlen(negs), &back, &err_), err_);
-    CHECK(back.neg && back.n_places == 2 && back.radix == 2 && back.places[0] == 1 &&
-          back.places[1] == 0);
+    CHECK(back.neg && back.n_places == 2 && back.radix == 2 && back.places[0] == 1
+          && back.places[1] == 0);
 
     /*  errors: parse — foreign bytes, bad spacing, cut-offs
 	   Each leaves *out untouched — checked via the sentinel.
@@ -230,8 +234,9 @@ int main(void) {
     char rows[18 * 5];
     size_t w = 0;
     for (unsigned i = 0; i < 16u; i++) { /* a full page of dots */
-        if (i > 0)
+        if (i > 0) {
             rows[w++] = ' ';
+        }
         memcpy(rows + w, DOT, 4);
         w += 4;
     }
@@ -244,7 +249,6 @@ int main(void) {
     memset(&back, 0xFF, sizeof back);
     CHECK_ERROR(pn_mayan_parse(rows, w, &back, &err_), err_, PN_ERROR_RANGE);
     CHECK(back.n_places == 255u);
-
 
     /*  render_size is pure and total even on a junk struct (meaningless,
 	   never fatal - the sibling contract, babylonian.c's is the same)

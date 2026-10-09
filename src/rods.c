@@ -85,8 +85,9 @@ size_t pn_rods_render_size(uint64_t n) {
     int n_digits = 0;
 
     while (n != 0) {
-        if (n % 10u != 0u)
+        if (n % 10u != 0u) {
             bytes += SIGN_BYTES;
+        }
         n_digits++;
         n /= 10u;
     }
@@ -97,21 +98,25 @@ char* _Nullable pn_rods_render(uint64_t n, char* _Nonnull buf, size_t buflen,
                                pn_error* _Nullable* _Nullable error) {
     assert(buf);
     if (n > PN_ROD_MAX_VALUE) {
-        if (error) *error = pn_error_init(PN_ERROR_RANGE,
-                                          "%llu asks for a twentieth column:"
-                                          " 10^19 no longer fits the board",
-                                          (unsigned long long) n);
+        if (error) {
+            *error = pn_error_init(PN_ERROR_RANGE,
+                                   "%llu asks for a twentieth column:"
+                                   " 10^19 no longer fits the board",
+                                   (unsigned long long) n);
+        }
         return NULL;
     }
 
     const size_t need = pn_rods_render_size(n); /*exact: buflen must hold +NUL */
 
     if (buflen <= need) {
-        if (error) *error = pn_error_init(PN_ERROR_BUFFER,
-                                          "buffer holds %zu bytes; this"
-                                          " board needs %zu plus the"
-                                          " terminating NUL",
-                                          buflen, need);
+        if (error) {
+            *error = pn_error_init(PN_ERROR_BUFFER,
+                                   "buffer holds %zu bytes; this"
+                                   " board needs %zu plus the"
+                                   " terminating NUL",
+                                   buflen, need);
+        }
         return NULL;
     }
 
@@ -126,8 +131,9 @@ char* _Nullable pn_rods_render(uint64_t n, char* _Nonnull buf, size_t buflen,
     char* q = buf; /* safe: need is exact and checked against buflen */
 
     for (int i = m - 1; i >= 0; i--) { /*most significant first */
-        if (i != m - 1)
+        if (i != m - 1) {
             *q++ = ' '; /*one space per place boundary */
+        }
         if (dig[i] != 0u) {
             const char* g = signs[i & 1][dig[i] - 1u];
 
@@ -157,8 +163,9 @@ char* _Nullable pn_rods_render(uint64_t n, char* _Nonnull buf, size_t buflen,
    to @param end: the set (0 unit, 1 tens) comes back as the answer
    and the digit 1..9 through @param digit; anything else gives -1. */
 static int match_rod(const char* p, const char* end, int* digit) {
-    if (p + SIGN_BYTES > end || memcmp(p, RODS_PREFIX, 3) != 0)
+    if (p + SIGN_BYTES > end || memcmp(p, RODS_PREFIX, 3) != 0) {
         return -1;
+    }
     const unsigned char b = (unsigned char) p[3];
 
     if (b >= RODS_LO && b <= RODS_LO + 8u) { /*U+1D360..U+1D368 */
@@ -180,23 +187,29 @@ uint64_t* _Nullable pn_rods_parse(const char* _Nonnull buf, size_t buflen, uint6
         return out;
     }
     if (buf[0] == ' ') {
-        if (error) *error = pn_error_init(PN_ERROR_SYNTAX, "the board never starts out blank");
+        if (error) {
+            *error = pn_error_init(PN_ERROR_SYNTAX, "the board never starts out blank");
+        }
         return NULL;
     }
 
     size_t spaces = 0; /*counted first: it defines the places */
 
-    for (size_t i = 0; i < buflen; i++)
-        if (buf[i] == ' ')
+    for (size_t i = 0; i < buflen; i++) {
+        if (buf[i] == ' ') {
             spaces++;
+        }
+    }
     const int m = (int) (spaces + 1u); /*the top place is m - 1 */
 
     if (m > PN_ROD_MAX_PLACES) {
-        if (error) *error = pn_error_init(PN_ERROR_RANGE,
-                                          "%zu space(s) ask for %zu places:"
-                                          " more board than a uint64_t"
-                                          " can hold",
-                                          spaces, (size_t) m);
+        if (error) {
+            *error = pn_error_init(PN_ERROR_RANGE,
+                                   "%zu space(s) ask for %zu places:"
+                                   " more board than a uint64_t"
+                                   " can hold",
+                                   spaces, (size_t) m);
+        }
         return NULL;
     }
 
@@ -214,11 +227,13 @@ uint64_t* _Nullable pn_rods_parse(const char* _Nonnull buf, size_t buflen, uint6
             continue;
         }
         if (after_glyph) {
-            if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                              "two columns with no"
-                                              " boundary space between"
-                                              " them at position %zu",
-                                              (size_t) (p - buf));
+            if (error) {
+                *error = pn_error_init(PN_ERROR_SYNTAX,
+                                       "two columns with no"
+                                       " boundary space between"
+                                       " them at position %zu",
+                                       (size_t) (p - buf));
+            }
             return NULL;
         }
 
@@ -226,21 +241,25 @@ uint64_t* _Nullable pn_rods_parse(const char* _Nonnull buf, size_t buflen, uint6
         const int set = match_rod(p, end, &digit);
 
         if (set < 0) {
-            if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                              "position %zu holds a"
-                                              " foreign byte or a sign"
-                                              " cut off short",
-                                              (size_t) (p - buf));
+            if (error) {
+                *error = pn_error_init(PN_ERROR_SYNTAX,
+                                       "position %zu holds a"
+                                       " foreign byte or a sign"
+                                       " cut off short",
+                                       (size_t) (p - buf));
+            }
             return NULL;
         }
         if (set != (place & 1)) {
-            if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                              "a %s-set rod sits in the"
-                                              "%s column at position"
-                                              " %zu: a rod's set must"
-                                              " match its column",
-                                              (set == 0) ? "unit" : "tens", (place & 1) ? "tens" : "unit",
-                                              (size_t) (p - buf));
+            if (error) {
+                *error = pn_error_init(PN_ERROR_SYNTAX,
+                                       "a %s-set rod sits in the"
+                                       "%s column at position"
+                                       " %zu: a rod's set must"
+                                       " match its column",
+                                       (set == 0) ? "unit" : "tens", (place & 1) ? "tens" : "unit",
+                                       (size_t) (p - buf));
+            }
             return NULL;
         }
 
@@ -253,9 +272,10 @@ uint64_t* _Nullable pn_rods_parse(const char* _Nonnull buf, size_t buflen, uint6
     }
 
     if (glyphs == 0) {
-        if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                          "all spaces: not one rod on the"
-                                          " board");
+        if (error) {
+            *error = pn_error_init(PN_ERROR_SYNTAX, "all spaces: not one rod on the"
+                                                    " board");
+        }
         return NULL;
     }
     *out = sum;

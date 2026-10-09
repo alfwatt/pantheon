@@ -61,8 +61,9 @@ static unsigned run_signs(uint64_t k) {
     unsigned c = 0u;
 
     while (k != 0u) {
-        if ((k % 10u) != 0u)
+        if ((k % 10u) != 0u) {
             c++;
+        }
         k /= 10u;
     }
     return c;
@@ -85,8 +86,9 @@ static void put_run(uint64_t k, char* buf, size_t* w) {
     for (j = 0u; j < 3u; j++) {
         unsigned d = (unsigned) ((k / scales[j]) % 10u);
 
-        if (d != 0u)
+        if (d != 0u) {
             put_sign(buf, w, rows[j][d - 1u]);
+        }
     }
 }
 
@@ -97,16 +99,19 @@ size_t pn_greek_render_size(uint64_t n) {
     uint64_t th, un;
     size_t bytes;
 
-    if (n == 0u || n > PN_GREEK_MAX_VALUE)
+    if (n == 0u || n > PN_GREEK_MAX_VALUE) {
         return 0u;
+    }
     th = n / 1000u;
     un = n % 1000u;
     bytes = 2u * (size_t) (run_signs(th) + run_signs(un));
-    if (th != 0u)
+    if (th != 0u) {
         bytes += 2u; /*the low keraia             */
-    bytes += 2u;     /*the trailing keraia        */
-    if (th != 0u && un != 0u)
+    }
+    bytes += 2u; /*the trailing keraia        */
+    if (th != 0u && un != 0u) {
         bytes += 1u; /*the run-separating space   */
+    }
     return bytes;
 }
 
@@ -114,18 +119,22 @@ char* _Nullable pn_greek_render(uint64_t n, char* _Nonnull buf, size_t buflen,
                                 pn_error* _Nullable* _Nullable error) {
     assert(buf);
     if (n > PN_GREEK_MAX_VALUE) {
-        if (error) *error = pn_error_init(PN_ERROR_RANGE,
-                                          "%llu runs past %llu: the alphabet"
-                                          " counts no higher",
-                                          (unsigned long long) n, (unsigned long long) PN_GREEK_MAX_VALUE);
+        if (error) {
+            *error = pn_error_init(PN_ERROR_RANGE,
+                                   "%llu runs past %llu: the alphabet"
+                                   " counts no higher",
+                                   (unsigned long long) n, (unsigned long long) PN_GREEK_MAX_VALUE);
+        }
         return NULL;
     }
     if (buflen < pn_greek_render_size(n) + 1u) {
-        if (error) *error = pn_error_init(PN_ERROR_BUFFER,
-                                          "buffer holds %zu byte(s); this"
-                                          " cord needs %zu for what it"
-                                          " holds plus a terminating 0.",
-                                          buflen, pn_greek_render_size(n));
+        if (error) {
+            *error = pn_error_init(PN_ERROR_BUFFER,
+                                   "buffer holds %zu byte(s); this"
+                                   " cord needs %zu for what it"
+                                   " holds plus a terminating 0.",
+                                   buflen, pn_greek_render_size(n));
+        }
         return NULL;
     }
 
@@ -137,8 +146,9 @@ char* _Nullable pn_greek_render(uint64_t n, char* _Nonnull buf, size_t buflen,
         if (th != 0u) {
             put_sign(buf, &w, GREEK_LOWK);
             put_run(th, buf, &w);
-            if (un != 0u)
+            if (un != 0u) {
                 buf[w++] = ' ';
+            }
         }
         put_run(un, buf, &w);
         put_sign(buf, &w, GREEK_DEXIA);
@@ -184,9 +194,10 @@ static uint64_t run_value(const uint32_t* toks, size_t len) {
     for (i = 0u; i < len; i++) {
         unsigned rank, val;
 
-        if (toks[i] == GREEK_LOWK || toks[i] == GREEK_DEXIA || toks[i] == GREEK_SPACE ||
-            !sign_info(toks[i], &rank, &val) || rank >= prev_rank)
+        if (toks[i] == GREEK_LOWK || toks[i] == GREEK_DEXIA || toks[i] == GREEK_SPACE
+            || !sign_info(toks[i], &rank, &val) || rank >= prev_rank) {
             return 0u;
+        }
         prev_rank = rank;
         sum += val;
     }
@@ -216,11 +227,13 @@ uint64_t* _Nullable pn_greek_parse(const char* _Nonnull buf, size_t buflen, uint
         unsigned char b = (unsigned char) buf[i];
 
         if (n_tok >= GREEK_MAX_TOKS) {
-            if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                              "%zu token(s) is the most"
-                                              " a cord carries; a sign"
-                                              " more is no number",
-                                              (size_t) GREEK_MAX_TOKS);
+            if (error) {
+                *error = pn_error_init(PN_ERROR_SYNTAX,
+                                       "%zu token(s) is the most"
+                                       " a cord carries; a sign"
+                                       " more is no number",
+                                       (size_t) GREEK_MAX_TOKS);
+            }
             return NULL;
         }
         if (b == ' ') {
@@ -228,10 +241,12 @@ uint64_t* _Nullable pn_greek_parse(const char* _Nonnull buf, size_t buflen, uint
             i++;
         }
         else if (b < 0xC0u || b > 0xDFu || i + 2u > buflen || (buf[i + 1] & 0xC0) != 0x80) {
-            if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                              "byte %zu does not open a"
-                                              " two-byte numeral sign",
-                                              i);
+            if (error) {
+                *error = pn_error_init(PN_ERROR_SYNTAX,
+                                       "byte %zu does not open a"
+                                       " two-byte numeral sign",
+                                       i);
+            }
             return NULL;
         }
         else {
@@ -243,23 +258,28 @@ uint64_t* _Nullable pn_greek_parse(const char* _Nonnull buf, size_t buflen, uint
 
     /* The trailing keraia sits at the very end and nowhere else. */
     if (toks[n_tok - 1u] != GREEK_DEXIA) {
-        if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                          "a cord ends with the trailing"
-                                          " keraia and nothing after it");
+        if (error) {
+            *error = pn_error_init(PN_ERROR_SYNTAX, "a cord ends with the trailing"
+                                                    " keraia and nothing after it");
+        }
         return NULL;
     }
     body = n_tok - 1u;
-    for (k = 0u; k < body; k++)
+    for (k = 0u; k < body; k++) {
         if (toks[k] == GREEK_DEXIA) {
-            if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                              "a trailing keraia in the"
-                                              " middle of the cord: that"
-                                              " marks a number in the"
-                                              " middle");
+            if (error) {
+                *error = pn_error_init(PN_ERROR_SYNTAX, "a trailing keraia in the"
+                                                        " middle of the cord: that"
+                                                        " marks a number in the"
+                                                        " middle");
+            }
             return NULL;
         }
+    }
     if (body == 0u) {
-        if (error) *error = pn_error_init(PN_ERROR_SYNTAX, "a lone keraia names nothing");
+        if (error) {
+            *error = pn_error_init(PN_ERROR_SYNTAX, "a lone keraia names nothing");
+        }
         return NULL;
     }
 
@@ -268,31 +288,38 @@ uint64_t* _Nullable pn_greek_parse(const char* _Nonnull buf, size_t buflen, uint
     low = (toks[0] == GREEK_LOWK);
     i = low ? 1u : 0u;
     if (i >= body) {
-        if (error) *error = pn_error_init(PN_ERROR_SYNTAX, "keraia wrapped around nothing");
+        if (error) {
+            *error = pn_error_init(PN_ERROR_SYNTAX, "keraia wrapped around nothing");
+        }
         return NULL;
     }
-    for (k = i; k < body; k++)
+    for (k = i; k < body; k++) {
         if (toks[k] == GREEK_LOWK) {
-            if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                              "a second announcement in"
-                                              " one cord: the low"
-                                              " keraia comes but once");
+            if (error) {
+                *error = pn_error_init(PN_ERROR_SYNTAX, "a second announcement in"
+                                                        " one cord: the low"
+                                                        " keraia comes but once");
+            }
             return NULL;
         }
+    }
 
     /* The separator: at most one, touching neither edge, and only
 	  *under the low keraia — a cord below 1000 has no second run and
 	  *no gutter to spare.    @sp_at keeps the TOKEN index of the
 	  *space, not a byte offset. */
     for (k = i; k < body; k++) {
-        if (toks[k] != GREEK_SPACE)
+        if (toks[k] != GREEK_SPACE) {
             continue;
+        }
         if (sp_at >= 0 || !low || k == i || k + 1u == body) {
-            if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                              "the separating space sits"
-                                              " in the wrong spot"
-                                              " (token %zu)",
-                                              k);
+            if (error) {
+                *error = pn_error_init(PN_ERROR_SYNTAX,
+                                       "the separating space sits"
+                                       " in the wrong spot"
+                                       " (token %zu)",
+                                       k);
+            }
             return NULL;
         }
         sp_at = (int) k;
@@ -303,10 +330,11 @@ uint64_t* _Nullable pn_greek_parse(const char* _Nonnull buf, size_t buflen, uint
         uint64_t suf = run_value(&toks[(size_t) sp_at + 1u], body - (size_t) sp_at - 1u);
 
         if (pre == 0u || suf == 0u) {
-            if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                              "the space cuts the cord"
-                                              " into a run that is not"
-                                              " whole");
+            if (error) {
+                *error = pn_error_init(PN_ERROR_SYNTAX, "the space cuts the cord"
+                                                        " into a run that is not"
+                                                        " whole");
+            }
             return NULL;
         }
         *out = pre * 1000u + suf;
@@ -316,9 +344,10 @@ uint64_t* _Nullable pn_greek_parse(const char* _Nonnull buf, size_t buflen, uint
     uint64_t v = run_value(&toks[i], body - i);
 
     if (v == 0u) {
-        if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                          "the run between the keraia holds"
-                                          " no well-formed row of signs");
+        if (error) {
+            *error = pn_error_init(PN_ERROR_SYNTAX, "the run between the keraia holds"
+                                                    " no well-formed row of signs");
+        }
         return NULL;
     }
     *out = low ? v * 1000u : v;

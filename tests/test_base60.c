@@ -67,7 +67,7 @@ int main(void) {
 	   with sixteen 59s (60^16 - 1 > 2^64).
 	*/
     static const uint8_t maxes[PN_BASE60_MAX_PLACES] = {59, 59, 59, 59, 59, 59, 59, 59,
-                                                       59, 59, 59, 59, 59, 59, 59, 59};
+                                                        59, 59, 59, 59, 59, 59, 59, 59};
     v = (pn_base60) {0};
     memcpy(v.places, maxes, sizeof maxes);
     v.n_places = PN_BASE60_MAX_PLACES;
@@ -172,8 +172,7 @@ int main(void) {
     CHECK_VALUE_ERROR(v = pn_base60_parse("60", &err_), err_, PN_ERROR_RANGE);
     CHECK_VALUE_ERROR(v = pn_base60_parse("3599", &err_), err_, PN_ERROR_RANGE); /* places 35, 99 */
     CHECK_VALUE_ERROR(v = pn_base60_parse("1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1", &err_), err_,
-                PN_ERROR_RANGE);
-
+                      PN_ERROR_RANGE);
 
     /* Bad separator character; malformed values. */
     CHECK_VALUE(v = pn_base60_parse("1", &err_), err_);

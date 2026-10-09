@@ -105,8 +105,8 @@ int main(void) {
     render_ok(1u, buf, sizeof buf);
     CHECK(strcmp(buf, ONE) == 0);
     /* the ONE sign's raw bytes pinned, as the stroke's are */
-    CHECK((unsigned char) buf[0] == 0xF0 && (unsigned char) buf[1] == 0x91 &&
-          (unsigned char) buf[2] == 0x81 && (unsigned char) buf[3] == 0x92);
+    CHECK((unsigned char) buf[0] == 0xF0 && (unsigned char) buf[1] == 0x91
+          && (unsigned char) buf[2] == 0x81 && (unsigned char) buf[3] == 0x92);
     for (unsigned d = 1; d <= 9; d++) {
         render_ok(d, buf, sizeof buf);
         CHECK(strcmp(buf, unit_signs[d - 1u]) == 0);
@@ -193,12 +193,12 @@ int main(void) {
     for (uint64_t n = 0; n <= PN_BRAHMI_MAX_VALUE; n++) {
         (void) expect_render(n, want);
         CHECK(pn_brahmi_render_size(n) == strlen(want));
-        if (pn_fails)
+        if (pn_fails) {
             break;
+        }
     }
 
     /* errors */
-
 
     /*  One past the four filled slots is range, not silence: there is
 	   no sign above the thousand.
@@ -230,8 +230,9 @@ int main(void) {
         back = UINT64_MAX;
         CHECK_OK(pn_brahmi_parse(rendered, need, &back, &err_), err_);
         CHECK(back == n);
-        if (pn_fails)
+        if (pn_fails) {
             break; /* the first failure names n */
+        }
     }
 
     /* The Sasaram reading, spelled out. */
@@ -297,7 +298,6 @@ int main(void) {
                     PN_ERROR_SYNTAX);
         CHECK(read == 256u); /* untouched */
     }
-
 
     /* A cut-off sign (3 of the ONE sign's 4 bytes) is not a sign. */
     read = 256u;

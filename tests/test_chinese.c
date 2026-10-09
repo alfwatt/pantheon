@@ -63,8 +63,8 @@ int main(void) {
     render_ok(7u, buf, sizeof buf);
     CHECK(strcmp(buf, QI) == 0);
     /* the seven's raw bytes pinned, as the stroke's are */
-    CHECK((unsigned char) buf[0] == 0xE4 && (unsigned char) buf[1] == 0xB8 &&
-          (unsigned char) buf[2] == 0x83);
+    CHECK((unsigned char) buf[0] == 0xE4 && (unsigned char) buf[1] == 0xB8
+          && (unsigned char) buf[2] == 0x83);
 
     /* golden renderings */
 
@@ -165,10 +165,12 @@ int main(void) {
 
     /* round-trip sweep */
 
-    for (uint64_t n = 0; n < 10000; n++)
+    for (uint64_t n = 0; n < 10000; n++) {
         roundtrip(n); /* every units section */
-    for (uint64_t p = 1; p <= 10000000; p *= 10)
-        roundtrip(p);          /* one 万 at each height */
+    }
+    for (uint64_t p = 1; p <= 10000000; p *= 10) {
+        roundtrip(p); /* one 万 at each height */
+    }
     roundtrip(100000000u - 1); /* the maximum */
     roundtrip(1010101u);       /* blank after blank */
     roundtrip(9090909u);

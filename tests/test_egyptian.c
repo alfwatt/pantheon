@@ -31,8 +31,9 @@ static const uint64_t values[] = {1000000u, 100000u, 10000u, 1000u, 100u, 10u, 1
 /* Count whole sign occurrences in a rendered string. */
 static int count_signs(const char* buf, const char* sig) {
     int n = 0;
-    for (const char* p = buf; (p = strstr(p, sig)) != NULL; p += strlen(sig))
+    for (const char* p = buf; (p = strstr(p, sig)) != NULL; p += strlen(sig)) {
         n++;
+    }
     return n;
 }
 
@@ -62,8 +63,8 @@ int main(void) {
     render_ok(1u, buf, sizeof buf);
     CHECK(strcmp(buf, STROKE) == 0);
     /* the stroke's raw bytes pinned, as the cuneiform DISH's are */
-    CHECK((unsigned char) buf[0] == 0xF0 && (unsigned char) buf[1] == 0x93 &&
-          (unsigned char) buf[2] == 0x8F && (unsigned char) buf[3] == 0xA4);
+    CHECK((unsigned char) buf[0] == 0xF0 && (unsigned char) buf[1] == 0x93
+          && (unsigned char) buf[2] == 0x8F && (unsigned char) buf[3] == 0xA4);
 
     render_ok(10u, buf, sizeof buf);
     CHECK(strcmp(buf, HOBBLE) == 0);
@@ -84,8 +85,9 @@ int main(void) {
         for (unsigned d = 1; d <= 9; d++) {
             uint64_t n = (uint64_t) d * values[k];
             render_ok(n, buf, sizeof buf);
-            for (unsigned j = 0; j < N_SIGNS; j++)
+            for (unsigned j = 0; j < N_SIGNS; j++) {
                 CHECK(count_signs(buf, signs[j]) == (j == k ? (int) d : 0));
+            }
             CHECK(strlen(buf) == (size_t) d * 4u);
         }
     }
@@ -96,13 +98,15 @@ int main(void) {
 	   2 strokes, descending and tight.
 	*/
     render_ok(4622u, buf, sizeof buf);
-    CHECK(strcmp(buf, LOTUS LOTUS LOTUS LOTUS COIL COIL COIL COIL COIL COIL HOBBLE HOBBLE STROKE
-                          STROKE) == 0);
+    CHECK(strcmp(buf,
+                 LOTUS LOTUS LOTUS LOTUS COIL COIL COIL COIL COIL COIL HOBBLE HOBBLE STROKE STROKE)
+          == 0);
 
     /* The scribe's full set: nine of each sign. */
     render_ok(9999999u, buf, sizeof buf);
-    for (unsigned j = 0; j < N_SIGNS; j++)
+    for (unsigned j = 0; j < N_SIGNS; j++) {
         CHECK(count_signs(buf, signs[j]) == 9);
+    }
     CHECK(strlen(buf) == 7u * 9u * 4u);
 
     /*  Gaps are silent, not drawn: 1000001 is Heh + stroke and nothing
@@ -151,8 +155,9 @@ int main(void) {
         back = UINT64_MAX;
         CHECK_OK(pn_egyptian_parse(rendered, need, &back, &err_), err_);
         CHECK(back == n);
-        if (pn_fails)
+        if (pn_fails) {
             break; /* the first failure names n; no need to drown in 10^7 */
+        }
     }
 
     /* The Karnak reading, spelled out. */
@@ -203,7 +208,6 @@ int main(void) {
                                &read, &err_),
              err_);
     CHECK(read == 8u);
-
 
     /* A cut-off sign (3 of the stroke's 4 bytes) is not a sign. */
     read = 4622u;

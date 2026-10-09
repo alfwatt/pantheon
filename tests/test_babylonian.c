@@ -17,8 +17,9 @@
 /* Count whole sign occurrences in a rendered string. */
 static int count_sigs(const char* buf, const char* sig) {
     int n = 0;
-    for (const char* p = buf; (p = strstr(p, sig)) != NULL; p += strlen(sig))
+    for (const char* p = buf; (p = strstr(p, sig)) != NULL; p += strlen(sig)) {
         n++;
+    }
     return n;
 }
 
@@ -52,8 +53,8 @@ int main(void) {
 
     render_ok(mk(one, 1, 1), buf, sizeof buf);
     CHECK(strcmp(buf, DISH) == 0);
-    CHECK((unsigned char) buf[0] == 0xF0 && (unsigned char) buf[1] == 0x92 &&
-          (unsigned char) buf[2] == 0x81 && (unsigned char) buf[3] == 0xB9);
+    CHECK((unsigned char) buf[0] == 0xF0 && (unsigned char) buf[1] == 0x92
+          && (unsigned char) buf[2] == 0x81 && (unsigned char) buf[3] == 0xB9);
 
     render_ok(mk(nine, 1, 1), buf, sizeof buf);
     CHECK(count_sigs(buf, DISH) == 9 && count_sigs(buf, U) == 0);
@@ -167,7 +168,7 @@ int main(void) {
     static const uint8_t rt8[] = {0, 45};
     static const uint8_t rt9[] = {3, 0, 0, 59};
     static const uint8_t rt10[PN_BASE60_MAX_PLACES] = {59, 59, 59, 59, 59, 59, 59, 59,
-                                                      59, 59, 59, 59, 59, 59, 59, 59};
+                                                       59, 59, 59, 59, 59, 59, 59, 59};
     static const uint8_t* const rts[] = {rt1, rt2, rt3, rt4, rt5, rt6, rt7, rt8, rt9, rt10};
     static const uint8_t rt_lens[] = {1, 1, 3, 3, 2, 1, 2, 2, 4, 16};
 
@@ -212,8 +213,8 @@ int main(void) {
     for (size_t i = 0; i < sizeof bad_strings / sizeof bad_strings[0]; i++) {
         read = mk(one, 1, 1);
         read.n_places = 7; /* sentinel */
-        CHECK_ERROR(pn_babylonian_parse_from(bad_strings[i], strlen(bad_strings[i]), &read, &err_), err_,
-                    PN_ERROR_SYNTAX);
+        CHECK_ERROR(pn_babylonian_parse_from(bad_strings[i], strlen(bad_strings[i]), &read, &err_),
+                    err_, PN_ERROR_SYNTAX);
         CHECK(read.n_places == 7); /* untouched */
     }
 
@@ -237,13 +238,13 @@ int main(void) {
     for (unsigned i = 0; i < PN_BASE60_MAX_PLACES + 1; i++) {
         memcpy(dp, DISH, 4);
         dp += 4;
-        if (i < PN_BASE60_MAX_PLACES)
+        if (i < PN_BASE60_MAX_PLACES) {
             *dp++ = ' ';
+        }
     }
     *dp = '\0';
     CHECK_ERROR(pn_babylonian_parse_from(deep, (size_t) (dp - deep), &read, &err_), err_,
                 PN_ERROR_RANGE);
-
 
     /* A cut-off sign (3 of DISH's 4 bytes) is not a sign. */
     CHECK_ERROR(pn_babylonian_parse_from(DISH, 3, &read, &err_), err_, PN_ERROR_SYNTAX);

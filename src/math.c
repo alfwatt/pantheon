@@ -57,11 +57,13 @@ static uint64_t pn_mulmod(uint64_t a, uint64_t b, uint64_t m) {
 
     a %= m;
     while (b != 0u) {
-        if ((b & 1u) != 0u)
+        if ((b & 1u) != 0u) {
             r = pn_addmod(r, a, m);
+        }
         b >>= 1;
-        if (b != 0u)
+        if (b != 0u) {
             a = pn_addmod(a, a, m);
+        }
     }
     return r;
 }
@@ -71,11 +73,13 @@ static uint64_t pn_powmod(uint64_t a, uint64_t e, uint64_t m) {
 
     a %= m;
     while (e != 0u) {
-        if ((e & 1u) != 0u)
+        if ((e & 1u) != 0u) {
             r = pn_mulmod(r, a, m);
+        }
         e >>= 1;
-        if (e != 0u)
+        if (e != 0u) {
             a = pn_mulmod(a, a, m);
+        }
     }
     return r;
 }
@@ -85,21 +89,25 @@ static int pn_witness_prime(uint64_t n) {
     uint64_t d = n - 1u;
     unsigned s = 0u, k, r, composite;
 
-    if (n < 2u)
+    if (n < 2u) {
         return 0;
-    if ((n & 1u) == 0u)
+    }
+    if ((n & 1u) == 0u) {
         return n == 2u;
+    }
     while ((d & 1u) == 0u) {
         d >>= 1;
         s++;
     }
     for (k = 0u; k < N_WITNESSES; k++) {
         uint64_t a = witnesses[k] % n, x;
-        if (a == 0u)
+        if (a == 0u) {
             continue; /* the witness is n itself     */
+        }
         x = pn_powmod(a, d, n);
-        if (x == 1u || x == n - 1u)
+        if (x == 1u || x == n - 1u) {
             continue;
+        }
         composite = 1u;
         for (r = 1u; r < s; r++) {
             x = pn_mulmod(x, x, n);
@@ -108,8 +116,9 @@ static int pn_witness_prime(uint64_t n) {
                 break;
             }
         }
-        if (composite != 0u)
+        if (composite != 0u) {
             return 0;
+        }
     }
     return 1;
 }
@@ -129,9 +138,11 @@ static void pn_sheet(uint8_t* composite) {
 
     memset(composite, 0, PN_MATH_SHEET);
     for (i = 3u; i * i < PN_MATH_SHEET; i += 2u) {
-        if (composite[i] == 0u)
-            for (j = i * i; j < PN_MATH_SHEET; j += 2u * i)
+        if (composite[i] == 0u) {
+            for (j = i * i; j < PN_MATH_SHEET; j += 2u * i) {
                 composite[j] = 1u;
+            }
+        }
     }
 }
 
@@ -143,26 +154,33 @@ static int pn_prime_on(const uint8_t* composite, uint64_t n) {
     uint64_t d;
     unsigned k;
 
-    if (n < 2u)
+    if (n < 2u) {
         return 0;
-    if ((n & 1u) == 0u)
+    }
+    if ((n & 1u) == 0u) {
         return n == 2u;
+    }
     for (k = 0u; k < N_SMALL; k++) {
-        if (n == small_primes[k])
+        if (n == small_primes[k]) {
             return 1;
-        if ((n % small_primes[k]) == 0u)
+        }
+        if ((n % small_primes[k]) == 0u) {
             return 0; /* divisible, and not the      */
+        }
     } /* prime itself: composite     */
-    if (n < PN_MATH_SHEET)
+    if (n < PN_MATH_SHEET) {
         return composite[(size_t) n] == 0u;
+    }
     if (n < (1ull << 32)) {
         for (d = 101ull; d * d <= n; d += 2u) {
-            if ((n % d) == 0u)
+            if ((n % d) == 0u) {
                 return 0;
+            }
         }
-        if (d <= 0xFFFFull)
-            return 1;               /* the sweep passed the root:
+        if (d <= 0xFFFFull) {
+            return 1; /* the sweep passed the root:
 		                                      Euclid has proved it        */
+        }
         return pn_witness_prime(n); /* the sheet rows ran out
 		                                      below the root: the
 		                                      witnesses finish the job    */
@@ -173,8 +191,9 @@ static int pn_prime_on(const uint8_t* composite, uint64_t n) {
 static uint64_t pn_isqrt(uint64_t n) {
     uint64_t res = 0u, bit = 1ull << 62;
 
-    while (bit > n)
+    while (bit > n) {
         bit >>= 2;
+    }
     while (bit != 0u) {
         if (n >= (res + bit)) {
             n -= res + bit;
@@ -199,8 +218,9 @@ static uint64_t pn_rho_f(uint64_t x, uint64_t c, uint64_t n) {
 static uint64_t pn_rho_divisor(uint64_t n) {
     uint64_t c;
 
-    if ((n & 1u) == 0u)
+    if ((n & 1u) == 0u) {
         return 2u;
+    }
     for (c = 1ull; c < 128ull; c++) {
         uint64_t x = 2ull + c, y = 2ull + c, g = 1u;
         unsigned guard;
@@ -209,8 +229,9 @@ static uint64_t pn_rho_divisor(uint64_t n) {
             y = pn_rho_f(pn_rho_f(y, c, n), c, n);
             g = pn_gcd(x > y ? x - y : y - x, n);
         }
-        if (g > 1u && g < n)
+        if (g > 1u && g < n) {
             return g;
+        }
     }
     return 0u;
 }
@@ -218,8 +239,9 @@ static uint64_t pn_rho_divisor(uint64_t n) {
 static void pn_factor_hard(uint64_t n, uint64_t* facs, size_t* w) {
     uint64_t f;
 
-    if (n <= 1u)
+    if (n <= 1u) {
         return;
+    }
     if (pn_witness_prime(n) != 0) {
         facs[(*w)++] = n;
         return;
@@ -229,8 +251,9 @@ static void pn_factor_hard(uint64_t n, uint64_t* facs, size_t* w) {
 	                                             back to Euclid's ladder,
 	                                             odd rungs only           */
         uint64_t d = 101ull;
-        while (d <= 0xFFFFull && (n % d) != 0u)
+        while (d <= 0xFFFFull && (n % d) != 0u) {
             d += 2u;
+        }
         f = (d <= 0xFFFFull && (n % d) == 0u) ? d : 0u;
         if (f == 0u) { /* no rung below 2^16 and a
 		                                       witness says composite -
@@ -250,12 +273,14 @@ size_t pn_math_sieve_size(uint64_t limit) {
     uint64_t n;
     size_t count = 0u;
 
-    if (limit < 2u || limit > PN_MATH_SIEVE_MAX_VALUE)
+    if (limit < 2u || limit > PN_MATH_SIEVE_MAX_VALUE) {
         return 0u;
+    }
     pn_sheet(composite);
     for (n = 2u; n <= limit; n++) {
-        if (pn_prime_on(composite, n) != 0)
+        if (pn_prime_on(composite, n) != 0) {
             count++;
+        }
     }
     return count;
 }
@@ -268,20 +293,24 @@ uint64_t* _Nullable pn_math_sieve(uint64_t limit, uint64_t* _Nonnull out, size_t
 
     assert(out && count);
     if (limit > PN_MATH_SIEVE_MAX_VALUE) {
-        if (error) *error = pn_error_init(PN_ERROR_RANGE,
-                                          "%llu runs past %llu: the sieve"
-                                          " sheet holds no more rows",
-                                          (unsigned long long) limit,
-                                          (unsigned long long) PN_MATH_SIEVE_MAX_VALUE);
+        if (error) {
+            *error = pn_error_init(PN_ERROR_RANGE,
+                                   "%llu runs past %llu: the sieve"
+                                   " sheet holds no more rows",
+                                   (unsigned long long) limit,
+                                   (unsigned long long) PN_MATH_SIEVE_MAX_VALUE);
+        }
         return NULL;
     }
     need = pn_math_sieve_size(limit);
     if (cap < need) {
-        if (error) *error = pn_error_init(PN_ERROR_BUFFER,
-                                          "the array holds room for %zu"
-                                          " prime(s); the sieve would write"
-                                          " %zu of them",
-                                          cap, need);
+        if (error) {
+            *error = pn_error_init(PN_ERROR_BUFFER,
+                                   "the array holds room for %zu"
+                                   " prime(s); the sieve would write"
+                                   " %zu of them",
+                                   cap, need);
+        }
         return NULL;
     }
     if (need == 0u) {
@@ -292,8 +321,9 @@ uint64_t* _Nullable pn_math_sieve(uint64_t limit, uint64_t* _Nonnull out, size_t
     pn_sheet(composite);
     w = 0u;
     for (n = 2u; n <= limit; n++) {
-        if (pn_prime_on(composite, n) != 0)
+        if (pn_prime_on(composite, n) != 0) {
             out[w++] = n;
+        }
     }
     *count = w;
     return out;
@@ -319,11 +349,13 @@ uint64_t* _Nullable pn_math_lcm(uint64_t a, uint64_t b, uint64_t* _Nonnull out,
     g = pn_gcd(a, b);
     q = a / g;
     if (q > UINT64_MAX / b) {
-        if (error) *error = pn_error_init(PN_ERROR_RANGE,
-                                          "%llu times %llu divided by"
-                                          " their gcd leaves the ledger:"
-                                          " no uint64_t holds the answer",
-                                          (unsigned long long) a, (unsigned long long) b);
+        if (error) {
+            *error = pn_error_init(PN_ERROR_RANGE,
+                                   "%llu times %llu divided by"
+                                   " their gcd leaves the ledger:"
+                                   " no uint64_t holds the answer",
+                                   (unsigned long long) a, (unsigned long long) b);
+        }
         return NULL;
     }
     *out = q * b;
@@ -366,22 +398,26 @@ uint64_t* _Nullable pn_math_next_prime(uint64_t n, uint64_t* _Nonnull out,
         }
     }
     pn_sheet(composite);
-    if ((n & 1u) == 0u)
+    if ((n & 1u) == 0u) {
         cand = n + 1u; /* even n: n+1 is the next odd hope; every
 			                     prime past 97 is odd                     */
-    else
+    }
+    else {
         cand = n; /* the culture counts the number itself */
+    }
     for (;;) {
         if (pn_prime_on(composite, cand) != 0) {
             *out = cand;
             return out;
         }
         if (cand > UINT64_MAX - 2u) {
-            if (error) *error = pn_error_init(PN_ERROR_RANGE,
-                                              "%llu and every odd number"
-                                              " above it run off the end"
-                                              " of the ledger",
-                                              (unsigned long long) n);
+            if (error) {
+                *error = pn_error_init(PN_ERROR_RANGE,
+                                       "%llu and every odd number"
+                                       " above it run off the end"
+                                       " of the ledger",
+                                       (unsigned long long) n);
+            }
             return NULL;
         }
         cand += 2u;
@@ -418,8 +454,9 @@ static size_t pn_do_factorize(uint64_t n, uint64_t* facs) {
             rest /= small_primes[k];
         }
     }
-    if (rest > 1u)
+    if (rest > 1u) {
         pn_factor_hard(rest, facs, &w);
+    }
     pn_sort_ascending(facs, w);
     return w;
 }
@@ -427,8 +464,9 @@ static size_t pn_do_factorize(uint64_t n, uint64_t* facs) {
 size_t pn_math_factorize_size(uint64_t n) {
     uint64_t facs[PN_MATH_MAX_FACTORS];
 
-    if (n < 2u)
+    if (n < 2u) {
         return 0u; /* the blank and the unit     */
+    }
     return pn_do_factorize(n, facs);
 }
 
@@ -446,15 +484,18 @@ uint64_t* _Nullable pn_math_factorize(uint64_t n, uint64_t* _Nonnull out, size_t
     }
     w = pn_do_factorize(n, facs);
     if (w > cap) {
-        if (error) *error = pn_error_init(PN_ERROR_BUFFER,
-                                          "the array holds room for %zu"
-                                          " factor(s); %llu has %zu of"
-                                          " them",
-                                          cap, (unsigned long long) n, w);
+        if (error) {
+            *error = pn_error_init(PN_ERROR_BUFFER,
+                                   "the array holds room for %zu"
+                                   " factor(s); %llu has %zu of"
+                                   " them",
+                                   cap, (unsigned long long) n, w);
+        }
         return NULL;
     }
-    for (size_t i = 0u; i < w; i++)
+    for (size_t i = 0u; i < w; i++) {
         out[i] = facs[i];
+    }
     *count = w;
     return out;
 }
@@ -473,16 +514,19 @@ static int pn_sigma_odd_below_gap(uint64_t n, uint64_t* out) {
     for (i = 0u; i < count;) {
         uint64_t p = facs[i], term = 1u, power = 1u;
         while (i < count && facs[i] == p) {
-            if (power > UINT64_MAX / p)
+            if (power > UINT64_MAX / p) {
                 return 0; /* the sum left the ledger   */
+            }
             power *= p;
-            if (term > UINT64_MAX - power)
+            if (term > UINT64_MAX - power) {
                 return 0;
+            }
             term += power;
             i++;
         }
-        if (sigma > UINT64_MAX / term)
+        if (sigma > UINT64_MAX / term) {
             return 0;
+        }
         sigma *= term;
     }
     *out = sigma;
@@ -493,11 +537,13 @@ bool* _Nullable pn_math_perfect_check(uint64_t n, bool* _Nonnull out,
                                       pn_error* _Nullable* _Nullable error) {
     assert(out);
     if (n < 2u) {
-        if (error) *error = pn_error_init(PN_ERROR_RANGE,
-                                          "%llu is the blank or the unit:"
-                                          " a perfect number is a sum of"
-                                          " its own parts",
-                                          (unsigned long long) n);
+        if (error) {
+            *error = pn_error_init(PN_ERROR_RANGE,
+                                   "%llu is the blank or the unit:"
+                                   " a perfect number is a sum of"
+                                   " its own parts",
+                                   (unsigned long long) n);
+        }
         return NULL;
     }
     if ((n & 1u) == 0u) {
@@ -545,12 +591,14 @@ uint64_t* _Nullable pn_math_pythagorean_triple(uint64_t m, uint64_t n, uint64_t*
 
     assert(leg1 && leg2 && hypotenuse);
     if (n < 1u || m <= n || m > PN_MATH_M_MAX_VALUE) {
-        if (error) *error = pn_error_init(PN_ERROR_RANGE,
-                                          "m and n must satisfy 1 <= n <"
-                                          " m <= %llu; m = %llu and n ="
-                                          " %llu do not",
-                                          (unsigned long long) PN_MATH_M_MAX_VALUE, (unsigned long long) m,
-                                          (unsigned long long) n);
+        if (error) {
+            *error = pn_error_init(PN_ERROR_RANGE,
+                                   "m and n must satisfy 1 <= n <"
+                                   " m <= %llu; m = %llu and n ="
+                                   " %llu do not",
+                                   (unsigned long long) PN_MATH_M_MAX_VALUE, (unsigned long long) m,
+                                   (unsigned long long) n);
+        }
         return NULL;
     }
     mm = m * m; /* m < 2^16: the squares fit the rod's foot */
@@ -558,11 +606,13 @@ uint64_t* _Nullable pn_math_pythagorean_triple(uint64_t m, uint64_t n, uint64_t*
     b = 2u * m * n;
     c = mm + n * n;
     if (a > PN_MATH_SIDE_MAX_VALUE || b > PN_MATH_SIDE_MAX_VALUE || c > PN_MATH_SIDE_MAX_VALUE) {
-        if (error) *error = pn_error_init(PN_ERROR_RANGE,
-                                          "a side of this triangle runs"
-                                          " past %llu: longer than the"
-                                          " rule measures",
-                                          PN_MATH_SIDE_MAX_VALUE);
+        if (error) {
+            *error = pn_error_init(PN_ERROR_RANGE,
+                                   "a side of this triangle runs"
+                                   " past %llu: longer than the"
+                                   " rule measures",
+                                   PN_MATH_SIDE_MAX_VALUE);
+        }
         return NULL;
     }
     *leg1 = a; /* the gnomon leg first, the Plimpton order */
@@ -576,14 +626,16 @@ bool* _Nullable pn_math_pythagorean_check(uint64_t x, uint64_t y, uint64_t z, bo
     uint64_t xx, yy, zz, rem;
 
     assert(out);
-    if (x < 1u || y < 1u || z < 1u || x > PN_MATH_SIDE_MAX_VALUE || y > PN_MATH_SIDE_MAX_VALUE ||
-        z > PN_MATH_SIDE_MAX_VALUE) {
-        if (error) *error = pn_error_init(PN_ERROR_RANGE,
-                                          "each side must run from 1 to"
-                                          " %llu; %llu, %llu, %llu do not"
-                                          " all fit the rule",
-                                          PN_MATH_SIDE_MAX_VALUE, (unsigned long long) x, (unsigned long long) y,
-                                          (unsigned long long) z);
+    if (x < 1u || y < 1u || z < 1u || x > PN_MATH_SIDE_MAX_VALUE || y > PN_MATH_SIDE_MAX_VALUE
+        || z > PN_MATH_SIDE_MAX_VALUE) {
+        if (error) {
+            *error = pn_error_init(PN_ERROR_RANGE,
+                                   "each side must run from 1 to"
+                                   " %llu; %llu, %llu, %llu do not"
+                                   " all fit the rule",
+                                   PN_MATH_SIDE_MAX_VALUE, (unsigned long long) x,
+                                   (unsigned long long) y, (unsigned long long) z);
+        }
         return NULL;
     }
     xx = x * x; /* sides at or below 2^32-1: each square fits */

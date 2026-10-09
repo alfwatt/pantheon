@@ -48,13 +48,17 @@ static const char* const digit_signs[20] = {
    unit watches its own front door (sex60.c keeps a well_formed,
    babylonian.c keeps one, and so does this file). */
 static int well_formed(pn_base20 v) {
-    if (v.n_places == 0 || v.n_places > PN_BASE20_MAX_PLACES)
+    if (v.n_places == 0 || v.n_places > PN_BASE20_MAX_PLACES) {
         return 0;
-    if (v.radix > v.n_places)
+    }
+    if (v.radix > v.n_places) {
         return 0;
-    for (unsigned i = 0; i < v.n_places; i++)
-        if (v.places[i] > 19)
+    }
+    for (unsigned i = 0; i < v.n_places; i++) {
+        if (v.places[i] > 19) {
             return 0;
+        }
+    }
     return 1;
 }
 
@@ -63,8 +67,9 @@ static int well_formed(pn_base20 v) {
    block's empty space past U+1D2F3, U+1D2F4..U+1D2FF, which is
    unassigned and carves nothing - gives -1. */
 static int match_mayan(const char* p, const char* end, unsigned* digit) {
-    if (p + SIGN_BYTES > end || memcmp(p, MAYAN_PREFIX, 3) != 0)
+    if (p + SIGN_BYTES > end || memcmp(p, MAYAN_PREFIX, 3) != 0) {
         return -1;
+    }
     const unsigned char b = (unsigned char) p[3];
 
     if (b >= MAYAN_LO && b <= MAYAN_HI) { /* U+1D2E0..U+1D2F3 */
@@ -84,8 +89,9 @@ size_t pn_mayan_render_size(pn_base20 v) {
     size_t n = v.neg ? 1u : 0u;
 
     for (unsigned i = 0; i < v.n_places; i++) {
-        if (i > 0)
+        if (i > 0) {
             n += 1u; /* one gutter between rows */
+        }
         n += SIGN_BYTES;
     }
     return n;
@@ -95,12 +101,14 @@ char* _Nullable pn_mayan_render(pn_base20 v, char* _Nonnull buf, size_t buflen,
                                 pn_error* _Nullable* _Nullable error) {
     assert(buf);
     if (!well_formed(v)) {
-        if (error) *error = pn_error_init(PN_ERROR_DOMAIN,
-                                          "the value is not well-formed:"
-                                          " %u places, radix %u - places need"
-                                          " 1 to %u slots, each 0 to 19, and"
-                                          " the radix cannot pass n_places",
-                                          v.n_places, v.radix, PN_BASE20_MAX_PLACES);
+        if (error) {
+            *error = pn_error_init(PN_ERROR_DOMAIN,
+                                   "the value is not well-formed:"
+                                   " %u places, radix %u - places need"
+                                   " 1 to %u slots, each 0 to 19, and"
+                                   " the radix cannot pass n_places",
+                                   v.n_places, v.radix, PN_BASE20_MAX_PLACES);
+        }
         return NULL;
     }
 
@@ -108,20 +116,24 @@ char* _Nullable pn_mayan_render(pn_base20 v, char* _Nonnull buf, size_t buflen,
     const size_t need = pn_mayan_render_size(v);
 
     if (buflen <= need) {
-        if (error) *error = pn_error_init(PN_ERROR_BUFFER,
-                                          "buffer holds %zu bytes; this value"
-                                          " needs %zu plus the terminating NUL",
-                                          buflen, need);
+        if (error) {
+            *error = pn_error_init(PN_ERROR_BUFFER,
+                                   "buffer holds %zu bytes; this value"
+                                   " needs %zu plus the terminating NUL",
+                                   buflen, need);
+        }
         return NULL;
     }
 
     char* q = buf; /* safe: need is exact and already checked */
 
-    if (v.neg)
+    if (v.neg) {
         *q++ = '-'; /* an anachronism, carved anyway */
+    }
     for (unsigned i = 0; i < v.n_places; i++) {
-        if (i > 0)
+        if (i > 0) {
             *q++ = ' ';
+        }
         memcpy(q, digit_signs[v.places[i]], SIGN_BYTES);
         q += SIGN_BYTES;
     }
@@ -143,10 +155,11 @@ pn_base20* _Nullable pn_mayan_parse(const char* _Nonnull buf, size_t buflen,
                                     pn_base20* _Nonnull out, pn_error* _Nullable* _Nullable error) {
     assert(buf && out);
     if (buflen == 0) {
-        if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                          "an empty tablet is no number:"
-                                          " the shell is how zero spells"
-                                          " itself");
+        if (error) {
+            *error = pn_error_init(PN_ERROR_SYNTAX, "an empty tablet is no number:"
+                                                    " the shell is how zero spells"
+                                                    " itself");
+        }
         return NULL;
     }
 
@@ -158,7 +171,9 @@ pn_base20* _Nullable pn_mayan_parse(const char* _Nonnull buf, size_t buflen,
 
     if (*p == '-') {
         if (p + 1 >= end) {
-            if (error) *error = pn_error_init(PN_ERROR_SYNTAX, "a '-' sitting over nothing");
+            if (error) {
+                *error = pn_error_init(PN_ERROR_SYNTAX, "a '-' sitting over nothing");
+            }
             return NULL;
         }
         v.neg = true;
@@ -171,37 +186,44 @@ pn_base20* _Nullable pn_mayan_parse(const char* _Nonnull buf, size_t buflen,
         unsigned digit;
 
         if (match_mayan(p, end, &digit) != 0) {
-            if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                              "%zu byte(s) at position %zu"
-                                              " are neither a whole digit"
-                                              " sign nor a single joining"
-                                              " space (doubled gutter or"
-                                              " two signs touching look"
-                                              " the same from here)",
-                                              (size_t) (end - p), (size_t) (p - buf));
+            if (error) {
+                *error = pn_error_init(PN_ERROR_SYNTAX,
+                                       "%zu byte(s) at position %zu"
+                                       " are neither a whole digit"
+                                       " sign nor a single joining"
+                                       " space (doubled gutter or"
+                                       " two signs touching look"
+                                       " the same from here)",
+                                       (size_t) (end - p), (size_t) (p - buf));
+            }
             return NULL;
         }
         if (k == PN_BASE20_MAX_PLACES) {
-            if (error) *error = pn_error_init(PN_ERROR_RANGE,
-                                              "the row past the page:"
-                                              " a codex stack holds %u",
-                                              PN_BASE20_MAX_PLACES);
+            if (error) {
+                *error = pn_error_init(PN_ERROR_RANGE,
+                                       "the row past the page:"
+                                       " a codex stack holds %u",
+                                       PN_BASE20_MAX_PLACES);
+            }
             return NULL;
         }
         v.places[k++] = (uint8_t) digit;
         p += SIGN_BYTES;
-        if (p == end)
+        if (p == end) {
             break;
+        }
         if (*p != ' ' || p + 1 >= end) {
-            if (error) *error = pn_error_init(PN_ERROR_SYNTAX,
-                                              "rows join with one space:"
-                                              " position %zu wears a"
-                                              "%s",
-                                              (size_t) (p - buf),
-                                              (*p == ' ') ? " trailing"
-                                              " space with no row under"
-                                              " it"
-                                              : " no gutter");
+            if (error) {
+                *error = pn_error_init(PN_ERROR_SYNTAX,
+                                       "rows join with one space:"
+                                       " position %zu wears a"
+                                       "%s",
+                                       (size_t) (p - buf),
+                                       (*p == ' ') ? " trailing"
+                                                     " space with no row under"
+                                                     " it"
+                                                   : " no gutter");
+            }
             return NULL;
         }
         p++;

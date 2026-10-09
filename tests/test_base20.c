@@ -67,8 +67,9 @@ int main(void) {
         CHECK_OK(pn_base20_from_u64(n, &v, &err_), err_);
         CHECK_OK(pn_base20_to_u64(v, &u, &err_), err_);
         CHECK(u == n);
-        if (pn_fails)
+        if (pn_fails) {
             break; /* the first failure names n */
+        }
     }
 
     /* format */
@@ -111,8 +112,9 @@ int main(void) {
         CHECK(!v.neg && v.n_places == 6 && v.radix == (x >= 1.0 ? 1 : 0));
         CHECK_OK(pn_base20_to_double(v, &d, &err_), err_);
         CHECK_DBL(d, x, 0.0); /* exact: halves of halves */
-        if (pn_fails)
+        if (pn_fails) {
             break;
+        }
     }
 
     CHECK_OK(pn_base20_from_double(4.25, 1, &v, &err_), err_);
@@ -160,7 +162,7 @@ int main(void) {
     bad.places[3] = 0;
     u = 256u;
     CHECK_ERROR(pn_base20_to_u64(bad, &u, &err_), err_, PN_ERROR_DOMAIN); /* place > 19 */
-    CHECK(u == 256u);                                                        /* untouched */
+    CHECK(u == 256u);                                                     /* untouched */
     CHECK_ERROR(pn_base20_to_double(bad, &d, &err_), err_, PN_ERROR_DOMAIN);
     CHECK_ERROR(pn_base20_format(bad, ',', buf, sizeof buf, &err_), err_, PN_ERROR_DOMAIN);
 
@@ -183,8 +185,9 @@ int main(void) {
     memset(&maxed, 0, sizeof maxed);
     maxed.n_places = PN_BASE20_MAX_PLACES;
     maxed.radix = PN_BASE20_MAX_PLACES;
-    for (unsigned i = 0; i < PN_BASE20_MAX_PLACES; i++)
+    for (unsigned i = 0; i < PN_BASE20_MAX_PLACES; i++) {
         maxed.places[i] = 19;
+    }
     u = 256u;
     CHECK_ERROR(pn_base20_to_u64(maxed, &u, &err_), err_, PN_ERROR_RANGE);
     CHECK(u == 256u);
@@ -195,8 +198,9 @@ int main(void) {
         "",  "-",   "1;",   "1,",   "1;2;3", " 1", "1 ",  "1 2",
         "x", "1.x", "1,,2", "1;2:", "1:",    ";;", "1-1",
     };
-    for (size_t i = 0; i < sizeof bad_strings / sizeof bad_strings[0]; i++)
+    for (size_t i = 0; i < sizeof bad_strings / sizeof bad_strings[0]; i++) {
         CHECK_ERROR(pn_base20_parse(bad_strings[i], &v, &err_), err_, PN_ERROR_SYNTAX);
+    }
 
     /* value-shaped but out-of-range rows */
     CHECK_ERROR(pn_base20_parse("25", &v, &err_), err_, PN_ERROR_RANGE);   /* 25 > 19 */
@@ -205,7 +209,6 @@ int main(void) {
     /* 17 places is past the struct */
     CHECK_ERROR(pn_base20_parse("0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0", &v, &err_), err_,
                 PN_ERROR_RANGE);
-
 
     return CHECK_RUN();
 }

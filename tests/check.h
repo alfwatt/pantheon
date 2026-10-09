@@ -87,22 +87,22 @@ static int pn_checks, pn_fails;
 
 /* CHECK_VALUE_ERROR(v = call(..., &slot), slot, PN_ERROR_X) — a
    value-returning call must hang a note of exactly code PN_ERROR_X. */
-#define CHECK_VALUE_ERROR(stmt, slot, want_)                                                \
-    do {                                                                                    \
-        pn_error* slot = NULL;                                                              \
-        pn_checks++;                                                                        \
-        (void) (stmt);                                                                      \
-        if (slot == NULL) {                                                                 \
-            pn_fails++;                                                                     \
+#define CHECK_VALUE_ERROR(stmt, slot, want_)                                                 \
+    do {                                                                                     \
+        pn_error* slot = NULL;                                                               \
+        pn_checks++;                                                                         \
+        (void) (stmt);                                                                       \
+        if (slot == NULL) {                                                                  \
+            pn_fails++;                                                                      \
             fprintf(stderr, "FAIL %s:%d: %s: no note, want %s\n", __FILE__, __LINE__, #stmt, \
-                    #want_);                                                                \
-        }                                                                                   \
-        else if (slot->code != (want_)) {                                                   \
-            pn_fails++;                                                                     \
-            fprintf(stderr, "FAIL %s:%d: %s: %s\n", __FILE__, __LINE__, #stmt,              \
-                    pn_error_describe(slot));                                               \
-        }                                                                                   \
-        pn_error_free(slot);                                                                \
+                    #want_);                                                                 \
+        }                                                                                    \
+        else if (slot->code != (want_)) {                                                    \
+            pn_fails++;                                                                      \
+            fprintf(stderr, "FAIL %s:%d: %s: %s\n", __FILE__, __LINE__, #stmt,               \
+                    pn_error_describe(slot));                                                \
+        }                                                                                    \
+        pn_error_free(slot);                                                                 \
     } while (0)
 
 #define CHECK_DBL(got, want, eps)                                  \
@@ -120,8 +120,8 @@ static int pn_checks, pn_fails;
     do {                                                                                          \
         static const uint8_t want_[] = {__VA_ARGS__};                                             \
         pn_checks++;                                                                              \
-        if ((v).n_places != (uint8_t) sizeof want_ || (v).radix != (uint8_t) (rdx_) ||            \
-            memcmp((v).places, want_, sizeof want_) != 0) {                                       \
+        if ((v).n_places != (uint8_t) sizeof want_ || (v).radix != (uint8_t) (rdx_)               \
+            || memcmp((v).places, want_, sizeof want_) != 0) {                                    \
             pn_fails++;                                                                           \
             fprintf(stderr, "FAIL %s:%d: places/radix mismatch in %s\n", __FILE__, __LINE__, #v); \
         }                                                                                         \

@@ -131,11 +131,13 @@ static void expect_render(uint64_t n, char* out) {
     }
     char* p = out;
     for (int i = m - 1; i >= 0; i--) { /* most significant first */
-        if (i != m - 1)
+        if (i != m - 1) {
             *p++ = ' '; /* one boundary per step */
+        }
         const char* g = (i == 0) ? figure_col[dig[i]] : simple_col[dig[i]];
-        while (*g != '\0')
+        while (*g != '\0') {
             *p++ = *g++;
+        }
     }
     *p = '\0';
 }
@@ -175,8 +177,8 @@ int main(void) {
     CHECK(strcmp(buf, FIGURE) == 0);
 
     /* the figure-eight's raw bytes pinned, as the stroke's are elsewhere */
-    CHECK((unsigned char) buf[0] == 0xE2 && (unsigned char) buf[1] == 0x88 &&
-          (unsigned char) buf[2] == 0x9E);
+    CHECK((unsigned char) buf[0] == 0xE2 && (unsigned char) buf[1] == 0x88
+          && (unsigned char) buf[2] == 0x9E);
 
     /* render 4: Locke's 4L, a long knot of four turns */
     render_ok(4u, buf, sizeof buf);
@@ -191,20 +193,23 @@ int main(void) {
     /* golden 731 = Locke's 7s, 3s, E: three columns */
     render_ok(731u, buf, sizeof buf);
     CHECK(strcmp(buf, SIMPLE SIMPLE SIMPLE SIMPLE SIMPLE SIMPLE SIMPLE " " SIMPLE SIMPLE SIMPLE
-                                                                       " " FIGURE) == 0);
+                                                                       " " FIGURE)
+          == 0);
 
     /* golden 804 = Locke's 8s, X, 4L: the blank tens place keeps */
     /* its boundary — the cord runs on between TWO spaces */
     render_ok(804u, buf, sizeof buf);
     CHECK(strcmp(buf, SIMPLE SIMPLE SIMPLE SIMPLE SIMPLE SIMPLE SIMPLE SIMPLE
                  " "
-                 " " FIGURE FIGURE FIGURE FIGURE) == 0);
+                 " " FIGURE FIGURE FIGURE FIGURE)
+          == 0);
 
     /* golden 1493 = Locke's 1s, 4s, 9s, 3L: four columns */
     render_ok(1493u, buf, sizeof buf);
     CHECK(strcmp(buf, SIMPLE " " SIMPLE SIMPLE SIMPLE SIMPLE
                              " " SIMPLE SIMPLE SIMPLE SIMPLE SIMPLE SIMPLE SIMPLE SIMPLE SIMPLE
-                             " " FIGURE FIGURE FIGURE) == 0);
+                             " " FIGURE FIGURE FIGURE)
+          == 0);
 
     /* the boundary nobody may tidy: 10 is one simple knot over the blank */
     /* units line — its closing space IS the cord */
@@ -217,12 +222,14 @@ int main(void) {
     render_ok(4000u, buf, sizeof buf);
     CHECK(strcmp(buf, SIMPLE SIMPLE SIMPLE SIMPLE " "
                                                   " "
-                                                  " ") == 0);
+                                                  " ")
+          == 0);
 
     /* 100: one simple knot over two blank places */
     render_ok(100u, buf, sizeof buf);
     CHECK(strcmp(buf, SIMPLE " "
-                             " ") == 0);
+                             " ")
+          == 0);
 
     /*  every digit at every height
 	   The pad literals carry the boundary counts the law derives — tens
@@ -246,8 +253,9 @@ int main(void) {
         render_ok(d * 1000u, buf, sizeof buf);
         CHECK(strcmp(buf, want) == 0);
         CHECK(strcmp(buf, thousands_col[d]) == 0);
-        if (pn_fails)
+        if (pn_fails) {
             break;
+        }
     }
 
     /*  zero: the absence of a knot
@@ -268,12 +276,12 @@ int main(void) {
     for (uint64_t n = 0; n < 160000u; n++) {
         (void) expect_render(n, want);
         CHECK(pn_quipu_render_size(n) == strlen(want));
-        if (pn_fails)
+        if (pn_fails) {
             break;
+        }
     }
 
     /* errors: render */
-
 
     /* one past nineteen places: 10^19 overflows the uint64_t shelf */
     memset(buf, 'x', 8);
@@ -304,8 +312,9 @@ int main(void) {
         back = UINT64_MAX;
         CHECK_OK(pn_quipu_parse(cord, need, &back, &err_), err_); /* exact bytes */
         CHECK(back == n);
-        if (pn_fails)
+        if (pn_fails) {
             break; /* the first failure names n */
+        }
     }
 
     /* deep places one row at a time: d x 10^k, every digit, k = 4..18 */
@@ -415,7 +424,6 @@ int main(void) {
     expect_range(SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE
                         " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE
                         " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE " " SIMPLE);
-
 
     /*  A cut-off knot: two of the bullet's three bytes stop mid-UTF-8 —
 	   two whole knots would be six bytes; seven is half a knot.
