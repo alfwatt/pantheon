@@ -1,14 +1,17 @@
 # libPantheon
-
 The road to `math.h`
 
-## Goal
-Encapsulate functions from the [history of mathematics](https://en.wikipedia.org/wiki/History_of_mathematics) and science 
-in well documented, easy to understand implementations which are 
+## Goals
+Encapsulate functions from the [history of mathematics](https://en.wikipedia.org/wiki/History_of_mathematics) and science in well documented, easy to understand implementations which are 
 efficient enough for use in highly demanding applications: 
-- no heap allocation
 - small by-value types
-- straight-line code.
+- straight-line code
+- heap accocation free API for parse and format operations
+- comprhensive error reporting for parse and 
+## Audience
+libPantheon is meant to be useful in an instructional environment, it teaches fundimental mathmatics skills in the context of software engineering.
+Code documetation is meant to be informative but not fully normative, and include refrences to further reading on the subjects.
+A 9th Grade (US) reading level is assumed for all documentation.
 
 ## Using it
 ```
@@ -20,8 +23,15 @@ Consume the library with `-Iinclude build/libpantheon.a` and a single
 `#include "pantheon.h"`.
 
 ## Contents
-### Pre-mathematics number systems
+### Number systems
+#### Fractions
+`pn_fraction`
+#### Base 20
+`pn_base_20`
+#### Base 60
+`pn_base_60
 
+## Numerals
 #### Babylonian
 - [x] [sexagesimal](https://en.wikipedia.org/wiki/Sexagesimal) conversion
 - parse/format scholarly transcriptions, convert to and from `uint64_t` and `double`

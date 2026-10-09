@@ -87,6 +87,258 @@ void pn_error_free(pn_error* _Nullable error);
 /// freeing.
 const char* _Nonnull pn_error_describe(const pn_error* _Nullable error);
 
+// MARK: - Fractions
+
+/*  Common fractions: a whole numerator over a whole denominator.
+   Older than any place-value fraction - the Rhind papyrus (c. 1550
+   BCE) writes 2/7 as the unit fractions 1/4 + 1/28, and the Greeks
+   chased pi with ratios: Archimedes' 22/7, then Zu Chongzhi's 355/113
+   (c. 480 CE), good to six decimal places.  Both are convergents of
+   pi's continued fraction [3; 7, 15, 1, 292, ...], see
+   https://en.wikipedia.org/wiki/Continued_fraction .
+   A fraction holds what no positional type can: 1/7 repeats forever
+   in base 60, 1/3 in base 20 and in binary, but here each is two
+   small numbers.  The sign is kept apart in neg, as in pn_base60,
+   so both halves are plain uint64_t magnitudes.
+   Canonical form: lowest terms, denominator at least 1, and zero is
+   0/1 with neg false.  Compare with pn_fraction_equals, never
+   memcmp: the struct carries padding after neg.  pn_fraction_make and pn_fraction_from_double always hand
+   back canonical values.
+   double is offered only as a conversion utility, never the canonical
+   form: 1/3 has no finite binary expansion.
+*/
+
+typedef struct pn_fraction {
+    uint64_t numerator;   /* the size of the top                      */
+    uint64_t denominator; /* 1 or more; never 0 in a well-formed value */
+    bool neg;             /* sign kept apart, exactly as pn_base60     */
+} pn_fraction;
+
+/// @returns a `pn_fraction` in lowest terms with the
+/// @param numerator and
+/// @param denominator provided, which must not be 0, and the
+/// @param neg sign provided; a zero numerator always gives 0/1, not negative
+pn_fraction pn_fraction_make(uint64_t numerator, uint64_t denominator, bool neg);
+
+/// Find the best rational approximation to a double: the fraction
+/// nearest the value among all fractions whose denominator is at most
+/// the bound.  The continued fraction of the value is unrolled one
+/// term at a time into its convergents h/k, and when the next
+/// convergent would pass the bound, the last semiconvergent that still
+/// fits is weighed against the last convergent:
+///
+///        pi    with max 10    ->   22/7      (Archimedes)
+///        pi    with max 1000  ->   355/113   (Zu Chongzhi)
+///        0.75  with max 1000  ->   3/4
+///
+/// The double is taken exactly, as m / 2^s, and the expansion runs
+/// on whole numbers, so the answer is the true best approximation of
+/// the double's own value.  The expansion runs on the magnitude, so
+/// negating the value negates the answer, and an exact tie between two
+/// candidates goes to the one nearer zero: 2.5 and -2.5 with max 1
+/// give 2/1 and -2/1 (Python's limit_denominator gives -3 for the
+/// latter).  Magnitudes of 2^64 and above saturate to UINT64_MAX/1.
+/// @returns a canonical `pn_fraction` approximating the
+/// @param value provided, which must be finite, with a denominator no
+/// larger than the
+/// @param max_denominator provided, which must be at least 1
+pn_fraction pn_fraction_from_double(double value, uint64_t max_denominator);
+
+/// Equal values, not equal fields: 1/3 equals 2/6 even when a caller
+/// built the unreduced struct by hand, and 0/1 equals -0/5.
+/// @returns true when the
+/// @param left and
+/// @param right fractions provided name the same number; neither
+/// denominator may be 0
+bool pn_fraction_equals(pn_fraction left, pn_fraction right);
+
+/// One correctly-rounded division numerator / denominator, so the
+/// answer is exact whenever a double can hold it at all.
+/// @returns the double nearest the
+/// @param value provided, whose denominator must not be 0
+double pn_fraction_to_double(pn_fraction value);
+
+/// Read a fraction: an optional '-', decimal digits, then optionally
+/// a '/' and more decimal digits.  The result is reduced to lowest
+/// terms:
+///
+///        "355/113"  -> 355/113
+///        "-6/8"     -> -3/4
+///        "3"        -> 3/1
+///
+/// The reading is strict: no spaces, no '+', no empty side.
+/// @returns a canonical `pn_fraction` parsed from the
+/// @param text provided, or a zeroed value and the
+/// @param error encountered (read the note; a value-returning call
+///     reports failure through the note, not through the value):
+///     PN_ERROR_SYNTAX when the grammar is broken,
+///     PN_ERROR_RANGE when a side tops UINT64_MAX,
+///     PN_ERROR_DOMAIN when the denominator is 0.
+pn_fraction pn_fraction_parse(const char* _Nonnull text, pn_error* _Nullable* _Nullable error);
+
+#define PN_FRACTION_FORMAT_MAX_LEN (1 + 20 + 1 + 20 + 1) /* '-' + top + '/' + bottom + NUL */
+
+/// @returns an allocated null-terminated `char*` formatted with the
+/// @param value provided, or NULL and the
+/// @param error encountered; the caller owns the `char*` and should `free` it
+[[nodiscard]]
+char* _Nullable pn_fraction_format(pn_fraction value, pn_error* _Nullable* _Nullable error);
+
+/// Write the value as "numerator/denominator", with a leading '-'
+/// when negative; a denominator of 1 writes the whole number alone
+/// ("3"), so every output parses back.  The write ends with a NUL and
+/// needs at most PN_FRACTION_FORMAT_MAX_LEN bytes.  On failure the
+/// provided buffer is left untouched.
+/// @returns the caller's `char*` formatted with the
+/// @param value to write out, into the
+/// @param buffer provided, with the
+/// @param buflen provided; or NULL and the
+/// @param error encountered:
+///     PN_ERROR_DOMAIN when the denominator is 0,
+///     PN_ERROR_BUFFER when buflen is too small.
+char* _Nullable pn_fraction_format_into(pn_fraction value, char* _Nonnull buffer, size_t buflen,
+                                        pn_error* _Nullable* _Nullable error);
+
+// MARK: - Base 20
+
+/*  Vigesimal — the base-20 core value: places, radix, conversions.
+   The pn_base20 counterpart of pn_base60: a fixed-size array of
+   bytes inside a ~20-byte struct passed by value - no allocations,
+   safe for real-time and embedded callers.
+   value = (-1)^neg * sum_i  places[i] * 20^(radix - 1 - i)
+   places[i] runs 0..19, most significant first.  In period style,
+   use radix == n_places.  The radix position and the sign are MODERN
+   niceties, added so this type is a number and not a riddle: no
+   book of the codices wrote a radix point, and the Dresden Codex
+   carries no negative numbers.
+   double is offered only as a conversion utility, never the canonical
+   form: 0;5 in this notation is 1/4 and exact, but 0;1 is 1/20 and
+   has no finite binary expansion (20 = 4 x 5 keeps a factor five),
+   and 20^13 = 8.192e16 already exceeds 2^53 - one whole row later
+   than sexagesimal's 60^8, because base twenty is half a square.
+*/
+
+#define PN_BASE20_MAX_PLACES 16 /* 20^16 ~ 6.6e20: plenty; keeps the struct tiny */
+
+typedef struct pn_base20 {
+    uint8_t places[PN_BASE20_MAX_PLACES]; /* each 0..19, most significant first */
+    uint8_t n_places;                     /* number of significant places, 1..16 */
+    uint8_t radix;                        /* places left of the radix point
+                                             (a modern addition - the Maya
+                                             wrote none); 0 means purely fractional */
+    bool neg;                             /* modern nicety; the codices
+                                             carry no sign */
+} pn_base20;
+
+/// Read a modern transcription of a vigesimal value — the same
+/// reading convention as the sexagesimal transcriptions above:
+/// decimal places joined by ',' or ':', with at most one ';' marking
+/// where the radix point sits.  No Maya scribe ever wrote any of it.
+///
+///        "1,2,0,0"   -> places {1,2,0,0}, radix 4  (period-style = 8800)
+///        "1;12,9"    -> the same places, radix 1   (= 1 + 12/20 + 9/400)
+///        "0;5"       -> places {0,5}, radix 1      (= 1/4; the 0 is
+///                                                   read literally)
+///
+/// The reading is strict: no spaces, no empty places, no trailing
+/// separator.  One trap: an unbroken "399" is NOT the decimal number
+/// 399 — it reads three digits deep and is refused as out of range
+/// (a longer run of digits is refused the same way).  Bring ordinary
+/// whole numbers in through pn_base20_from_u64 instead.
+/// @param text - the transcription to read
+/// @param out - where the value lands on success; untouched on any
+///     failure
+/// @param error - where to hang the note on failure:
+///     PN_ERROR_SYNTAX when the grammar is
+///     broken, PN_ERROR_RANGE when a place tops 19, a place wears
+///     more than 2 digits, or the value grows past
+///     PN_BASE20_MAX_PLACES places.
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+pn_base20* _Nullable pn_base20_parse(const char* _Nonnull text, pn_base20* _Nonnull out,
+                                     pn_error* _Nullable* _Nullable error);
+
+#define PN_BASE20_FORMAT_MAX_LEN (1 + 3 * PN_BASE20_MAX_PLACES + 1) /* '-' + places+seps + NUL */
+
+/// Write @param v out as a transcription joined with @param sep
+/// (',' or ':'; the radix boundary itself writes ';' whenever the
+/// radix sits in the middle of the value).  The write ends with a
+/// NUL and stays within PN_BASE20_FORMAT_MAX_LEN bytes.
+/// @param v - the value to write out
+/// @param sep - the joiner between places
+/// @param buf - where the text lands, with room for the NUL
+/// @param buflen - bytes of room at buf
+/// @param error - where to hang the note on failure:
+///     PN_ERROR_SYNTAX when sep is not one of the
+///     allowed joiners, PN_ERROR_DOMAIN when v is malformed
+///     (n_places == 0 or past the max, a place above 19, radix past
+///     n_places), PN_ERROR_BUFFER when buflen is too small.  On any
+///     failure buf is left untouched.
+/// @returns the caller's `buf` on success, or NULL and the
+/// @param error encountered.
+char* _Nullable pn_base20_format(pn_base20 v, char sep, char* _Nonnull buf, size_t buflen,
+                                 pn_error* _Nullable* _Nullable error);
+
+/// Turn an ordinary unsigned integer into vigesimal places exactly
+/// how the sexagesimal from_u64 does it, rebased: peel 20s off the
+/// bottom and flip the order.   @param n == 0 becomes a single place
+/// of 0.
+/// @param n - the whole number to convert
+/// @param out - where the value lands on success
+/// @param error - where to hang the note on failure:
+///     PN_ERROR_RANGE when the number would need
+///     more than PN_BASE20_MAX_PLACES places (in practice
+///     unreachable: UINT64_MAX takes 15 places).
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+pn_base20* _Nullable pn_base20_from_u64(uint64_t n, pn_base20* _Nonnull out,
+                                        pn_error* _Nullable* _Nullable error);
+
+/// Build a vigesimal whole number back up with Horner's scheme.
+/// @param v - the value to convert; well-formed and whole
+/// @param out - where the number lands on success
+/// @param error - where to hang the note on failure:
+///     PN_ERROR_DOMAIN when v is malformed or its
+///     radix is not n_places (that is: not a whole number),
+///     PN_ERROR_RANGE when the value does not fit a uint64_t
+///     (16 places maxed out = 20^16 - 1 would not).
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+uint64_t* _Nullable pn_base20_to_u64(pn_base20 v, uint64_t* _Nonnull out,
+                                     pn_error* _Nullable* _Nullable error);
+
+/// Turn a vigesimal value into a double: the whole part runs through
+/// Horner's scheme in exact uint64_t arithmetic while it fits, then
+/// one correctly-rounded division F / 20^k while k <= 14.  Results
+/// are exact whenever a double can hold them at all.   (A value that
+/// is purely fractional past 14 places drops to the iterated
+/// division loop; harmless.)
+/// @param v - the value to convert; it must be well-formed
+/// @param out - where the double lands on success
+/// @param error - where to hang the note on failure:
+///     PN_ERROR_DOMAIN when v is malformed.
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+double* _Nullable pn_base20_to_double(pn_base20 v, double* _Nonnull out,
+                                      pn_error* _Nullable* _Nullable error);
+
+/// Turn a double into vigesimal places, rounding half away from zero
+/// at the @param frac_places-th place (each place 0..19), just like
+/// pn_base60_from_double: places kept past the rounding are zeros,
+/// 0.98 rounded at one place steps up to a whole 1, NaN and infinity
+/// are refused.
+/// @param x - the number to convert
+/// @param frac_places - how many fractional places to keep
+/// @param out - where the value lands on success
+/// @param error - where to hang the note on failure:
+///     PN_ERROR_DOMAIN for NaN, infinity, or
+///     frac_places past PN_BASE20_MAX_PLACES, PN_ERROR_RANGE when
+///     the carries grow the value past 16 places.
+/// @returns the caller's `out` on success, or NULL and the
+/// @param error encountered.
+pn_base20* _Nullable pn_base20_from_double(double x, uint8_t frac_places, pn_base20* _Nonnull out,
+                                           pn_error* _Nullable* _Nullable error);
+
 // MARK: - Base 60
 
 /*  Babylonian sexagesimal (base-60) values.
@@ -346,257 +598,7 @@ pn_base60* _Nullable pn_babylonian_parse_from(const char* _Nonnull buffer, size_
                                               pn_base60* _Nonnull out,
                                               pn_error* _Nullable* _Nullable error);
 
-// MARK: - Vigesimal
-
-/*  Vigesimal — the base-20 core value: places, radix, conversions.
-   The pn_base20 counterpart of pn_base60: a fixed-size array of
-   bytes inside a ~20-byte struct passed by value - no allocations,
-   safe for real-time and embedded callers.
-   value = (-1)^neg * sum_i  places[i] * 20^(radix - 1 - i)
-   places[i] runs 0..19, most significant first.  In period style,
-   use radix == n_places.  The radix position and the sign are MODERN
-   niceties, added so this type is a number and not a riddle: no
-   book of the codices wrote a radix point, and the Dresden Codex
-   carries no negative numbers.
-   double is offered only as a conversion utility, never the canonical
-   form: 0;5 in this notation is 1/4 and exact, but 0;1 is 1/20 and
-   has no finite binary expansion (20 = 4 x 5 keeps a factor five),
-   and 20^13 = 8.192e16 already exceeds 2^53 - one whole row later
-   than sexagesimal's 60^8, because base twenty is half a square.
-*/
-
-#define PN_BASE20_MAX_PLACES 16 /* 20^16 ~ 6.6e20: plenty; keeps the struct tiny */
-
-typedef struct pn_base20 {
-    uint8_t places[PN_BASE20_MAX_PLACES]; /* each 0..19, most significant first */
-    uint8_t n_places;                     /* number of significant places, 1..16 */
-    uint8_t radix;                        /* places left of the radix point
-	                                         (a modern addition - the Maya
-	                                         wrote none); 0 means purely fractional */
-    bool neg;                             /* modern nicety; the codices
-	                                         carry no sign */
-} pn_base20;
-
-/// Read a modern transcription of a vigesimal value — the same
-/// reading convention as the sexagesimal transcriptions above:
-/// decimal places joined by ',' or ':', with at most one ';' marking
-/// where the radix point sits.  No Maya scribe ever wrote any of it.
-///
-///        "1,2,0,0"   -> places {1,2,0,0}, radix 4  (period-style = 8800)
-///        "1;12,9"    -> the same places, radix 1   (= 1 + 12/20 + 9/400)
-///        "0;5"       -> places {0,5}, radix 1      (= 1/4; the 0 is
-///                                                   read literally)
-///
-/// The reading is strict: no spaces, no empty places, no trailing
-/// separator.  One trap: an unbroken "399" is NOT the decimal number
-/// 399 — it reads three digits deep and is refused as out of range
-/// (a longer run of digits is refused the same way).  Bring ordinary
-/// whole numbers in through pn_base20_from_u64 instead.
-/// @param text - the transcription to read
-/// @param out - where the value lands on success; untouched on any
-///     failure
-/// @param error - where to hang the note on failure:
-///     PN_ERROR_SYNTAX when the grammar is
-///     broken, PN_ERROR_RANGE when a place tops 19, a place wears
-///     more than 2 digits, or the value grows past
-///     PN_BASE20_MAX_PLACES places.
-/// @returns the caller's `out` on success, or NULL and the
-/// @param error encountered.
-pn_base20* _Nullable pn_base20_parse(const char* _Nonnull text, pn_base20* _Nonnull out,
-                                     pn_error* _Nullable* _Nullable error);
-
-#define PN_BASE20_FORMAT_MAX_LEN (1 + 3 * PN_BASE20_MAX_PLACES + 1) /* '-' + places+seps + NUL */
-
-/// Write @param v out as a transcription joined with @param sep
-/// (',' or ':'; the radix boundary itself writes ';' whenever the
-/// radix sits in the middle of the value).  The write ends with a
-/// NUL and stays within PN_BASE20_FORMAT_MAX_LEN bytes.
-/// @param v - the value to write out
-/// @param sep - the joiner between places
-/// @param buf - where the text lands, with room for the NUL
-/// @param buflen - bytes of room at buf
-/// @param error - where to hang the note on failure:
-///     PN_ERROR_SYNTAX when sep is not one of the
-///     allowed joiners, PN_ERROR_DOMAIN when v is malformed
-///     (n_places == 0 or past the max, a place above 19, radix past
-///     n_places), PN_ERROR_BUFFER when buflen is too small.  On any
-///     failure buf is left untouched.
-/// @returns the caller's `buf` on success, or NULL and the
-/// @param error encountered.
-char* _Nullable pn_base20_format(pn_base20 v, char sep, char* _Nonnull buf, size_t buflen,
-                                 pn_error* _Nullable* _Nullable error);
-
-/// Turn an ordinary unsigned integer into vigesimal places exactly
-/// how the sexagesimal from_u64 does it, rebased: peel 20s off the
-/// bottom and flip the order.   @param n == 0 becomes a single place
-/// of 0.
-/// @param n - the whole number to convert
-/// @param out - where the value lands on success
-/// @param error - where to hang the note on failure:
-///     PN_ERROR_RANGE when the number would need
-///     more than PN_BASE20_MAX_PLACES places (in practice
-///     unreachable: UINT64_MAX takes 15 places).
-/// @returns the caller's `out` on success, or NULL and the
-/// @param error encountered.
-pn_base20* _Nullable pn_base20_from_u64(uint64_t n, pn_base20* _Nonnull out,
-                                        pn_error* _Nullable* _Nullable error);
-
-/// Build a vigesimal whole number back up with Horner's scheme.
-/// @param v - the value to convert; well-formed and whole
-/// @param out - where the number lands on success
-/// @param error - where to hang the note on failure:
-///     PN_ERROR_DOMAIN when v is malformed or its
-///     radix is not n_places (that is: not a whole number),
-///     PN_ERROR_RANGE when the value does not fit a uint64_t
-///     (16 places maxed out = 20^16 - 1 would not).
-/// @returns the caller's `out` on success, or NULL and the
-/// @param error encountered.
-uint64_t* _Nullable pn_base20_to_u64(pn_base20 v, uint64_t* _Nonnull out,
-                                     pn_error* _Nullable* _Nullable error);
-
-/// Turn a vigesimal value into a double: the whole part runs through
-/// Horner's scheme in exact uint64_t arithmetic while it fits, then
-/// one correctly-rounded division F / 20^k while k <= 14.  Results
-/// are exact whenever a double can hold them at all.   (A value that
-/// is purely fractional past 14 places drops to the iterated
-/// division loop; harmless.)
-/// @param v - the value to convert; it must be well-formed
-/// @param out - where the double lands on success
-/// @param error - where to hang the note on failure:
-///     PN_ERROR_DOMAIN when v is malformed.
-/// @returns the caller's `out` on success, or NULL and the
-/// @param error encountered.
-double* _Nullable pn_base20_to_double(pn_base20 v, double* _Nonnull out,
-                                      pn_error* _Nullable* _Nullable error);
-
-/// Turn a double into vigesimal places, rounding half away from zero
-/// at the @param frac_places-th place (each place 0..19), just like
-/// pn_base60_from_double: places kept past the rounding are zeros,
-/// 0.98 rounded at one place steps up to a whole 1, NaN and infinity
-/// are refused.
-/// @param x - the number to convert
-/// @param frac_places - how many fractional places to keep
-/// @param out - where the value lands on success
-/// @param error - where to hang the note on failure:
-///     PN_ERROR_DOMAIN for NaN, infinity, or
-///     frac_places past PN_BASE20_MAX_PLACES, PN_ERROR_RANGE when
-///     the carries grow the value past 16 places.
-/// @returns the caller's `out` on success, or NULL and the
-/// @param error encountered.
-pn_base20* _Nullable pn_base20_from_double(double x, uint8_t frac_places, pn_base20* _Nonnull out,
-                                           pn_error* _Nullable* _Nullable error);
-
-// MARK: - Fractions
-
-/*  Common fractions: a whole numerator over a whole denominator.
-   Older than any place-value fraction - the Rhind papyrus (c. 1550
-   BCE) writes 2/7 as the unit fractions 1/4 + 1/28, and the Greeks
-   chased pi with ratios: Archimedes' 22/7, then Zu Chongzhi's 355/113
-   (c. 480 CE), good to six decimal places.  Both are convergents of
-   pi's continued fraction [3; 7, 15, 1, 292, ...], see
-   https://en.wikipedia.org/wiki/Continued_fraction .
-   A fraction holds what no positional type can: 1/7 repeats forever
-   in base 60, 1/3 in base 20 and in binary, but here each is two
-   small numbers.  The sign is kept apart in neg, as in pn_base60,
-   so both halves are plain uint64_t magnitudes.
-   Canonical form: lowest terms, denominator at least 1, and zero is
-   0/1 with neg false.  Compare with pn_fraction_equals, never
-   memcmp: the struct carries padding after neg.  pn_fraction_make and pn_fraction_from_double always hand
-   back canonical values.
-   double is offered only as a conversion utility, never the canonical
-   form: 1/3 has no finite binary expansion.
-*/
-
-typedef struct pn_fraction {
-    uint64_t numerator;   /* the size of the top                      */
-    uint64_t denominator; /* 1 or more; never 0 in a well-formed value */
-    bool neg;             /* sign kept apart, exactly as pn_base60     */
-} pn_fraction;
-
-/// @returns a `pn_fraction` in lowest terms with the
-/// @param numerator and
-/// @param denominator provided, which must not be 0, and the
-/// @param neg sign provided; a zero numerator always gives 0/1, not negative
-pn_fraction pn_fraction_make(uint64_t numerator, uint64_t denominator, bool neg);
-
-/// Find the best rational approximation to a double: the fraction
-/// nearest the value among all fractions whose denominator is at most
-/// the bound.  The continued fraction of the value is unrolled one
-/// term at a time into its convergents h/k, and when the next
-/// convergent would pass the bound, the last semiconvergent that still
-/// fits is weighed against the last convergent:
-///
-///        pi    with max 10    ->   22/7      (Archimedes)
-///        pi    with max 1000  ->   355/113   (Zu Chongzhi)
-///        0.75  with max 1000  ->   3/4
-///
-/// The double is taken exactly, as m / 2^s, and the expansion runs
-/// on whole numbers, so the answer is the true best approximation of
-/// the double's own value.  The expansion runs on the magnitude, so
-/// negating the value negates the answer, and an exact tie between two
-/// candidates goes to the one nearer zero: 2.5 and -2.5 with max 1
-/// give 2/1 and -2/1 (Python's limit_denominator gives -3 for the
-/// latter).  Magnitudes of 2^64 and above saturate to UINT64_MAX/1.
-/// @returns a canonical `pn_fraction` approximating the
-/// @param value provided, which must be finite, with a denominator no
-/// larger than the
-/// @param max_denominator provided, which must be at least 1
-pn_fraction pn_fraction_from_double(double value, uint64_t max_denominator);
-
-/// Equal values, not equal fields: 1/3 equals 2/6 even when a caller
-/// built the unreduced struct by hand, and 0/1 equals -0/5.
-/// @returns true when the
-/// @param left and
-/// @param right fractions provided name the same number; neither
-/// denominator may be 0
-bool pn_fraction_equals(pn_fraction left, pn_fraction right);
-
-/// One correctly-rounded division numerator / denominator, so the
-/// answer is exact whenever a double can hold it at all.
-/// @returns the double nearest the
-/// @param value provided, whose denominator must not be 0
-double pn_fraction_to_double(pn_fraction value);
-
-/// Read a fraction: an optional '-', decimal digits, then optionally
-/// a '/' and more decimal digits.  The result is reduced to lowest
-/// terms:
-///
-///        "355/113"  -> 355/113
-///        "-6/8"     -> -3/4
-///        "3"        -> 3/1
-///
-/// The reading is strict: no spaces, no '+', no empty side.
-/// @returns a canonical `pn_fraction` parsed from the
-/// @param text provided, or a zeroed value and the
-/// @param error encountered (read the note; a value-returning call
-///     reports failure through the note, not through the value):
-///     PN_ERROR_SYNTAX when the grammar is broken,
-///     PN_ERROR_RANGE when a side tops UINT64_MAX,
-///     PN_ERROR_DOMAIN when the denominator is 0.
-pn_fraction pn_fraction_parse(const char* _Nonnull text, pn_error* _Nullable* _Nullable error);
-
-#define PN_FRACTION_FORMAT_MAX_LEN (1 + 20 + 1 + 20 + 1) /* '-' + top + '/' + bottom + NUL */
-
-/// @returns an allocated null-terminated `char*` formatted with the
-/// @param value provided, or NULL and the
-/// @param error encountered; the caller owns the `char*` and should `free` it
-[[nodiscard]]
-char* _Nullable pn_fraction_format(pn_fraction value, pn_error* _Nullable* _Nullable error);
-
-/// Write the value as "numerator/denominator", with a leading '-'
-/// when negative; a denominator of 1 writes the whole number alone
-/// ("3"), so every output parses back.  The write ends with a NUL and
-/// needs at most PN_FRACTION_FORMAT_MAX_LEN bytes.  On failure the
-/// provided buffer is left untouched.
-/// @returns the caller's `char*` formatted with the
-/// @param value to write out, into the
-/// @param buffer provided, with the
-/// @param buflen provided; or NULL and the
-/// @param error encountered:
-///     PN_ERROR_DOMAIN when the denominator is 0,
-///     PN_ERROR_BUFFER when buflen is too small.
-char* _Nullable pn_fraction_format_into(pn_fraction value, char* _Nonnull buffer, size_t buflen,
-                                        pn_error* _Nullable* _Nullable error);
+// MARK: - Egyptian Numerals
 
 /*  Egyptian hieroglyphic numerals (UTF-8 rendering).
    The Egyptian system (c. 3000 BCE onward) was decimal but ADDITIVE: a
@@ -627,8 +629,6 @@ char* _Nullable pn_fraction_format_into(pn_fraction value, char* _Nonnull buffer
    4622 (the Karnak carving) is thus four lotus + six coils + two
    hobbles + two strokes, largest first, as any scribe would carve it.
 */
-
-// MARK: - Egyptian Numerals
 
 #define PN_EGYPTIAN_STROKE    0x133E4u   /* 𓏤 single stroke   = 1          */
 #define PN_EGYPTIAN_HOBBLE    0x13386u   /* 𓎆 cattle hobble   = 10         */
@@ -1379,21 +1379,22 @@ char* _Nullable pn_roman_render(uint64_t n, char* _Nonnull buf, size_t buflen,
 uint64_t* _Nullable pn_roman_parse(const char* _Nonnull buf, size_t buflen, uint64_t* _Nonnull out,
                                    pn_error* _Nullable* _Nullable error);
 
-/*  Early mathematical theory (Elements VII-IX, the sieve of
-   Eratosthenes, the gnomon figures).
-   The reckoning that sat underneath the numerals: Euclid's ladder
-   of remainders, the papyrus of struck rows, the Pythagoreans'
-   triples, the abacist's ledger of factors.  Nothing here renders a
-   notation - these are the working functions of the culture, on the
-   whole uint64 ledger 0..18446744073709551615.
-   Primality is proved, never merely probable: below 2^32 Euclid's
-   own trial division by the sieve's unstruck rows is the complete
-   argument, and above it Miller's seven certified witnesses (2,
-   325, 9375, 28178, 450775, 9780504, 1795265022) decide every case
-   of the ledger before the water clock runs out.
-*/
-
 // MARK: - Math
+
+/*
+    Early mathematical theory (Elements VII-IX, the sieve of
+    Eratosthenes, the gnomon figures).
+
+    The reckoning that sat underneath the numerals: Euclid's ladder
+    of remainders, the papyrus of struck rows, the Pythagoreans'
+    triples, the abacist's ledger of factors.
+
+    Primality is proved, never merely probable: below 2^32 Euclid's
+    own trial division by the sieve's unstruck rows is the complete
+    argument, and above it Miller's seven certified witnesses (2,
+    325, 9375, 28178, 450775, 9780504, 1795265022) decide every case
+    of the ledger before the water clock runs out.
+*/
 
 #define PN_MATH_SIEVE_MAX_VALUE 1000000ull
 #define PN_MATH_M_MAX_VALUE     65535ull
