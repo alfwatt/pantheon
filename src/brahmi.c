@@ -1,8 +1,9 @@
-/*  brahmi.c — Brahmi numerals in UTF-8, from 0 to 9999.
+/*
+    brahmi.c — Brahmi numerals in UTF-8, from 0 to 9999.
 
     Brahmi numerals were used in India from about the 3rd century
-    BCE, and the familiar digits 1 to 9 descend from them.  They were
-    not yet positional.  Instead, every value 1 to 9 and every ten 10
+    BCE, and the familiar digits 1 to 9 descend from them. They were
+    not yet positional. Instead, every value 1 to 9 and every ten 10
     to 90 has its own sign, so 47 is two signs (forty, seven), not
     eleven marks as in Egyptian:
 
@@ -14,11 +15,11 @@
 
     47 is 𑁞𑁘 (forty, seven).
 
-    Hundreds and thousands use multiplication.  For 200 to 900 the
+    Hundreds and thousands use multiplication. For 200 to 900 the
     hundred sign is joined to a digit: HUNDRED, JOINER, FOUR means
-    400, drawn as one combined sign.  The joiner is what shows
+    400, drawn as one combined sign. The joiner is what shows
     multiplication: HUNDRED, FOUR with no joiner means 100 + 4 = 104.
-    A plain 100 or 1000 is just the power sign alone.  So:
+    A plain 100 or 1000 is just the power sign alone. So:
 
     400  = 𑁤𑁿𑁕          HUNDRED JOINER FOUR
     104  = 𑁤𑁕            HUNDRED FOUR
@@ -29,17 +30,18 @@
     empty string and the largest value is 9999.
 
     Reading works slot by slot: thousands, hundreds, tens, ones, each
-    used at most once and in that order.  2222 writes TWO three
+    used at most once and in that order. 2222 writes TWO three
     times, which is fine because each TWO belongs to a different
-    slot.  Rejected: two power signs in a row, a joiner with no
+    slot. Rejected: two power signs in a row, a joiner with no
     digit after it, HUNDRED FOUR FOUR (the ones slot used twice), and
     slots out of order.
 
     The code spells the signs as \U escapes so the exact code point
     is visible; the comments show the signs themselves.
 
-    Further reading: https://en.wikipedia.org/wiki/Brahmi_numerals
-      https://www.unicode.org/charts/PDF/U11000.pdf (the Unicode chart)
+    Further reading:
+    - https://en.wikipedia.org/wiki/Brahmi_numerals
+    - https://www.unicode.org/charts/PDF/U11000.pdf (the Unicode chart)
 */
 #include <assert.h>
 #include <string.h>
@@ -74,10 +76,12 @@ static const char* const units[9] = {ONE, TWO, THREE, FOUR, FIVE, SIX, SEVEN, EI
 static const char* const tens[9] = {TEN,   TWENTY,  THIRTY, FORTY, FIFTY,
                                     SIXTY, SEVENTY, EIGHTY, NINETY};
 
-/* Write n in the standard form described above.  buf may be NULL,
-   which only counts the bytes.  Above PN_BRAHMI_MAX_VALUE the count
-   leaves out the digits above the thousands and means nothing;
-   pn_brahmi_render reports the error. */
+/*
+    Write n in the standard form described above. buf may be NULL,
+    which only counts the bytes. Above PN_BRAHMI_MAX_VALUE the count
+    leaves out the digits above the thousands and means nothing;
+    pn_brahmi_render reports the error.
+*/
 static size_t brahmi_emit(uint64_t n, char* buf) {
     size_t bytes = 0;
 
@@ -88,8 +92,10 @@ static size_t brahmi_emit(uint64_t n, char* buf) {
         bytes += SIGN_BYTES;                      \
     } while (0)
 
-    /* One hundreds or thousands term: the power sign alone for a 1,
-           POWER JOINER DIGIT for 2 to 9, and nothing for 0. */
+    /*
+        One hundreds or thousands term: the power sign alone for a 1,
+        POWER JOINER DIGIT for 2 to 9, and nothing for 0.
+    */
 #define PUT_POWER(power, d)       \
     do {                          \
         if ((d) >= 1u)            \
@@ -119,8 +125,10 @@ static size_t brahmi_emit(uint64_t n, char* buf) {
 }
 
 size_t pn_brahmi_render_size(uint64_t n) {
-    /* Never fails: it counts exactly what brahmi_emit writes, which is
-           what pn_brahmi_render writes. */
+    /*
+        Never fails: it counts exactly what brahmi_emit writes, which is
+        what pn_brahmi_render writes.
+    */
     return brahmi_emit(n, NULL);
 }
 
@@ -157,21 +165,25 @@ char* _Nullable pn_brahmi_render(uint64_t n, char* _Nonnull buf, size_t buflen,
     return buf;
 }
 
-/* Reading is the reverse of writing, and only the standard form is
-   accepted, so reading back written text always gives the original
-   number.  The text is at most four terms (thousands, hundreds,
-   tens, ones), each at most once, in that order, with nothing
-   between them.  A hundreds or thousands term is the power sign
-   alone (for 1) or POWER JOINER DIGIT (for 2 to 9).  A tens or ones
-   term is its single sign.
+/*
+    Reading is the reverse of writing, and only the standard form is
+    accepted, so reading back written text always gives the original
+    number. The text is at most four terms (thousands, hundreds,
+    tens, ones), each at most once, in that order, with nothing
+    between them. A hundreds or thousands term is the power sign
+    alone (for 1) or POWER JOINER DIGIT (for 2 to 9). A tens or ones
+    term is its single sign.
 
-   Rejected: bytes that aren't Brahmi numerals, a sign cut off in
-   the middle, a term out of order, a joiner anywhere else, HUNDRED
-   JOINER ONE (100 is written as the hundred sign alone), and
-   HUNDRED FOUR FOUR. */
+    Rejected: bytes that aren't Brahmi numerals, a sign cut off in
+    the middle, a term out of order, a joiner anywhere else, HUNDRED
+    JOINER ONE (100 is written as the hundred sign alone), and
+    HUNDRED FOUR FOUR.
+*/
 
-/* All the signs in Unicode order: ones, tens, the two powers, then
-   the joiner.  A term never starts with the joiner. */
+/*
+    All the signs in Unicode order: ones, tens, the two powers, then
+    the joiner. A term never starts with the joiner.
+*/
 #define N_SIGNS 21
 static const char* const signs[N_SIGNS] = {
     ONE,    TWO,   THREE, FOUR,  FIVE,    SIX,    SEVEN,  EIGHT,   NINE,     TEN,   TWENTY,
@@ -183,8 +195,10 @@ static const char* const signs[N_SIGNS] = {
 #define SIG_THOUSAND 19
 #define SIG_JOINER   20
 
-/* Read one whole sign at p: returns its index in the table above, or
-   -1 for a byte that isn't a sign or a sign cut off short. */
+/*
+    Read one whole sign at p: returns its index in the table above, or
+    -1 for a byte that isn't a sign or a sign cut off short.
+*/
 static int match_sign(const char* p, const char* end) {
     for (int i = 0; i < N_SIGNS; i++) {
         if (p + SIGN_BYTES <= end && memcmp(p, signs[i], SIGN_BYTES) == 0) {
@@ -248,8 +262,10 @@ uint64_t* _Nullable pn_brahmi_parse(const char* _Nonnull buf, size_t buflen, uin
                 return NULL;
             }
 
-            /* The digit: the power sign alone means 1; JOINER DIGIT
-                           multiplies it. */
+            /*
+                The digit: the power sign alone means 1; JOINER DIGIT
+                multiplies it.
+            */
             worth = power;
             if (p + SIGN_BYTES <= end && memcmp(p, JOINER, SIGN_BYTES) == 0) {
                 p += SIGN_BYTES;
@@ -303,8 +319,10 @@ uint64_t* _Nullable pn_brahmi_parse(const char* _Nonnull buf, size_t buflen, uin
             next = 4;
         }
 
-        /* Can't overflow: all four slots at most is
-                   9000 + 900 + 90 + 9 = PN_BRAHMI_MAX_VALUE. */
+        /*
+            Can't overflow: all four slots at most is
+            9000 + 900 + 90 + 9 = PN_BRAHMI_MAX_VALUE.
+        */
         sum += worth;
         slot = next;
     }

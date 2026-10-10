@@ -1,20 +1,22 @@
-/*  base60.c — base-60 (sexagesimal) numbers.
+/*
+    base60.c — base-60 (sexagesimal) numbers.
 
     Babylonian mathematicians (from about 1800 BCE) counted in base
-    60.  We still do for time and angles: 1 hour = 60 minutes = 3600
-    seconds.  This file reads and writes base-60 values in the modern
+    60. We still do for time and angles: 1 hour = 60 minutes = 3600
+    seconds. This file reads and writes base-60 values in the modern
     scholarly notation (like 1;24,51,10) and converts them to and
     from uint64_t and double.
 
     A pn_base60 stores a list of "places" (base-60 digits, each 0 to
     59), most significant first, the same way 365 in base 10 is the
-    places 3, 6, 5.  Nothing here allocates memory; the biggest
+    places 3, 6, 5. Nothing here allocates memory; the biggest
     temporary buffers are 16 bytes of places and about 50 bytes of
     text.
 
-    Further reading: https://en.wikipedia.org/wiki/Sexagesimal
-      https://en.wikipedia.org/wiki/Babylonian_numerals
-      https://en.wikipedia.org/wiki/Positional_notation
+    Further reading:
+    - https://en.wikipedia.org/wiki/Sexagesimal
+    - https://en.wikipedia.org/wiki/Babylonian_numerals
+    - https://en.wikipedia.org/wiki/Positional_notation
 */
 #include <assert.h>
 #include <math.h>
@@ -23,11 +25,13 @@
 
 #include "pantheon.h"
 
-/* The powers of 60 from 60^0 to 60^10, written out exactly.  60^10
-   (about 6.05 x 10^17) is the largest that fits in a uint64_t.  A
-   double stores every whole number exactly only up to 2^53, and
-   60^8 (about 1.68 x 10^14) is the largest power of 60 below that.
-   https://en.wikipedia.org/wiki/Double-precision_floating-point_format */
+/*
+    The powers of 60 from 60^0 to 60^10, written out exactly. 60^10
+    (about 6.05 x 10^17) is the largest that fits in a uint64_t. A
+    double stores every whole number exactly only up to 2^53, and
+    60^8 (about 1.68 x 10^14) is the largest power of 60 below that.
+    https://en.wikipedia.org/wiki/Double-precision_floating-point_format
+*/
 static const uint64_t pow60_exact[] = {
     1ULL,
     60ULL,
@@ -43,10 +47,12 @@ static const uint64_t pow60_exact[] = {
 };
 #define POW60_COUNT (sizeof pow60_exact / sizeof pow60_exact[0])
 
-/* A value is well-formed when it has 1 to MAX places, every place
-   is at most 59, and the radix is between 0 and n_places.  Every
-   function checks this first, so a struct filled in by hand with
-   bad values gets an error instead of a wrong answer. */
+/*
+    A value is well-formed when it has 1 to MAX places, every place
+    is at most 59, and the radix is between 0 and n_places. Every
+    function checks this first, so a struct filled in by hand with
+    bad values gets an error instead of a wrong answer.
+*/
 static int well_formed(pn_base60 v) {
     if (v.n_places == 0 || v.n_places > PN_BASE60_MAX_PLACES) {
         return 0;
@@ -77,10 +83,11 @@ pn_base60 pn_base60_parse(const char* _Nonnull text, pn_error* _Nullable* _Nulla
 
     int radix = -1; /* where the ';' is, or -1 if there is none */
     for (;;) {
-        /*  One place: one or two decimal digits.  A longer run of
-                    digits, such as the "3599" example in pantheon.h, is read
-                    up to three digits and then rejected as out of range.
-                */
+        /*
+            One place: one or two decimal digits. A longer run of
+            digits, such as the "3599" example in pantheon.h, is read
+            up to three digits and then rejected as out of range.
+        */
         unsigned d = 0;
         int nd = 0;
 
@@ -201,11 +208,12 @@ char* _Nullable pn_base60_format_into(pn_base60 value, char place_sep, char* _No
         return NULL;
     }
 
-    /*  Write into a scratch buffer first, so a failure never leaves
-            buffer holding half a number.  The worst case is '-' + 16
-            places x 2 digits + 15 separators + the 0 byte = 49 bytes,
-            which fits in the declared maximum.
-        */
+    /*
+        Write into a scratch buffer first, so a failure never leaves
+        buffer holding half a number. The worst case is '-' + 16
+        places x 2 digits + 15 separators + the 0 byte = 49 bytes,
+        which fits in the declared maximum.
+    */
     char tmp[PN_BASE60_FORMAT_MAX_LEN];
     char* q = tmp;
 
@@ -241,11 +249,13 @@ char* _Nullable pn_base60_format_into(pn_base60 value, char place_sep, char* _No
     return buffer;
 }
 
-/* from_u64 finds the places from the bottom up: divide by 60, keep
-   the remainder as the next place, repeat.  to_u64 rebuilds the
-   number with Horner's method: start at 0, then for each place
-   multiply by 60 and add the place.
-   https://en.wikipedia.org/wiki/Horner%27s_method */
+/*
+    from_u64 finds the places from the bottom up: divide by 60, keep
+    the remainder as the next place, repeat. to_u64 rebuilds the
+    number with Horner's method: start at 0, then for each place
+    multiply by 60 and add the place.
+    https://en.wikipedia.org/wiki/Horner%27s_method
+*/
 pn_base60* _Nullable pn_base60_from_u64(uint64_t n, pn_base60* _Nonnull out,
                                         pn_error* _Nullable* _Nullable error) {
     assert(out);
@@ -338,10 +348,12 @@ uint64_t* _Nullable pn_base60_to_u64(pn_base60 v, uint64_t* _Nonnull out,
     return out;
 }
 
-/* to_double computes the whole part and the fraction each as an
-   exact uint64_t where possible, then does one division, which the
-   floating-point hardware rounds correctly.  So the answer is exact
-   whenever a double can hold the value at all. */
+/*
+    to_double computes the whole part and the fraction each as an
+    exact uint64_t where possible, then does one division, which the
+    floating-point hardware rounds correctly. So the answer is exact
+    whenever a double can hold the value at all.
+*/
 double* _Nullable pn_base60_to_double(pn_base60 v, double* _Nonnull out,
                                       pn_error* _Nullable* _Nullable error) {
     assert(out);
@@ -378,11 +390,12 @@ double* _Nullable pn_base60_to_double(pn_base60 v, double* _Nonnull out,
         }
     }
 
-    /*  the fraction: the fraction places as one whole number F,
-            divided by 60^k, where k is the number of fraction places.
-            Both are exact while k <= 10, so one division gives a
-            correctly rounded answer.
-        */
+    /*
+        the fraction: the fraction places as one whole number F,
+        divided by 60^k, where k is the number of fraction places.
+        Both are exact while k <= 10, so one division gives a
+        correctly rounded answer.
+    */
     unsigned k = (unsigned) v.n_places - v.radix;
 
     if (k > 0) {
@@ -432,10 +445,11 @@ pn_base60* _Nullable pn_base60_from_double(double x, uint8_t frac_places, pn_bas
     double ip = floor(mag); /* the whole-number part */
     double fp = mag - ip;   /* the fractional part: at least 0 and less than 1 */
 
-    /*  The whole-number places, smallest first: ipd[0] is the
-            ones place.  ip / 60.0 is rounded by the hardware, so the
-            remainder is recomputed and corrected instead of trusted.
-        */
+    /*
+        The whole-number places, smallest first: ipd[0] is the
+        ones place. ip / 60.0 is rounded by the hardware, so the
+        remainder is recomputed and corrected instead of trusted.
+    */
     uint8_t ipd[PN_BASE60_MAX_PLACES];
     size_t ki = 0;
 
@@ -464,13 +478,14 @@ pn_base60* _Nullable pn_base60_from_double(double x, uint8_t frac_places, pn_bas
         ip = q;
     }
 
-    /*  The fraction places, biggest first: fpd[0] is the 1/60
-            place.  Each step multiplies by 60 and takes off the whole
-            part.  The last kept place is rounded half away from zero
-            (0.5 rounds up).  Trailing zero places are kept, so the
-            number of places is always what the caller asked for.
-            https://en.wikipedia.org/wiki/Rounding
-        */
+    /*
+        The fraction places, biggest first: fpd[0] is the 1/60
+        place. Each step multiplies by 60 and takes off the whole
+        part. The last kept place is rounded half away from zero
+        (0.5 rounds up). Trailing zero places are kept, so the
+        number of places is always what the caller asked for.
+        https://en.wikipedia.org/wiki/Rounding
+    */
     uint8_t fpd[PN_BASE60_MAX_PLACES];
     size_t kf = frac_places;
 
@@ -494,12 +509,13 @@ pn_base60* _Nullable pn_base60_from_double(double x, uint8_t frac_places, pn_bas
         fpd[j] = dgt;
     }
 
-    /*  Carrying, as in grade-school addition: a fraction place that
-            reached 60 becomes 0 and adds 1 to the place on its left.  A
-            carry out of the first fraction place adds 1 to the whole
-            part.  If no fraction places were kept, the leftover
-            fraction decides whether to round the whole part up.
-        */
+    /*
+        Carrying, as in grade-school addition: a fraction place that
+        reached 60 becomes 0 and adds 1 to the place on its left. A
+        carry out of the first fraction place adds 1 to the whole
+        part. If no fraction places were kept, the leftover
+        fraction decides whether to round the whole part up.
+    */
     int carry = (kf == 0 && fp >= 0.5);
 
     for (size_t i = kf; i-- > 0;) {
@@ -514,11 +530,12 @@ pn_base60* _Nullable pn_base60_from_double(double x, uint8_t frac_places, pn_bas
         }
     }
 
-    /*  Carry through the whole-number places, smallest first.  If
-            the carry goes past the biggest place (as in 9 + 1 = 10 in
-            base 10), the value gains a new leading 1 and every other
-            place is already 0.
-        */
+    /*
+        Carry through the whole-number places, smallest first. If
+        the carry goes past the biggest place (as in 9 + 1 = 10 in
+        base 10), the value gains a new leading 1 and every other
+        place is already 0.
+    */
     int carry_out = 0;
 
     if (carry) {

@@ -1,13 +1,14 @@
-/*  rods.c — Chinese counting rod numerals in UTF-8.
+/*
+    rods.c — Chinese counting rod numerals in UTF-8.
 
     Chinese mathematicians calculated with small rods laid out in
-    columns on a counting board, one column per decimal place.  This
+    columns on a counting board, one column per decimal place. This
     was true place-value decimal, more than a thousand years before
     it reached Europe.
 
     Each digit 1 to 9 has two forms, one the other turned sideways.
     Columns alternate between the forms, so a reader could tell where
-    one column ended and the next began.  Unicode has both sets (each
+    one column ended and the next began. Unicode has both sets (each
     sign is 4 bytes in UTF-8, all starting F0 9D 8D):
 
     𝍠 .. 𝍨  U+1D360..U+1D368  COUNTING ROD UNIT DIGIT ONE..NINE
@@ -17,7 +18,7 @@
     the hundreds the unit set again, and so on.
 
     For most of their history the rods had no zero: an empty column
-    was just left empty.  Here every pair of neighbouring columns is
+    was just left empty. Here every pair of neighbouring columns is
     separated by one space, and an empty column writes nothing, so
     the number of spaces is always (number of columns - 1):
 
@@ -35,7 +36,8 @@
     The code spells the signs as \U escapes so the exact code point
     is visible; the comments show the signs themselves.
 
-    Further reading: https://en.wikipedia.org/wiki/Counting_rods
+    Further reading:
+    - https://en.wikipedia.org/wiki/Counting_rods
 */
 #include <assert.h>
 #include <string.h>
@@ -77,11 +79,13 @@ static const uint64_t pow10[PN_ROD_MAX_PLACES] = {1ull,
                                                   1000000000000000000ull};
 
 size_t pn_rods_render_size(uint64_t n) {
-    /* Never fails.  For n up to PN_ROD_MAX_VALUE it is exactly
-           4 x (number of nonzero digits) + (number of digits - 1): 4 bytes
-           per rod, plus one space between neighbouring columns.  For a
-           bigger n the answer means nothing, and pn_rods_render reports
-           PN_ERROR_RANGE. */
+    /*
+        Never fails. For n up to PN_ROD_MAX_VALUE it is exactly
+        4 x (number of nonzero digits) + (number of digits - 1): 4 bytes
+        per rod, plus one space between neighbouring columns. For a
+        bigger n the answer means nothing, and pn_rods_render reports
+        PN_ERROR_RANGE.
+    */
     size_t bytes = 0;
     int n_digits = 0;
 
@@ -146,22 +150,26 @@ char* _Nullable pn_rods_render(uint64_t n, char* _Nonnull buf, size_t buflen,
     return buf;
 }
 
-/* Reading is the reverse of writing.  The text is rods and spaces
-   following the spacing rule above, so the number of columns is the
-   number of spaces + 1.  The first rod is in the top column; each
-   space moves one column down.  Each rod's form (unit or tens set)
-   must match its column.
+/*
+    Reading is the reverse of writing. The text is rods and spaces
+    following the spacing rule above, so the number of columns is the
+    number of spaces + 1. The first rod is in the top column; each
+    space moves one column down. Each rod's form (unit or tens set)
+    must match its column.
 
-   Rejected as PN_ERROR_SYNTAX: bytes that aren't rods, a rod cut off
-   in the middle, a leading space, two rods with no space between
-   them, or a rod in the wrong form for its column.  More than
-   PN_ROD_MAX_PLACES columns is PN_ERROR_RANGE instead (too big, not
-   misspelled), the same way the Egyptian reader treats ten of one
-   sign. */
+    Rejected as PN_ERROR_SYNTAX: bytes that aren't rods, a rod cut off
+    in the middle, a leading space, two rods with no space between
+    them, or a rod in the wrong form for its column. More than
+    PN_ROD_MAX_PLACES columns is PN_ERROR_RANGE instead (too big, not
+    misspelled), the same way the Egyptian reader treats ten of one
+    sign.
+*/
 
-/* Read a rod at p (at least SIGN_BYTES bytes must remain before
-   end).  Returns its set (0 unit, 1 tens) and puts the digit 1 to 9
-   in *digit, or returns -1 if p holds something else. */
+/*
+    Read a rod at p (at least SIGN_BYTES bytes must remain before
+    end). Returns its set (0 unit, 1 tens) and puts the digit 1 to 9
+    in *digit, or returns -1 if p holds something else.
+*/
 static int match_rod(const char* p, const char* end, int* digit) {
     if (p + SIGN_BYTES > end || memcmp(p, RODS_PREFIX, 3) != 0) {
         return -1;
@@ -263,8 +271,10 @@ uint64_t* _Nullable pn_rods_parse(const char* _Nonnull buf, size_t buflen, uint6
             return NULL;
         }
 
-        /* Can't overflow: with at most PN_ROD_MAX_PLACES columns the
-                   total is at most 9 x (10^18 + ... + 1) = PN_ROD_MAX_VALUE. */
+        /*
+            Can't overflow: with at most PN_ROD_MAX_PLACES columns the
+            total is at most 9 x (10^18 + ... + 1) = PN_ROD_MAX_VALUE.
+        */
         sum += (uint64_t) digit * pow10[place];
         glyphs++;
         after_glyph = true;

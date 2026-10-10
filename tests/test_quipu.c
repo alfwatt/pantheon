@@ -7,11 +7,11 @@
    Golden cords from the https://en.wikipedia.org/wiki/Quipu worked
    examples: 731 = 7s 3s E, 804 = 8s X 4L, 1493 = 1s 4s 9s 3L — simple
    knots above the units line, the figure-eight and the long knot's
-   turns at it, blank places as bare boundary spacing.  One law rules
+   turns at it, blank places as bare boundary spacing. One law rules
    every expected string in this file — spaces = places - 1, exactly
    one boundary space per place step, blank places included — and the
    generator .hermes/tmp/gen_test_quipu.py spelled every cord, pad and
-   error string from that law.  No space count here was hand-typed.
+   error string from that law. No space count here was hand-typed.
 */
 
 #include "check.h"
@@ -19,7 +19,7 @@
 #define SIMPLE "\u2022"
 #define FIGURE "\u221e"
 
-/*  d identical knots per digit 0..9.  A column is a RUN: no separator
+/*  d identical knots per digit 0..9. A column is a RUN: no separator
    sits between the knots inside one column - the space is a place
    boundary and nothing else - so the rows concatenate to the empty
    string for digit 0, the blank place.

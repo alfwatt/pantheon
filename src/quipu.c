@@ -1,13 +1,14 @@
-/*  quipu.c — Inca quipu (knotted cord) numerals in UTF-8.
+/*
+    quipu.c — Inca quipu (knotted cord) numerals in UTF-8.
 
     The Inca kept records on quipus: a main cord with many hanging
-    cords, each one holding a number as clusters of knots.  The
+    cords, each one holding a number as clusters of knots. The
     clusters are decimal places, with the ones place nearest the
     loose end of the cord and higher powers of ten closer to the main
-    cord.  Leland Locke worked this out in 1912.
+    cord. Leland Locke worked this out in 1912.
 
     Two kinds of knot are used:
-    - In the ones place, a "long knot" with d turns means d.  A long
+    - In the ones place, a "long knot" with d turns means d. A long
       knot can't have just one turn, so 1 is a figure-eight knot.
     - In every other place, d simple knots mean d.
     So the knot type also tells you which cluster is the ones place.
@@ -20,7 +21,7 @@
                                    figure-eight (ones place)
 
     Places are written biggest first with one space between
-    neighbouring places, the same as rods.c.  A zero digit is just no
+    neighbouring places, the same as rods.c. A zero digit is just no
     knots, so the number of spaces is always (number of places - 1):
 
     23   = ••␣∞∞∞
@@ -32,10 +33,10 @@
 
     The signs come from the PN_QUIPU_* constants in pantheon.h.
 
-    Further reading: https://en.wikipedia.org/wiki/Quipu
-      Locke, The Ancient Quipu or Peruvian Knot Record (1912)
-      Ascher and Ascher, Mathematics of the Incas: Code of the Quipu
-      (1997)
+    Further reading:
+    - https://en.wikipedia.org/wiki/Quipu
+    - Locke, The Ancient Quipu or Peruvian Knot Record (1912)
+    - Ascher and Ascher, Mathematics of the Incas: Code of the Quipu (1997)
 */
 #include <assert.h>
 #include <string.h>
@@ -46,8 +47,10 @@
 #define FIGURE_PREFIX "\u221e" /* infinity:     E2 88 9E         */
 #define SIGN_BYTES    3        /* both signs are 3 bytes in UTF-8 */
 
-/* The powers of ten from 10^0 to 10^(PN_QUIPU_MAX_PLACES - 1): the
-   value of a knot in each place. */
+/*
+    The powers of ten from 10^0 to 10^(PN_QUIPU_MAX_PLACES - 1): the
+    value of a knot in each place.
+*/
 static const uint64_t pow10[PN_QUIPU_MAX_PLACES] = {1ull,
                                                     10ull,
                                                     100ull,
@@ -68,11 +71,13 @@ static const uint64_t pow10[PN_QUIPU_MAX_PLACES] = {1ull,
                                                     100000000000000000ull,
                                                     1000000000000000000ull};
 
-/* Which knot is at p (at least SIGN_BYTES bytes must remain before
-   end): 0 for a simple knot, 1 for a long-knot turn, -1 for
-   anything else.  Look-alike characters (U+2023 TRIANGULAR BULLET,
-   U+221D PROPORTIONAL TO, U+00B7 MIDDLE DOT) and a sign cut off in
-   the middle all return -1. */
+/*
+    Which knot is at p (at least SIGN_BYTES bytes must remain before
+    end): 0 for a simple knot, 1 for a long-knot turn, -1 for
+    anything else. Look-alike characters (U+2023 TRIANGULAR BULLET,
+    U+221D PROPORTIONAL TO, U+00B7 MIDDLE DOT) and a sign cut off in
+    the middle all return -1.
+*/
 static int quipu_match_knot(const char* p, const char* end) {
     if (p + SIGN_BYTES > end) {
         return -1;
@@ -86,11 +91,13 @@ static int quipu_match_knot(const char* p, const char* end) {
     return -1;
 }
 
-/* Write n's knots, or only count the bytes when buf is NULL.  The
-   count leaves out the 0 byte at the end.  It handles one place
-   more than the library allows, so for n above PN_QUIPU_MAX_VALUE it
-   returns a number that means nothing instead of crashing;
-   pn_quipu_render reports PN_ERROR_RANGE before writing anything. */
+/*
+    Write n's knots, or only count the bytes when buf is NULL. The
+    count leaves out the 0 byte at the end. It handles one place
+    more than the library allows, so for n above PN_QUIPU_MAX_VALUE it
+    returns a number that means nothing instead of crashing;
+    pn_quipu_render reports PN_ERROR_RANGE before writing anything.
+*/
 static size_t quipu_emit(uint64_t n, char* buf) {
     uint8_t dig[PN_QUIPU_MAX_PLACES + 2];
     int m = 0;
@@ -122,10 +129,11 @@ static size_t quipu_emit(uint64_t n, char* buf) {
 }
 
 size_t pn_quipu_render_size(uint64_t n) {
-    /*  Never fails: it counts exactly what quipu_emit writes.  Above
-            PN_QUIPU_MAX_VALUE the number means nothing, and
-            pn_quipu_render reports PN_ERROR_RANGE.
-        */
+    /*
+        Never fails: it counts exactly what quipu_emit writes. Above
+        PN_QUIPU_MAX_VALUE the number means nothing, and
+        pn_quipu_render reports PN_ERROR_RANGE.
+    */
     return quipu_emit(n, NULL);
 }
 
@@ -159,15 +167,17 @@ char* _Nullable pn_quipu_render(uint64_t n, char* _Nonnull buf, size_t buflen,
     return buf;
 }
 
-/* Reading is the reverse of writing.  The number of places is the
-   number of spaces + 1, the same rule as rods.c.  Each place's knot
-   type is fixed by its position (long knots only in the ones place,
-   simple knots everywhere else), and a cluster of knots must end
-   exactly where the next space begins.
+/*
+    Reading is the reverse of writing. The number of places is the
+    number of spaces + 1, the same rule as rods.c. Each place's knot
+    type is fixed by its position (long knots only in the ones place,
+    simple knots everywhere else), and a cluster of knots must end
+    exactly where the next space begins.
 
-   Ten or more knots in one cluster is PN_ERROR_RANGE: a digit only
-   goes up to 9, the same way babylonian.c treats too many wedges.
-   More places than a uint64_t can hold is PN_ERROR_RANGE too. */
+    Ten or more knots in one cluster is PN_ERROR_RANGE: a digit only
+    goes up to 9, the same way babylonian.c treats too many wedges.
+    More places than a uint64_t can hold is PN_ERROR_RANGE too.
+*/
 uint64_t* _Nullable pn_quipu_parse(const char* _Nonnull buf, size_t buflen, uint64_t* _Nonnull out,
                                    pn_error* _Nullable* _Nullable error) {
     assert(buf && out);
@@ -287,13 +297,14 @@ uint64_t* _Nullable pn_quipu_parse(const char* _Nonnull buf, size_t buflen, uint
         }
         sum += (uint64_t) col_count * pow10[place];
     }
-    /*  No final check is needed on where the walk ended.  A string
-                may end with an empty place (10 is a bullet and a space,
-                with nothing in the ones place), and since the number of
-                places was already fixed by counting spaces, the walk
-                can only end in the right spot.  Each cluster has
-                already checked that it ended at its own place.
-            */
+    /*
+        No final check is needed on where the walk ended. A string
+        may end with an empty place (10 is a bullet and a space,
+        with nothing in the ones place), and since the number of
+        places was already fixed by counting spaces, the walk
+        can only end in the right spot. Each cluster has
+        already checked that it ended at its own place.
+    */
     *out = sum;
     return out;
 }

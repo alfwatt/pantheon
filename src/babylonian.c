@@ -1,4 +1,5 @@
-/*  babylonian.c — Babylonian cuneiform numerals in UTF-8.
+/*
+    babylonian.c — Babylonian cuneiform numerals in UTF-8.
 
     Babylonian scribes pressed numbers into wet clay with a reed,
     using just two wedge shapes:
@@ -8,7 +9,7 @@
 
     Each base-60 place (0 to 59) is written as some corner wedges
     for the tens, then some vertical wedges for the ones: 23 is two
-    U signs and three DISH signs.  Places are separated by one space
+    U signs and three DISH signs. Places are separated by one space
     (shown here as ␣):
 
     23          = 𒌋𒌋𒁹𒁹𒁹
@@ -16,7 +17,7 @@
     1;24,51,10  = 𒁹␣𒌋𒌋𒁹𒁹𒁹𒁹␣𒌋𒌋𒌋𒌋𒌋𒁹␣𒌋  (the square root of 2 on
                                              the tablet YBC 7289)
 
-    The Babylonians had no zero sign for most of their history.  An
+    The Babylonians had no zero sign for most of their history. An
     empty place was just a gap, so here it is written as two spaces:
     3601 (1,0,1) = 𒁹␣␣␣␣𒁹, the separator, the gap, and the separator.
     That brings back a real problem the scribes had: a lone DISH
@@ -24,13 +25,14 @@
     which.
 
     The code spells the signs as \U escapes so the exact code point
-    is visible; the comments show the signs themselves.  Unicode also has a "Cuneiform Numbers and
+    is visible; the comments show the signs themselves. Unicode also has a "Cuneiform Numbers and
     Punctuation" block (U+12400 and up), but those signs are for
     weights and measures, not the place-value digits used here.
 
-    Further reading: https://en.wikipedia.org/wiki/Babylonian_numerals
-      https://en.wikipedia.org/wiki/Cuneiform
-      https://en.wikipedia.org/wiki/0#History_of_the_number_zero
+    Further reading:
+    - https://en.wikipedia.org/wiki/Babylonian_numerals
+    - https://en.wikipedia.org/wiki/Cuneiform
+    - https://en.wikipedia.org/wiki/0#History_of_the_number_zero
 */
 #include <assert.h>
 #include <string.h>
@@ -42,8 +44,10 @@
 #define SIGN_BYTES 4            /* both signs are 4 UTF-8 bytes */
 #define GAP_BYTES  2            /* an empty place: two spaces */
 
-/* A value is well-formed when it has 1 to MAX places, every place
-   is at most 59, and the radix is between 0 and n_places. */
+/*
+    A value is well-formed when it has 1 to MAX places, every place
+    is at most 59, and the radix is between 0 and n_places.
+*/
 static int well_formed(pn_base60 v) {
     if (v.n_places == 0 || v.n_places > PN_BASE60_MAX_PLACES) {
         return 0;
@@ -135,19 +139,21 @@ char* _Nullable pn_babylonian_render(pn_base60 v, char* _Nonnull buf, size_t buf
     return buf;
 }
 
-/* Reading is the reverse of writing.  The text is groups of wedges
-   separated by runs of spaces, so the reader splits it into those
-   two kinds of piece.  Each empty place adds two spaces, so the
-   number of spaces in a run tells how many empty places it holds:
+/*
+    Reading is the reverse of writing. The text is groups of wedges
+    separated by runs of spaces, so the reader splits it into those
+    two kinds of piece. Each empty place adds two spaces, so the
+    number of spaces in a run tells how many empty places it holds:
 
-    before the first group   3k      (k empty places)
-    between two groups        3k+1    (one separator + k empty places)
-    after the last group     3k      (k empty places)
-    only spaces               3k-1    (k empty places, no groups)
+     before the first group   3k      (k empty places)
+     between two groups        3k+1    (one separator + k empty places)
+     after the last group     3k      (k empty places)
+     only spaces               3k-1    (k empty places, no groups)
 
-   Anything else (other bytes, other run lengths, wedges out of
-   order) is rejected.  Being this strict is what guarantees that
-   reading back written text gives the original value exactly. */
+    Anything else (other bytes, other run lengths, wedges out of
+    order) is rejected. Being this strict is what guarantees that
+    reading back written text gives the original value exactly.
+*/
 pn_base60* _Nullable pn_babylonian_parse_from(const char* _Nonnull buffer, size_t buflen,
                                               pn_base60* _Nonnull out,
                                               pn_error* _Nullable* _Nullable error) {
@@ -226,9 +232,11 @@ pn_base60* _Nullable pn_babylonian_parse_from(const char* _Nonnull buffer, size_
             v.places[n++] = 0;
         }
 
-        /*  The group itself: U signs first, then DISH signs.  At most
-                    5 U (50) and 9 DISH (9), since 59 is the biggest place.
-                    A sixth U would be 60 or more, too big for one place. */
+        /*
+            The group itself: U signs first, then DISH signs. At most
+            5 U (50) and 9 DISH (9), since 59 is the biggest place.
+            A sixth U would be 60 or more, too big for one place.
+        */
         size_t nu = 0, nd = 0;
 
         while (p + SIGN_BYTES <= end && memcmp(p, U_UTF8, SIGN_BYTES) == 0) {

@@ -9,7 +9,7 @@
    11000 (one thousands run ια) would butt onto the same cord — 972
    such collisions live in the domain — so a number whose two runs are
    both alive separates them with ONE space and the parser demands it
-   exactly there.  Every expected cord below was spelled by the
+   exactly there. Every expected cord below was spelled by the
    generator .hermes/tmp/gen_test_greek.py from the truth() law,
    verified bijective over 0..999999; none was hand-typed.
 */

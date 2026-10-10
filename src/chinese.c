@@ -1,19 +1,20 @@
-/*  chinese.c — Chinese numerals (hanzi) in UTF-8, from 0 to 99 999 999.
+/*
+    chinese.c — Chinese numerals (hanzi) in UTF-8, from 0 to 99 999 999.
 
     Chinese numerals are decimal, but instead of using position to
     show each digit's value, they write the digit followed by a
-    multiplier sign: 千 (thousand), 百 (hundred), 十 (ten).  The ones
-    digit has no multiplier.  Numbers from 10 000 up are split into
+    multiplier sign: 千 (thousand), 百 (hundred), 十 (ten). The ones
+    digit has no multiplier. Numbers from 10 000 up are split into
     two sections around 万 (ten thousand): the value is A x 10 000 + B,
     each section written the same way.
 
     四千六百二十二 = 4622     (4 thousand, 6 hundred, 2 ten, 2)
     五千万 五      = 50 000 005
 
-    A zero digit is simply left out.  Because the multipliers say
+    A zero digit is simply left out. Because the multipliers say
     where each digit belongs, nothing is lost, but this module marks
     each skip with one space so the reader can see it: 一千 五 = 1005,
-    一千 五十 = 1050.  (Modern writers use the sign 零 for this.)  The
+    一千 五十 = 1050. (Modern writers use the sign 零 for this.)  The
     space has no value of its own, so reading the text back always
     gives the same number.
 
@@ -24,7 +25,8 @@
     The code spells the signs as \U escapes so the exact code point
     is visible; the comments show the signs themselves.
 
-    Further reading: https://en.wikipedia.org/wiki/Chinese_numerals
+    Further reading:
+    - https://en.wikipedia.org/wiki/Chinese_numerals
 */
 #include <assert.h>
 #include <string.h>
@@ -54,10 +56,12 @@ static const char* const mults[3] = {QIAN, BAI, SHI};
 /* The value of a digit at place k in a section (0 is the ones place). */
 static const uint64_t pow10s[4] = {1u, 10u, 100u, 1000u};
 
-/* Write n in the standard form described above.  buf may be NULL,
-   which only counts the bytes.  Above PN_HANZI_MAX_VALUE the count
-   leaves out the digits above 万 and means nothing; pn_hanzi_render
-   reports PN_ERROR_RANGE for those. */
+/*
+    Write n in the standard form described above. buf may be NULL,
+    which only counts the bytes. Above PN_HANZI_MAX_VALUE the count
+    leaves out the digits above 万 and means nothing; pn_hanzi_render
+    reports PN_ERROR_RANGE for those.
+*/
 static size_t hanzi_emit(uint64_t n, char* buf) {
     size_t bytes = 0;
     const uint64_t secs[2] = {n / 10000u, n % 10000u};
@@ -100,8 +104,10 @@ static size_t hanzi_emit(uint64_t n, char* buf) {
 }
 
 size_t pn_hanzi_render_size(uint64_t n) {
-    /* Never fails: it counts exactly what hanzi_emit writes, which is
-           what pn_hanzi_render writes. */
+    /*
+        Never fails: it counts exactly what hanzi_emit writes, which is
+        what pn_hanzi_render writes.
+    */
     return hanzi_emit(n, NULL);
 }
 
@@ -136,17 +142,19 @@ char* _Nullable pn_hanzi_render(uint64_t n, char* _Nonnull buf, size_t buflen,
     return buf;
 }
 
-/* Reading is the reverse of writing, and only the standard form is
-   accepted, so reading back written text always gives the original
-   number.  The text is a list of terms, each a digit with a
-   multiplier (千, 百, 十) or a lone ones digit, going from bigger
-   places to smaller.  At most one 万 may appear, right after the top
-   section.  Two terms are separated by a space exactly when digits
-   were skipped between them; otherwise they touch.
+/*
+    Reading is the reverse of writing, and only the standard form is
+    accepted, so reading back written text always gives the original
+    number. The text is a list of terms, each a digit with a
+    multiplier (千, 百, 十) or a lone ones digit, going from bigger
+    places to smaller. At most one 万 may appear, right after the top
+    section. Two terms are separated by a space exactly when digits
+    were skipped between them; otherwise they touch.
 
-   Rejected: bytes that aren't numeral signs, a sign cut off in the
-   middle, 十四 without its 一, 四百 三十一 (a space where nothing was
-   skipped), and 五千万五 (a skip with no space). */
+    Rejected: bytes that aren't numeral signs, a sign cut off in the
+    middle, 十四 without its 一, 四百 三十一 (a space where nothing was
+    skipped), and 五千万五 (a skip with no space).
+*/
 
 /* Read a digit sign at p: returns 1 to 9, or -1 if p holds something else. */
 static int match_digit(const char* p, const char* end) {
@@ -158,8 +166,10 @@ static int match_digit(const char* p, const char* end) {
     return -1;
 }
 
-/* Read a multiplier at p: 3 for 千, 2 for 百, 1 for 十, 0 for none.
-   万 is not handled here; the text is split at 万 first. */
+/*
+    Read a multiplier at p: 3 for 千, 2 for 百, 1 for 十, 0 for none.
+    万 is not handled here; the text is split at 万 first.
+*/
 static int match_mult(const char* p, const char* end) {
     if (p + SIGN_BYTES > end) {
         return 0;
@@ -193,11 +203,13 @@ uint64_t* _Nullable pn_hanzi_parse(const char* _Nonnull buf, size_t buflen, uint
 
     const char* end = buf + buflen;
 
-    /* Split the text at 万 first.  There can be at most one, right
-           after the top section, so never at the very start or end; with
-           no 万 there is no top section.  In UTF-8, the byte E4 can only
-           start a sign, never appear in the middle of one (middle bytes
-           are 80 to BF), so a simple byte search finds 万 exactly. */
+    /*
+        Split the text at 万 first. There can be at most one, right
+        after the top section, so never at the very start or end; with
+        no 万 there is no top section. In UTF-8, the byte E4 can only
+        start a sign, never appear in the middle of one (middle bytes
+        are 80 to BF), so a simple byte search finds 万 exactly.
+    */
     const char* wan = NULL;
 
     for (const char* w = buf; w + SIGN_BYTES <= end; w++) {
@@ -327,8 +339,10 @@ uint64_t* _Nullable pn_hanzi_parse(const char* _Nonnull buf, size_t buflen, uint
         }
     }
 
-    /* No overflow check needed: each section is at most 9999, so the
-           total can't pass PN_HANZI_MAX_VALUE. */
+    /*
+        No overflow check needed: each section is at most 9999, so the
+        total can't pass PN_HANZI_MAX_VALUE.
+    */
     *out = secs[0] * 10000u + secs[1];
     return out;
 }

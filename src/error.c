@@ -1,12 +1,13 @@
-/*  error.c — error reports for libPantheon.
+/*
+    error.c — error reports for libPantheon.
 
     When a function fails, it can hand back a pn_error: a code that
-    names the kind of failure plus a sentence that explains it.  This
+    names the kind of failure plus a sentence that explains it. This
     file builds, reads and frees those reports.
 
-    Successful calls never allocate memory.  A failure allocates
+    Successful calls never allocate memory. A failure allocates
     exactly once: one block that holds the pn_error struct with its
-    message text stored right after it.  Because it is one block, the
+    message text stored right after it. Because it is one block, the
     caller frees it with one call to pn_error_free.
 
     Every failing function in the library follows the same pattern:
@@ -17,13 +18,15 @@
         return NULL;
 
     A caller that does not need the explanation passes NULL for the
-    error pointer.  Then no report is built, and the caller learns
+    error pointer. Then no report is built, and the caller learns
     about the failure only from the return value: NULL for a pointer,
     or a zeroed value for a struct.
 
-    Further reading: https://en.wikipedia.org/wiki/Exception_handling
-    (C has no exceptions; returning an error value is the usual way
-    to report failure in C.)
+    C has no exceptions, so returning an error value like this is the
+    usual way to report failure in C.
+
+    Further reading:
+    - https://en.wikipedia.org/wiki/Exception_handling
 */
 #include <stdarg.h>
 #include <stdio.h>
@@ -32,12 +35,14 @@
 
 #include "pantheon.h"
 
-/* Build one error report in a single malloc: the struct first, then
-   the message text right after it, ending in a 0 byte so it can be
-   printed directly.  vsnprintf runs twice: once with no buffer, to
-   measure how long the message is, then again to write it.  The
-   first call fails only if the format string itself is broken,
-   which is a bug in this library, so the program stops. */
+/*
+    Build one error report in a single malloc: the struct first, then
+    the message text right after it, ending in a 0 byte so it can be
+    printed directly. vsnprintf runs twice: once with no buffer, to
+    measure how long the message is, then again to write it. The
+    first call fails only if the format string itself is broken,
+    which is a bug in this library, so the program stops.
+*/
 static pn_error* pn_error_build_fmt(pn_error_code code, const char* format, va_list args) {
     va_list again;
     int room;
@@ -62,8 +67,10 @@ static pn_error* pn_error_build_fmt(pn_error_code code, const char* format, va_l
     return error;
 }
 
-/* A short name for each error code, used when a report has no
-   message of its own. */
+/*
+    A short name for each error code, used when a report has no
+    message of its own.
+*/
 static const char* pn_error_code_name(pn_error_code code) {
     static const char* const names[] = {
         "null",   /* PN_ERROR_NULL    */
@@ -94,9 +101,11 @@ void pn_error_free(pn_error* error) {
     free(error); /* the message is in the same block, so one free covers both */
 }
 
-/* Text to print for an error report: its message if it has one, the
-   code's name if not, and "no error" for NULL.  The text lives inside
-   the report, so read it before freeing the report. */
+/*
+    Text to print for an error report: its message if it has one, the
+    code's name if not, and "no error" for NULL. The text lives inside
+    the report, so read it before freeing the report.
+*/
 const char* pn_error_describe(const pn_error* error) {
     if (error == NULL) {
         return "no error";

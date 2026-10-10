@@ -116,7 +116,7 @@ int main(void) {
     CHECK(buf[0] == '-' && strcmp(buf + 1, DISH) == 0);
 
     /*  Fractional places render like integer ones: no radix point was
-	   ever drawn.  {0,45} = 0;45 and {45} render alike.
+	   ever drawn. {0,45} = 0;45 and {45} render alike.
 	*/
     static const uint8_t zero_45[] = {0, 45};
     static const uint8_t just45[] = {45};

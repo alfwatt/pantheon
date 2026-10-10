@@ -1,8 +1,9 @@
-/*  egyptian.c — Egyptian hieroglyphic numerals in UTF-8.
+/*
+    egyptian.c — Egyptian hieroglyphic numerals in UTF-8.
 
     Ancient Egypt (from about 3000 BCE) wrote numbers with seven
     signs, one for each power of ten, repeating each sign as many
-    times as its digit says.  It is a decimal system with no place
+    times as its digit says. It is a decimal system with no place
     values: the signs look different, so their position doesn't
     matter for the value.
 
@@ -27,8 +28,9 @@
     The code spells the signs as \U escapes so the exact code point
     is visible; the comments show the signs themselves.
 
-    Further reading: https://en.wikipedia.org/wiki/Egyptian_numerals
-      https://en.wikipedia.org/wiki/UTF-8
+    Further reading:
+    - https://en.wikipedia.org/wiki/Egyptian_numerals
+    - https://en.wikipedia.org/wiki/UTF-8
 */
 #include <assert.h>
 #include <string.h>
@@ -54,11 +56,12 @@ static const char* const signs[N_SIGNS] = {HEH_UTF8,  TADPOLE_UTF8, FINGER_UTF8,
 static const uint64_t values[N_SIGNS] = {1000000u, 100000u, 10000u, 1000u, 100u, 10u, 1u};
 
 size_t pn_egyptian_render_size(uint64_t n) {
-    /*  Never fails.  For n up to PN_EGYPTIAN_MAX_VALUE the answer is
-            exactly 4 bytes times the sum of n's decimal digits.  Above
-            that the number is meaningless, and pn_egyptian_render
-            reports PN_ERROR_RANGE.
-        */
+    /*
+        Never fails. For n up to PN_EGYPTIAN_MAX_VALUE the answer is
+        exactly 4 bytes times the sum of n's decimal digits. Above
+        that the number is meaningless, and pn_egyptian_render
+        reports PN_ERROR_RANGE.
+    */
     size_t bytes = 0;
 
     while (n != 0) {
@@ -72,9 +75,10 @@ char* _Nullable pn_egyptian_render(uint64_t n, char* _Nonnull buf, size_t buflen
                                    pn_error* _Nullable* _Nullable error) {
     assert(buf);
     if (n > PN_EGYPTIAN_MAX_VALUE) {
-        /*  No sign is bigger than the Heh (one million), so a digit in
-                    the ten-millions place or above cannot be written.
-                */
+        /*
+            No sign is bigger than the Heh (one million), so a digit in
+            the ten-millions place or above cannot be written.
+        */
         if (error) {
             *error = pn_error_init(PN_ERROR_RANGE,
                                    "%llu needs ten or more signs of one kind;"
@@ -109,14 +113,16 @@ char* _Nullable pn_egyptian_render(uint64_t n, char* _Nonnull buf, size_t buflen
     return buf;
 }
 
-/* Reading is the reverse of writing, and only the standard form is
-   accepted: one group per sign, groups going from biggest to
-   smallest, each group 1 to 9 signs.  A byte that isn't a sign, a
-   sign cut short, groups out of order, or a sign used in two places
-   is PN_ERROR_SYNTAX.  Ten of one sign is PN_ERROR_RANGE instead: a
-   scribe would have written one sign of the next power, so that
-   group is a value too big for its place, not a spelling mistake.
-   pn_babylonian_parse_from treats six tens-wedges the same way. */
+/*
+    Reading is the reverse of writing, and only the standard form is
+    accepted: one group per sign, groups going from biggest to
+    smallest, each group 1 to 9 signs. A byte that isn't a sign, a
+    sign cut short, groups out of order, or a sign used in two places
+    is PN_ERROR_SYNTAX. Ten of one sign is PN_ERROR_RANGE instead: a
+    scribe would have written one sign of the next power, so that
+    group is a value too big for its place, not a spelling mistake.
+    pn_babylonian_parse_from treats six tens-wedges the same way.
+*/
 uint64_t* _Nullable pn_egyptian_parse(const char* _Nonnull buf, size_t buflen,
                                       uint64_t* _Nonnull out,
                                       pn_error* _Nullable* _Nullable error) {
@@ -136,9 +142,10 @@ uint64_t* _Nullable pn_egyptian_parse(const char* _Nonnull buf, size_t buflen,
             }
         }
         if (found < 0) {
-            /*  a byte that starts no sign, or a sign with bytes missing
-                            at the end
-                        */
+            /*
+                a byte that starts no sign, or a sign with bytes missing
+                at the end
+            */
             size_t room = (size_t) (end - p);
 
             if (error) {
@@ -182,9 +189,10 @@ uint64_t* _Nullable pn_egyptian_parse(const char* _Nonnull buf, size_t buflen,
             }
         } while (p + SIGN_BYTES <= end && memcmp(p, signs[found], SIGN_BYTES) == 0);
 
-        /*  Can't overflow: with at most 9 of each of the 7 signs the
-                    total is at most 9 999 999.
-                */
+        /*
+            Can't overflow: with at most 9 of each of the 7 signs the
+            total is at most 9 999 999.
+        */
         sum += count * values[found];
         prev = found;
     }

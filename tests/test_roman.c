@@ -1,6 +1,6 @@
 /*  test_roman.c — Roman numerals, the canonical tallied form.
    The seven letters I V X L C D M are the signs — pure ASCII, no
-   universal character names needed.  Every expected string below came
+   universal character names needed. Every expected string below came
    from the generator .hermes/tmp/gen_test_roman.py via truth(), the
    per-digit row law (thousands + hundreds row + tens row + units row),
    cross-checked against the greedy law over the whole domain; none was

@@ -142,7 +142,7 @@ int main(void) {
     /*  parsing
 	   Round trip first: whatever the renderer carved, the parser must read
 	   back — through both the NUL-terminated spelling and the exact byte
-	   count.  Exhaustive over the scribe's whole domain.
+	   count. Exhaustive over the scribe's whole domain.
 	*/
     for (uint64_t n = 0; n <= PN_EGYPTIAN_MAX_VALUE; n++) {
         char rendered[7 * 9 * 4 + 1];
@@ -172,7 +172,7 @@ int main(void) {
     CHECK_OK(pn_egyptian_parse("", 0, &read, &err_), err_);
     CHECK(read == 0u);
 
-    /*  Errors: the strict canonical form.  (Each leaves *out untouched —
+    /*  Errors: the strict canonical form. (Each leaves *out untouched —
 	   checked via the sentinel below.)
 	*/
     static const char* const bad_strings[] = {

@@ -5,7 +5,7 @@
     CHECK_PLACES, and return the value of CHECK_RUN() from main
     (nonzero = failures).
 
-    CHECK_OK and CHECK_ERROR are for the pn_error style.  Write the
+    CHECK_OK and CHECK_ERROR are for the pn_error style. Write the
     call exactly as the header declares it, ending with the extra
     argument '&err_'; the macro declares that err_ slot itself,
     proves it stayed NULL on success, and on failure prints the note

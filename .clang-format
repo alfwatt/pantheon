@@ -1,7 +1,7 @@
 # House layout: the single source of truth for how C, Objective-C
-# and C++ source is laid out.  Kept in the tidy skill
+# and C++ source is laid out. Kept in the tidy skill
 # (~/.claude/skills/tidy/house.clang-format) and copied verbatim into
-# each project as .clang-format.  The c-style-guide skill covers
+# each project as .clang-format. The c-style-guide skill covers
 # naming, API shape and documentation, and defers all layout to this
 # file: if the output looks wrong, change this file, not the code.
 Language: Cpp
@@ -28,6 +28,9 @@ PointerAlignment: Left
 DerivePointerAlignment: false
 
 # Prose blocks and glyph tables are hand-aligned; leave their breaks.
+# Comment layout clang-format can't express (bare /* and */ lines,
+# a blank /// before the first @tag, one-line trailing comments) is
+# in the c-style-guide skill's Layout section.
 ReflowComments: false
 
 ColumnLimit: 100

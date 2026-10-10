@@ -1,4 +1,5 @@
-/*  roman.c — Roman numerals in ASCII, from 1 to 3999.
+/*
+    roman.c — Roman numerals in ASCII, from 1 to 3999.
 
     Roman numerals have no place values: you add up the letters, with
     a few pairs where a smaller letter before a bigger one means
@@ -8,35 +9,40 @@
 
     Writing a number: each decimal digit becomes a fixed group of
     letters, one table per place (thousands, hundreds, tens, units).
-    1994 is M + CM + XC + IV = MCMXCIV.  This is the standard modern
-    form: no IIII for 4 (seen on some clock faces), no IC for 99.  The
+    1994 is M + CM + XC + IV = MCMXCIV. This is the standard modern
+    form: no IIII for 4 (seen on some clock faces), no IC for 99. The
     largest number it can write is 3999, MMMCMXCIX.
 
     Reading a number: go left to right, each time taking the biggest
-    letter or subtractive pair that fits, and add up the values.  That
+    letter or subtractive pair that fits, and add up the values. That
     alone would also accept bad spellings such as IIII or VIV, so the
-    result is then written back out and compared with the input.  If
+    result is then written back out and compared with the input. If
     they don't match exactly, the input was not standard and is
-    rejected.  Using the writer as the judge means the reader and the
+    rejected. Using the writer as the judge means the reader and the
     writer can never disagree.
 
-    Further reading: https://en.wikipedia.org/wiki/Roman_numerals
+    Further reading:
+    - https://en.wikipedia.org/wiki/Roman_numerals
 */
 #include <assert.h>
 #include <string.h>
 
 #include "pantheon.h"
 
-/* The letters for each digit, one table per decimal place.  The
-   table index is the digit; the thousands table only goes to 3. */
+/*
+    The letters for each digit, one table per decimal place. The
+    table index is the digit; the thousands table only goes to 3.
+*/
 static const char* const th_row[4] = {"", "M", "MM", "MMM"};
 static const char* const h_row[10] = {"", "C", "CC", "CCC", "CD", "D", "DC", "DCC", "DCCC", "CM"};
 static const char* const t_row[10] = {"", "X", "XX", "XXX", "XL", "L", "LX", "LXX", "LXXX", "XC"};
 static const char* const u_row[10] = {"", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"};
 
 size_t pn_roman_render_size(uint64_t n) {
-    /* Never fails: for n outside 1..PN_ROMAN_MAX_VALUE it returns 0,
-           and pn_roman_render is the function that reports the error. */
+    /*
+        Never fails: for n outside 1..PN_ROMAN_MAX_VALUE it returns 0,
+        and pn_roman_render is the function that reports the error.
+    */
     if (n == 0u || n > PN_ROMAN_MAX_VALUE) {
         return 0u;
     }
@@ -85,8 +91,10 @@ char* _Nullable pn_roman_render(uint64_t n, char* _Nonnull buf, size_t buflen,
     return buf;
 }
 
-/* Every letter and subtractive pair with its value, biggest first,
-   for the left-to-right reading in pn_roman_parse. */
+/*
+    Every letter and subtractive pair with its value, biggest first,
+    for the left-to-right reading in pn_roman_parse.
+*/
 static const struct {
     uint64_t value;
     char text[3];
@@ -104,9 +112,11 @@ uint64_t* _Nullable pn_roman_parse(const char* _Nonnull buf, size_t buflen, uint
         return out;
     }
 
-    /* Take the biggest letter or pair the rest of the string starts
-           with, add its value, and move past it.  Any byte with no match
-           (a space, a lowercase letter, a non-ASCII byte) is an error. */
+    /*
+        Take the biggest letter or pair the rest of the string starts
+        with, add its value, and move past it. Any byte with no match
+        (a space, a lowercase letter, a non-ASCII byte) is an error.
+    */
     uint64_t sum = 0u;
     size_t i = 0u;
 
@@ -136,10 +146,12 @@ uint64_t* _Nullable pn_roman_parse(const char* _Nonnull buf, size_t buflen, uint
         }
     }
 
-    /* Write the sum back out as a numeral and compare.  A non-standard
-           spelling (IIII, VIV, XCX) adds up to a valid number but writes
-           back differently, so it is caught here.  An empty string never
-           gets this far: it was handled above as 0. */
+    /*
+        Write the sum back out as a numeral and compare. A non-standard
+        spelling (IIII, VIV, XCX) adds up to a valid number but writes
+        back differently, so it is caught here. An empty string never
+        gets this far: it was handled above as 0.
+    */
     char back[PN_ROMAN_FORMAT_MAX_LEN];
     pn_error* inner = NULL;
     bool ok = pn_roman_render(sum, back, sizeof back, &inner);

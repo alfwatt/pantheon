@@ -5,7 +5,7 @@
    U1D369..U1D371  COUNTING ROD TENS DIGIT ONE..NINE  𝍩–𝍱
    all are 4 bytes of UTF-8 with stem F0 9D 8D
    Positions alternate form: units and every even place take the
-   unit set, odd places the tens set.  Zero is the blank column —
+   unit set, odd places the tens set. Zero is the blank column —
    a space — and a well-formed string holds exactly (places − 1)
    spaces: 23 renders as tens-2 and unit-3 with one space
    between them, 101 with the tens column blank (two spaces),

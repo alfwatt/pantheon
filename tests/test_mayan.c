@@ -31,7 +31,7 @@ static const char* const digit_signs[20] = {
 
 /*  Independent hand-spelling of the canonical rendering: one sign per
    place, most significant first, one space per boundary, '-' when
-   neg.  Written without touching the library.
+   neg. Written without touching the library.
 */
 static void expect_render(pn_base20 v, char* out) {
     char* p = out;
@@ -228,7 +228,7 @@ int main(void) {
     CHECK(back.n_places == 255u);
 
     /*  the page boundary: sixteen rows fit the struct, a seventeenth is
-	   the scribe's page overrun - range, not grammar.  Count first is
+	   the scribe's page overrun - range, not grammar. Count first is
 	   the parse discipline: this fails before any glyph care
 	*/
     char rows[18 * 5];
