@@ -39,12 +39,8 @@ static void roundtrip(uint64_t n) {
     CHECK_OK(pn_rods_render(n, buf, need + 1, &err_), err_);
     CHECK(strlen(buf) == need);
     uint64_t back = 0;
-    CHECK_OK(pn_rods_parse(buf, strlen(buf), &back, &err_), err_);
+    CHECK_VALUE(back = pn_rods_parse(buf, &err_), err_);
     CHECK(back == n);
-}
-
-static bool parse_str(const char* text, uint64_t* out, pn_error** error) {
-    return pn_rods_parse(text, strlen(text), out, error);
 }
 
 int main(void) {
@@ -116,26 +112,30 @@ int main(void) {
     /* parse error cases */
 
     uint64_t probe;
-    CHECK_OK(parse_str("", &probe, &err_), err_); /* the empty board is 0 */
+    CHECK_VALUE(probe = pn_rods_parse("", &err_), err_); /* the empty board is 0 */
     CHECK(probe == 0u);
-    CHECK_ERROR(parse_str(" " U1, &probe, &err_), err_, PN_ERROR_SYNTAX);    /* leading space */
-    CHECK_ERROR(parse_str("   ", &probe, &err_), err_, PN_ERROR_SYNTAX);     /* all spaces */
-    CHECK_ERROR(parse_str(T1 U1, &probe, &err_), err_, PN_ERROR_SYNTAX);     /* no joiner */
-    CHECK_ERROR(parse_str(U1 " " U1, &probe, &err_), err_, PN_ERROR_SYNTAX); /*  11 in the wrong
+    CHECK_VALUE_ERROR(probe = pn_rods_parse(" " U1, &err_), err_,
+                      PN_ERROR_SYNTAX); /* leading space */
+    CHECK_VALUE_ERROR(probe = pn_rods_parse("   ", &err_), err_, PN_ERROR_SYNTAX); /* all spaces */
+    CHECK_VALUE_ERROR(probe = pn_rods_parse(T1 U1, &err_), err_, PN_ERROR_SYNTAX); /* no joiner */
+    CHECK_VALUE_ERROR(probe = pn_rods_parse(U1 " " U1, &err_), err_,
+                      PN_ERROR_SYNTAX); /*  11 in the wrong
    columns: the tens rod must
    come from the tens set
 */
-    CHECK_ERROR(parse_str(T1 " " T1, &probe, &err_), err_, PN_ERROR_SYNTAX); /*  units rod in the
+    CHECK_VALUE_ERROR(probe = pn_rods_parse(T1 " " T1, &err_), err_,
+                      PN_ERROR_SYNTAX); /*  units rod in the
    tens set
 */
-    CHECK_ERROR(parse_str("\xF0\x9D\x8D", &probe, &err_), err_,
-                PN_ERROR_SYNTAX); /* rod cut off short */
-    CHECK_ERROR(parse_str("\xF0\x9D\x8D\xB2", &probe, &err_), err_,
-                PN_ERROR_SYNTAX); /* the tally mark is no rod */
-    CHECK_ERROR(parse_str("\xF0\x92\x81\xB9", &probe, &err_), err_,
-                PN_ERROR_SYNTAX); /* cuneiform DISH is no rod */
-    CHECK_ERROR(parse_str(QUEN, &probe, &err_), err_, PN_ERROR_SYNTAX); /* 〇: not our zero */
-    CHECK_ERROR(parse_str("1", &probe, &err_), err_, PN_ERROR_SYNTAX);  /* ASCII */
+    CHECK_VALUE_ERROR(probe = pn_rods_parse("\xF0\x9D\x8D", &err_), err_,
+                      PN_ERROR_SYNTAX); /* rod cut off short */
+    CHECK_VALUE_ERROR(probe = pn_rods_parse("\xF0\x9D\x8D\xB2", &err_), err_,
+                      PN_ERROR_SYNTAX); /* the tally mark is no rod */
+    CHECK_VALUE_ERROR(probe = pn_rods_parse("\xF0\x92\x81\xB9", &err_), err_,
+                      PN_ERROR_SYNTAX); /* cuneiform DISH is no rod */
+    CHECK_VALUE_ERROR(probe = pn_rods_parse(QUEN, &err_), err_,
+                      PN_ERROR_SYNTAX); /* 〇: not our zero */
+    CHECK_VALUE_ERROR(probe = pn_rods_parse("1", &err_), err_, PN_ERROR_SYNTAX); /* ASCII */
 
     /* a well-spaced twentieth place: beyond the board, not bad grammar */
 
@@ -151,7 +151,7 @@ int main(void) {
             w += 4;
         }
         long_str[w] = '\0';
-        CHECK_ERROR(pn_rods_parse(long_str, w, &probe, &err_), err_, PN_ERROR_RANGE);
+        CHECK_VALUE_ERROR(probe = pn_rods_parse(long_str, &err_), err_, PN_ERROR_RANGE);
     }
 
     /* round-trip sweep */

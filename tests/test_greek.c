@@ -67,14 +67,7 @@ static void render_ok(uint64_t n, char* buf, size_t buflen) {
 /* Parse a cord (its own length) and demand the value. */
 static void expect_parse(const char* cord, uint64_t want) {
     uint64_t v = 0xA5A5u;
-    CHECK_OK(pn_greek_parse(cord, strlen(cord), &v, &err_), err_);
-    CHECK(v == want);
-}
-
-/* Same, with an explicit buflen (payloads carrying their own bytes). */
-static void expect_parse_len(const char* cord, uint64_t want, size_t len) {
-    uint64_t v = 0xA5A5u;
-    CHECK_OK(pn_greek_parse(cord, len, &v, &err_), err_);
+    CHECK_VALUE(v = pn_greek_parse(cord, &err_), err_);
     CHECK(v == want);
 }
 
@@ -171,7 +164,7 @@ int main(void) {
         /* the exact-fit buffer */
         CHECK_OK(pn_greek_render(n, buf, need + 1u, &err_), err_);
         uint64_t back = 0;
-        CHECK_OK(pn_greek_parse(b2, strlen(b2), &back, &err_), err_);
+        CHECK_VALUE(back = pn_greek_parse(b2, &err_), err_);
         CHECK(back == n);
     }
 
@@ -189,7 +182,7 @@ int main(void) {
             char b2[64];
             CHECK_OK(pn_greek_render(n, b2, sizeof b2, &err_), err_);
             uint64_t back = 0;
-            CHECK_OK(pn_greek_parse(b2, strlen(b2), &back, &err_), err_);
+            CHECK_VALUE(back = pn_greek_parse(b2, &err_), err_);
             CHECK(back == n);
         }
     }
@@ -198,83 +191,81 @@ int main(void) {
         char b2[64];
         CHECK_OK(pn_greek_render(n, b2, sizeof b2, &err_), err_);
         uint64_t back = 0;
-        CHECK_OK(pn_greek_parse(b2, strlen(b2), &back, &err_), err_);
+        CHECK_VALUE(back = pn_greek_parse(b2, &err_), err_);
         CHECK(back == n);
     }
 
     /* near-miss battery: all the strict cord refuses */
-    CHECK_ERROR(pn_greek_parse("\xcd\xb4", 2u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* lone trailing keraia is no number */
-    CHECK_ERROR(pn_greek_parse("\xce\xb1\xcd\xb4\xcd\xb4", 6u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* dexia twice */
-    CHECK_ERROR(pn_greek_parse("\xcd\xb4\xce\xb1\xcd\xb4", 6u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* dexia leads */
-    CHECK_ERROR(pn_greek_parse("\xcd\xb5", 2u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* bare low keraia */
-    CHECK_ERROR(pn_greek_parse("\xcd\xb5\xcd\xb4", 4u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* keraia pair cordoned around nothing */
-    CHECK_ERROR(pn_greek_parse("\xce\xb1\xcd\xb5\xcd\xb4", 6u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* low keraia mid-cord */
-    CHECK_ERROR(pn_greek_parse("\xce\xb1\xca\xb9", 4u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* NFC twin U+02B9 prime, not the U+0374 bytes */
-    CHECK_ERROR(pn_greek_parse("\xce\xb1\xce\x84", 4u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* tonos impostor */
-    CHECK_ERROR(pn_greek_parse("\xce\xb2\xce\xb2\xcd\xb4", 6u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* doubled sign in a run */
-    CHECK_ERROR(pn_greek_parse("\xce\xb8\xce\xb1\xcd\xb4", 6u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* backward pair inside one row */
-    CHECK_ERROR(pn_greek_parse("\xce\xb8\xcf\x81\xcd\xb4", 6u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* backward rows: units before hundreds */
-    CHECK_ERROR(pn_greek_parse("\xce\x91\xcd\xb4", 4u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* capital alpha */
-    CHECK_ERROR(pn_greek_parse("\x41\xcd\xb4", 3u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* Latin letter */
-    CHECK_ERROR(pn_greek_parse("\xe2\x85\xa0\xcd\xb4", 5u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* Roman numeral glyph I */
-    CHECK_ERROR(pn_greek_parse("\xcd\xb5\xcf\xb2\xcd\xb4", 6u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* lunate sigma for 200 */
-    CHECK_ERROR(pn_greek_parse("\xcf\x82\xcd\xb4", 4u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* final sigma for 200 */
-    CHECK_ERROR(pn_greek_parse("\xcf\x9d\xcd\xb4", 4u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* digamma for 6 */
-    CHECK_ERROR(pn_greek_parse("\xcd\xb5\xcf\x98\xcd\xb4", 6u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* capital koppa for 90 */
-    CHECK_ERROR(pn_greek_parse("\xce\xb1\x20\xcd\xb4", 5u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* space before the trailing keraia */
-    CHECK_ERROR(pn_greek_parse("\x20\xce\xb1\xcd\xb4", 5u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* space leads the cord */
-    CHECK_ERROR(pn_greek_parse("\xcd\xb5\xce\xb1\x20\x20\xce\xb1\xcd\xb4", 10u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* doubled separator */
-    CHECK_ERROR(pn_greek_parse("\xce\xb1\x20\xce\xb2\xcd\xb4", 7u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* space without the low keraia */
-    CHECK_ERROR(pn_greek_parse("\xcd\xb5\x20\xce\xb1\xcd\xb4", 7u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* space starves the thousands run */
-    CHECK_ERROR(pn_greek_parse("\xcd\xb5\xce\xb1\x20\xcd\xb4", 7u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* space starves the units run */
-    CHECK_ERROR(pn_greek_parse("\xc3\x8d", 2u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* cut-off 2-byte sequence */
-    CHECK_ERROR(pn_greek_parse("\xce\xb1\xc3\x8d", 4u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* truncated dexia bytes */
-    CHECK_ERROR(pn_greek_parse("\xcd\xb5\xce\xb1\xce\xb1\xcd\xb4", 8u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* doubled sign across imagined runs */
-    CHECK_ERROR(pn_greek_parse("\xce\xb1\xca\xb9", 4u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* render(1) put through NFC: the prime twin is refused */
-    CHECK_ERROR(pn_greek_parse("\xce\xb1\xcd\xb4\x00\x67\x61\x72\x62\x61\x67\x65", 12u, &v, &err_),
-                err_, PN_ERROR_SYNTAX); /* NUL and junk past the cord */
+    CHECK_VALUE_ERROR(v = pn_greek_parse("\xcd\xb4", &err_), err_,
+                      PN_ERROR_SYNTAX); /* lone trailing keraia is no number */
+    CHECK_VALUE_ERROR(v = pn_greek_parse("\xce\xb1\xcd\xb4\xcd\xb4", &err_), err_,
+                      PN_ERROR_SYNTAX); /* dexia twice */
+    CHECK_VALUE_ERROR(v = pn_greek_parse("\xcd\xb4\xce\xb1\xcd\xb4", &err_), err_,
+                      PN_ERROR_SYNTAX); /* dexia leads */
+    CHECK_VALUE_ERROR(v = pn_greek_parse("\xcd\xb5", &err_), err_,
+                      PN_ERROR_SYNTAX); /* bare low keraia */
+    CHECK_VALUE_ERROR(v = pn_greek_parse("\xcd\xb5\xcd\xb4", &err_), err_,
+                      PN_ERROR_SYNTAX); /* keraia pair cordoned around nothing */
+    CHECK_VALUE_ERROR(v = pn_greek_parse("\xce\xb1\xcd\xb5\xcd\xb4", &err_), err_,
+                      PN_ERROR_SYNTAX); /* low keraia mid-cord */
+    CHECK_VALUE_ERROR(v = pn_greek_parse("\xce\xb1\xca\xb9", &err_), err_,
+                      PN_ERROR_SYNTAX); /* NFC twin U+02B9 prime, not the U+0374 bytes */
+    CHECK_VALUE_ERROR(v = pn_greek_parse("\xce\xb1\xce\x84", &err_), err_,
+                      PN_ERROR_SYNTAX); /* tonos impostor */
+    CHECK_VALUE_ERROR(v = pn_greek_parse("\xce\xb2\xce\xb2\xcd\xb4", &err_), err_,
+                      PN_ERROR_SYNTAX); /* doubled sign in a run */
+    CHECK_VALUE_ERROR(v = pn_greek_parse("\xce\xb8\xce\xb1\xcd\xb4", &err_), err_,
+                      PN_ERROR_SYNTAX); /* backward pair inside one row */
+    CHECK_VALUE_ERROR(v = pn_greek_parse("\xce\xb8\xcf\x81\xcd\xb4", &err_), err_,
+                      PN_ERROR_SYNTAX); /* backward rows: units before hundreds */
+    CHECK_VALUE_ERROR(v = pn_greek_parse("\xce\x91\xcd\xb4", &err_), err_,
+                      PN_ERROR_SYNTAX); /* capital alpha */
+    CHECK_VALUE_ERROR(v = pn_greek_parse("\x41\xcd\xb4", &err_), err_,
+                      PN_ERROR_SYNTAX); /* Latin letter */
+    CHECK_VALUE_ERROR(v = pn_greek_parse("\xe2\x85\xa0\xcd\xb4", &err_), err_,
+                      PN_ERROR_SYNTAX); /* Roman numeral glyph I */
+    CHECK_VALUE_ERROR(v = pn_greek_parse("\xcd\xb5\xcf\xb2\xcd\xb4", &err_), err_,
+                      PN_ERROR_SYNTAX); /* lunate sigma for 200 */
+    CHECK_VALUE_ERROR(v = pn_greek_parse("\xcf\x82\xcd\xb4", &err_), err_,
+                      PN_ERROR_SYNTAX); /* final sigma for 200 */
+    CHECK_VALUE_ERROR(v = pn_greek_parse("\xcf\x9d\xcd\xb4", &err_), err_,
+                      PN_ERROR_SYNTAX); /* digamma for 6 */
+    CHECK_VALUE_ERROR(v = pn_greek_parse("\xcd\xb5\xcf\x98\xcd\xb4", &err_), err_,
+                      PN_ERROR_SYNTAX); /* capital koppa for 90 */
+    CHECK_VALUE_ERROR(v = pn_greek_parse("\xce\xb1\x20\xcd\xb4", &err_), err_,
+                      PN_ERROR_SYNTAX); /* space before the trailing keraia */
+    CHECK_VALUE_ERROR(v = pn_greek_parse("\x20\xce\xb1\xcd\xb4", &err_), err_,
+                      PN_ERROR_SYNTAX); /* space leads the cord */
+    CHECK_VALUE_ERROR(v = pn_greek_parse("\xcd\xb5\xce\xb1\x20\x20\xce\xb1\xcd\xb4", &err_), err_,
+                      PN_ERROR_SYNTAX); /* doubled separator */
+    CHECK_VALUE_ERROR(v = pn_greek_parse("\xce\xb1\x20\xce\xb2\xcd\xb4", &err_), err_,
+                      PN_ERROR_SYNTAX); /* space without the low keraia */
+    CHECK_VALUE_ERROR(v = pn_greek_parse("\xcd\xb5\x20\xce\xb1\xcd\xb4", &err_), err_,
+                      PN_ERROR_SYNTAX); /* space starves the thousands run */
+    CHECK_VALUE_ERROR(v = pn_greek_parse("\xcd\xb5\xce\xb1\x20\xcd\xb4", &err_), err_,
+                      PN_ERROR_SYNTAX); /* space starves the units run */
+    CHECK_VALUE_ERROR(v = pn_greek_parse("\xc3\x8d", &err_), err_,
+                      PN_ERROR_SYNTAX); /* cut-off 2-byte sequence */
+    CHECK_VALUE_ERROR(v = pn_greek_parse("\xce\xb1\xc3\x8d", &err_), err_,
+                      PN_ERROR_SYNTAX); /* truncated dexia bytes */
+    CHECK_VALUE_ERROR(v = pn_greek_parse("\xcd\xb5\xce\xb1\xce\xb1\xcd\xb4", &err_), err_,
+                      PN_ERROR_SYNTAX); /* doubled sign across imagined runs */
+    CHECK_VALUE_ERROR(v = pn_greek_parse("\xce\xb1\xca\xb9", &err_), err_,
+                      PN_ERROR_SYNTAX); /* render(1) put through NFC: the prime twin is refused */
 
     /* legal cords the goldens do not show */
-    expect_parse_len("\xcd\xb5\xce\xb1\x20\xce\xb1\xcd\xb4", 1001u, 9u);  /* 1001 */
-    expect_parse_len("\xcd\xb5\xce\xb9\x20\xce\xb1\xcd\xb4", 10001u, 9u); /* 10001 */
-    expect_parse_len("\xcd\xb5\xce\xb9\xce\xb1\xcd\xb4", 11000u, 8u);     /* 11000 */
-    expect_parse_len("\xcd\xb5\xce\xb1\x20\xcf\x81\xcd\xb4", 1100u, 9u);  /* 1100 */
-    expect_parse_len("\xcd\xb5\xcf\x81\xcd\xb4", 100000u, 6u);            /* 100000 */
+    expect_parse("\xcd\xb5\xce\xb1\x20\xce\xb1\xcd\xb4", 1001u);  /* 1001 */
+    expect_parse("\xcd\xb5\xce\xb9\x20\xce\xb1\xcd\xb4", 10001u); /* 10001 */
+    expect_parse("\xcd\xb5\xce\xb9\xce\xb1\xcd\xb4", 11000u);     /* 11000 */
+    expect_parse("\xcd\xb5\xce\xb1\x20\xcf\x81\xcd\xb4", 1100u);  /* 1100 */
+    expect_parse("\xcd\xb5\xcf\x81\xcd\xb4", 100000u);            /* 100000 */
 
     /* the blanks honor zero */
     render_ok(0u, buf, sizeof buf);
     CHECK(buf[0] == '\0');
     CHECK(pn_greek_render_size(0u) == 0u);
     v = 0xA5A5u;
-    CHECK_OK(pn_greek_parse("", 0, &v, &err_), err_);
+    CHECK_VALUE(v = pn_greek_parse("", &err_), err_);
     CHECK(v == 0u);
 
     /* range */

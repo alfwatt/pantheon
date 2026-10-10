@@ -104,12 +104,12 @@ static const struct {
 };
 #define N_CANON ((sizeof canon) / (sizeof canon[0]))
 
-uint64_t* _Nullable pn_roman_parse(const char* _Nonnull buf, size_t buflen, uint64_t* _Nonnull out,
-                                   pn_error* _Nullable* _Nullable error) {
-    assert(buf && out);
-    if (buflen == 0u) {
-        *out = 0u; /* the Romans had no zero numeral; medieval writers used "nulla" */
-        return out;
+uint64_t pn_roman_parse(const char* _Nonnull text, pn_error* _Nullable* _Nullable error) {
+    assert(text);
+
+    size_t text_len = strlen(text);
+    if (text_len == 0u) {
+        return 0u; /* the Romans had no zero numeral; medieval writers used "nulla" */
     }
 
     /*
@@ -120,13 +120,13 @@ uint64_t* _Nullable pn_roman_parse(const char* _Nonnull buf, size_t buflen, uint
     uint64_t sum = 0u;
     size_t i = 0u;
 
-    while (i < buflen) {
+    while (i < text_len) {
         int matched = 0;
 
         for (unsigned k = 0u; k < N_CANON; k++) {
             size_t len = strlen(canon[k].text);
 
-            if (i + len <= buflen && memcmp(buf + i, canon[k].text, len) == 0) {
+            if (i + len <= text_len && memcmp(text + i, canon[k].text, len) == 0) {
                 sum += canon[k].value;
                 i += len;
                 matched = 1;
@@ -142,7 +142,7 @@ uint64_t* _Nullable pn_roman_parse(const char* _Nonnull buf, size_t buflen, uint
                                        " not spell ends the walk",
                                        i);
             }
-            return NULL;
+            return 0;
         }
     }
 
@@ -157,18 +157,17 @@ uint64_t* _Nullable pn_roman_parse(const char* _Nonnull buf, size_t buflen, uint
     bool ok = pn_roman_render(sum, back, sizeof back, &inner);
 
     pn_error_free(inner); /* the comparison below already tells us what we need */
-    if (!ok || strlen(back) != buflen || memcmp(back, buf, buflen) != 0) {
+    if (!ok || strlen(back) != text_len || memcmp(back, text, text_len) != 0) {
         if (error) {
-            *error =
-                pn_error_init(PN_ERROR_SYNTAX,
-                              "\"%.*s\" does not spell the"
-                              " canon for %llu: the tally"
-                              " must render back to itself",
-                              (int) (buflen > 64 ? 64 : buflen), buf, (unsigned long long) sum);
+            *error = pn_error_init(PN_ERROR_SYNTAX,
+                                   "\"%.*s\" does not spell the"
+                                   " canon for %llu: the tally"
+                                   " must render back to itself",
+                                   (int) (text_len > 64 ? 64 : text_len), text,
+                                   (unsigned long long) sum);
         }
-        return NULL;
+        return 0;
     }
 
-    *out = sum;
-    return out;
+    return sum;
 }

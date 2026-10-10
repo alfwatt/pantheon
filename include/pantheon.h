@@ -181,7 +181,7 @@ double pn_fraction_to_double(pn_fraction value);
 ///     PN_ERROR_DOMAIN when the denominator is 0.
 pn_fraction pn_fraction_parse(const char* _Nonnull text, pn_error* _Nullable* _Nullable error);
 
-#define PN_FRACTION_FORMAT_MAX_LEN (1 + 20 + 1 + 20 + 1) /* '-', top, '/', bottom, 0 byte */
+#define PN_FRACTION_FORMAT_MAX_LEN (1 + 20 + 1 + 20 + 1) /* '-', top, '/', bottom, null */
 
 /// @returns a new string, like "355/113", formatted from the
 /// @param value provided, or NULL and the
@@ -192,7 +192,7 @@ char* _Nullable pn_fraction_format(pn_fraction value, pn_error* _Nullable* _Null
 /// Write the value as "numerator/denominator", with '-' in front if
 /// negative. A denominator of 1 writes just the whole number ("3"),
 /// so every output can be read back by pn_fraction_parse. The text
-/// ends with a 0 byte and needs at most PN_FRACTION_FORMAT_MAX_LEN
+/// is null terminated and needs at most PN_FRACTION_FORMAT_MAX_LEN
 /// bytes. On failure the buffer is not changed.
 ///
 /// @returns the caller's `char*` with the
@@ -253,29 +253,26 @@ typedef struct pn_base20 {
 /// 399, which is too big (places go up to 19), so it is rejected.
 /// Use pn_base20_from_u64 for ordinary whole numbers.
 ///
-/// @param text - the text to read
-/// @param out - where the value is stored on success; not changed
-///     on failure
+/// @param text - the text to read, null terminated
 /// @param error - where to put the error report on failure:
 ///     PN_ERROR_SYNTAX when the text doesn't follow the format,
 ///     PN_ERROR_RANGE when a place is above 19 or has more than 2
 ///     digits, or there are more than PN_BASE20_MAX_PLACES places.
-/// @returns the caller's `out` on success, or NULL and the
+/// @returns the value read, or a zeroed value and the
 /// @param error encountered.
-pn_base20* _Nullable pn_base20_parse(const char* _Nonnull text, pn_base20* _Nonnull out,
-                                     pn_error* _Nullable* _Nullable error);
+pn_base20 pn_base20_parse(const char* _Nonnull text, pn_error* _Nullable* _Nullable error);
 
-#define PN_BASE20_FORMAT_MAX_LEN (1 + 3 * PN_BASE20_MAX_PLACES + 1) /* '-', places, ',', 0 byte */
+#define PN_BASE20_FORMAT_MAX_LEN (1 + 3 * PN_BASE20_MAX_PLACES + 1) /* '-', places, ',', null */
 
 /// Write a value in the modern notation, the reverse of
 /// pn_base20_parse. Places are separated by @param sep (',' or
 /// ':'), and ';' marks the radix point when the value has both a
-/// whole part and a fraction. The text ends with a 0 byte and needs
+/// whole part and a fraction. The text is null terminated and needs
 /// at most PN_BASE20_FORMAT_MAX_LEN bytes.
 ///
 /// @param v - the value to write
 /// @param sep - the separator between places
-/// @param buf - where the text is written, with room for the 0 byte
+/// @param buf - where the text is written, with room for the null terminator
 /// @param buflen - the size of buf in bytes
 /// @param error - where to put the error report on failure:
 ///     PN_ERROR_SYNTAX when sep isn't ',' ':' or ';',
@@ -447,7 +444,7 @@ char* _Nullable pn_base60_format(pn_base60 value, char place_sep,
 /// With ';' as the separator and a radix point in the middle, the
 /// text has two ';' and can't be read back, so use ',' or ':' when
 /// you need to read it again. A negative value starts with '-'.
-/// The text ends with a 0 byte and needs at most
+/// The text is null terminated and needs at most
 /// PN_BASE60_FORMAT_MAX_LEN bytes. On failure the buffer is not
 /// changed.
 ///
@@ -457,7 +454,7 @@ char* _Nullable pn_base60_format(pn_base60 value, char place_sep,
 /// @param buffer provided, which holds the
 /// @param buflen bytes provided; or NULL and the
 /// @param error encountered
-#define PN_BASE60_FORMAT_MAX_LEN (1 + 3 * PN_BASE60_MAX_PLACES + 1) /* '-', places, ',', 0 byte */
+#define PN_BASE60_FORMAT_MAX_LEN (1 + 3 * PN_BASE60_MAX_PLACES + 1) /* '-', places, ',', null */
 char* _Nullable pn_base60_format_into(pn_base60 value, char place_sep, char* _Nonnull buffer,
                                       size_t buflen, pn_error* _Nullable* _Nullable error);
 
@@ -571,20 +568,20 @@ pn_base60* _Nullable pn_base60_from_double(double x, uint8_t frac_places, pn_bas
 #define PN_CUNEIFORM_U    0x1230Bu /* 𒌋 corner wedge    = 10 */
 
 /// The number of bytes pn_babylonian_render writes for a
-/// well-formed @param v, not counting the 0 byte at the end. Never
+/// well-formed @param v, not counting the null terminator at the end. Never
 /// fails; for a malformed value the answer means nothing, and
 /// pn_babylonian_render reports the error.
 size_t pn_babylonian_render_size(pn_base60 v);
 
 /// Write @param v in cuneiform into @param buf as UTF-8, ending with
-/// a 0 byte. Each place is its corner wedges then its vertical
+/// a null terminator. Each place is its corner wedges then its vertical
 /// wedges; places are one space apart; an empty place is the
 /// two-space gap the scribes left. A negative value starts with '-'
 /// (a modern addition). No radix point is drawn, since no tablet
 /// had one, so fraction places look just like whole ones.
 ///
 /// @param v - the value to write
-/// @param buf - where the text is written, with room for the 0 byte
+/// @param buf - where the text is written, with room for the null terminator
 /// @param buflen - the size of buf in bytes
 /// @param error - where to put the error report on failure:
 ///     PN_ERROR_DOMAIN when v is malformed (no places or too many, a
@@ -598,7 +595,7 @@ char* _Nullable pn_babylonian_render(pn_base60 v, char* _Nonnull buf, size_t buf
 
 /// Read cuneiform text, the reverse of pn_babylonian_render.
 ///
-/// @param buffer holds exactly @param buflen bytes of UTF-8 made of
+/// @param text is UTF-8 made of
 /// '-', the two wedge signs and spaces:
 ///
 ///          𒁹𒁹␣𒌋𒌋𒁹𒁹𒁹␣𒁹𒁹𒁹    ->    places {2,23,3}
@@ -615,20 +612,15 @@ char* _Nullable pn_babylonian_render(pn_base60 v, char* _Nonnull buf, size_t buf
 /// Clay tablets show no radix point, so the result is read as a
 /// whole number (radix == n_places). A lone 𒁹 reads as 1, even if
 /// the scribe meant 60 or 1/60.
-/// @param buffer - the cuneiform text to read
-/// @param buflen - how many bytes to read
-/// @param out - where the value is stored on success; not changed on
-///     failure
+/// @param text - the cuneiform text to read, null terminated
 /// @param error - where to put the error report on failure:
 ///     PN_ERROR_SYNTAX for any other byte, wrong spacing, an empty
 ///     string, or a vertical wedge before a corner wedge in one place,
 ///     PN_ERROR_RANGE for a place with more than 5 corner wedges or 9
 ///     vertical wedges, or more than PN_BASE60_MAX_PLACES places.
-/// @returns the caller's `out` on success, or NULL and the
+/// @returns the value read, or a zeroed value and the
 /// @param error encountered.
-pn_base60* _Nullable pn_babylonian_parse_from(const char* _Nonnull buffer, size_t buflen,
-                                              pn_base60* _Nonnull out,
-                                              pn_error* _Nullable* _Nullable error);
+pn_base60 pn_babylonian_parse(const char* _Nonnull text, pn_error* _Nullable* _Nullable error);
 
 // MARK: - Egyptian Numerals
 
@@ -674,17 +666,17 @@ pn_base60* _Nullable pn_babylonian_parse_from(const char* _Nonnull buffer, size_
 #define PN_EGYPTIAN_MAX_VALUE 9999999ull /* nine of each sign */
 
 /// The number of bytes pn_egyptian_render writes for @param n, not
-/// counting the 0 byte: 4 per sign, which is 4 times the sum of n's
+/// counting the null terminator: 4 per sign, which is 4 times the sum of n's
 /// decimal digits. Never fails; above PN_EGYPTIAN_MAX_VALUE the
 /// answer means nothing, and pn_egyptian_render reports
 /// PN_ERROR_RANGE. 0 gives 0, the empty string.
 size_t pn_egyptian_render_size(uint64_t n);
 
 /// Write @param n in hieroglyphs into @param buf as UTF-8, ending
-/// with a 0 byte. Each decimal digit d becomes d copies of its
+/// with a null terminator. Each decimal digit d becomes d copies of its
 /// power's sign, biggest power first, with no spaces:
 /// 4622 = 𓆼𓆼𓆼𓆼𓍢𓍢𓍢𓍢𓍢𓍢𓎆𓎆𓏤𓏤.  0 is the empty string. The buffer
-/// needs pn_egyptian_render_size(n) bytes plus the 0 byte.
+/// needs pn_egyptian_render_size(n) bytes plus the null terminator.
 ///
 /// @param buf - where the text is written; must not be NULL
 /// @param buflen - the size of buf in bytes
@@ -703,19 +695,16 @@ char* _Nullable pn_egyptian_render(uint64_t n, char* _Nonnull buf, size_t buflen
 /// of the signs, so reading back what was written always gives the
 /// same number. An empty string reads as 0.
 ///
-/// @param buf - the text to read; must not be NULL
-/// @param buflen - how many bytes to read
-/// @param out - where the number is stored on success; not changed
-///     on failure
+/// @param text - the text to read, null terminated
 /// @param error - where to put the error report on failure:
 ///     PN_ERROR_SYNTAX for a byte that isn't a sign, a sign cut off
 ///     short, groups out of order, or one sign in two groups,
 ///     PN_ERROR_RANGE for ten or more of one sign (a scribe would
 ///     have written one sign of the next power instead).
-/// @returns the caller's `out` on success, or NULL and the
-/// @param error encountered.
-uint64_t* _Nullable pn_egyptian_parse(const char* _Nonnull buf, size_t buflen,
-                                      uint64_t* _Nonnull out, pn_error* _Nullable* _Nullable error);
+/// @returns the number read, or 0 and the
+/// @param error encountered (check the error, since 0 is also a
+///     real result).
+uint64_t pn_egyptian_parse(const char* _Nonnull text, pn_error* _Nullable* _Nullable error);
 
 // MARK: - Hanzi Numerals
 
@@ -755,7 +744,7 @@ uint64_t* _Nullable pn_egyptian_parse(const char* _Nonnull buf, size_t buflen,
 #define PN_HANZI_MAX_VALUE 99999999ull /* 九 in every place of both sections */
 
 /// The number of bytes pn_hanzi_render writes for @param n, not
-/// counting the 0 byte: 3 per sign (digits, multipliers and 万) plus
+/// counting the null terminator: 3 per sign (digits, multipliers and 万) plus
 /// 1 per space. Never fails; above PN_HANZI_MAX_VALUE the answer
 /// means nothing, and pn_hanzi_render reports the error. 0 gives 0.
 ///
@@ -764,11 +753,11 @@ uint64_t* _Nullable pn_egyptian_parse(const char* _Nonnull buf, size_t buflen,
 size_t pn_hanzi_render_size(uint64_t n);
 
 /// Write @param n (0 to PN_HANZI_MAX_VALUE) in Chinese numerals into
-/// @param buf as UTF-8, ending with a 0 byte: 4622 = 四千六百二十二,
+/// @param buf as UTF-8, null terminated: 4622 = 四千六百二十二,
 /// 1005 = 一千␣五.  Skipped digits are marked by one space. 0 is the
 /// empty string.
 /// @param n - the number to write
-/// @param buf - where the text is written, with room for the 0 byte
+/// @param buf - where the text is written, with room for the null terminator
 /// @param buflen - the size of buf in bytes
 /// @param error - where to put the error report on failure:
 ///     PN_ERROR_RANGE when n is above PN_HANZI_MAX_VALUE,
@@ -788,15 +777,12 @@ char* _Nullable pn_hanzi_render(uint64_t n, char* _Nonnull buf, size_t buflen,
 /// cut off short, 十四 without its 一, a space where nothing was
 /// skipped, and a skip without a space.
 ///
-/// @param buf - the text to read
-/// @param buflen - how many bytes to read
-/// @param out - where the number is stored on success; not changed
-///     on failure
+/// @param text - the text to read, null terminated
 /// @param error - where to put the error report on failure.
-/// @returns the caller's `out` on success, or NULL and the
-/// @param error encountered.
-uint64_t* _Nullable pn_hanzi_parse(const char* _Nonnull buf, size_t buflen, uint64_t* _Nonnull out,
-                                   pn_error* _Nullable* _Nullable error);
+/// @returns the number read, or 0 and the
+/// @param error encountered (check the error, since 0 is also a
+///     real result).
+uint64_t pn_hanzi_parse(const char* _Nonnull text, pn_error* _Nullable* _Nullable error);
 
 /*
     Counting rod numerals.
@@ -841,20 +827,20 @@ uint64_t* _Nullable pn_hanzi_parse(const char* _Nonnull buf, size_t buflen, uint
 #define PN_ROD_MAX_VALUE      9999999999999999999ull /* 10^19 - 1: nineteen nines */
 
 /// The number of bytes pn_rods_render writes for @param n, not
-/// counting the 0 byte: 4 per rod plus one space between
+/// counting the null terminator: 4 per rod plus one space between
 /// neighbouring columns, which is 4 x (nonzero digits) + (digits -
 /// 1). Never fails; above PN_ROD_MAX_VALUE the answer means
 /// nothing, and pn_rods_render reports the error.
 size_t pn_rods_render_size(uint64_t n);
 
 /// Write @param n in counting rods into @param buf as UTF-8, ending
-/// with a 0 byte: one rod sign per nonzero digit, biggest column
+/// with a null terminator: one rod sign per nonzero digit, biggest column
 /// first, one space between neighbouring columns (so 101 = 𝍠␣␣𝍠).
 /// 0 is the empty string. The buffer needs
-/// pn_rods_render_size(@param n) bytes plus the 0 byte.
+/// pn_rods_render_size(@param n) bytes plus the null terminator.
 ///
 /// @param n - the number to write
-/// @param buf - where the text is written, with room for the 0 byte
+/// @param buf - where the text is written, with room for the null terminator
 /// @param buflen - the size of buf in bytes
 /// @param error - where to put the error report on failure:
 ///     PN_ERROR_RANGE when n is above PN_ROD_MAX_VALUE,
@@ -874,21 +860,18 @@ char* _Nullable pn_rods_render(uint64_t n, char* _Nonnull buf, size_t buflen,
 ///     𝍩␣     ->  10    (empty ones column)
 ///
 /// Reading back what pn_rods_render wrote always gives the same
-/// number. An empty string reads as 0. On failure *out is not
-/// changed.
+/// number. An empty string reads as 0.
 ///
-/// @param buf - the text to read
-/// @param buflen - how many bytes to read
-/// @param out - where the number is stored on success
+/// @param text - the text to read, null terminated
 /// @param error - where to put the error report on failure:
 ///     PN_ERROR_SYNTAX for a leading space, only spaces, two rods
 ///     with no space between them, a rod in the wrong form for its
 ///     column, any other byte, or a sign cut off short,
 ///     PN_ERROR_RANGE for more than PN_ROD_MAX_PLACES columns.
-/// @returns the caller's `out` on success, or NULL and the
-/// @param error encountered.
-uint64_t* _Nullable pn_rods_parse(const char* _Nonnull buf, size_t buflen, uint64_t* _Nonnull out,
-                                  pn_error* _Nullable* _Nullable error);
+/// @returns the number read, or 0 and the
+/// @param error encountered (check the error, since 0 is also a
+///     real result).
+uint64_t pn_rods_parse(const char* _Nonnull text, pn_error* _Nullable* _Nullable error);
 
 /*
     Brahmi numerals.
@@ -939,7 +922,7 @@ uint64_t* _Nullable pn_rods_parse(const char* _Nonnull buf, size_t buflen, uint6
 #define PN_BRAHMI_MAX_VALUE       9999u    /* the largest: no sign above 𑁥 */
 
 /// The number of bytes pn_brahmi_render writes for @param n, not
-/// counting the 0 byte: 4 per sign, joiner included. A hundreds or
+/// counting the null terminator: 4 per sign, joiner included. A hundreds or
 /// thousands term is 4 bytes for a 1 (the power sign alone) or 12
 /// for 2 to 9 (power, joiner, digit); a tens or ones term is 4 bytes.
 /// Never fails; above PN_BRAHMI_MAX_VALUE the answer means nothing,
@@ -947,13 +930,13 @@ uint64_t* _Nullable pn_rods_parse(const char* _Nonnull buf, size_t buflen, uint6
 size_t pn_brahmi_render_size(uint64_t n);
 
 /// Write @param n in Brahmi numerals into @param buf as UTF-8,
-/// ending with a 0 byte: thousands, hundreds, tens, ones, as
+/// null terminated: thousands, hundreds, tens, ones, as
 /// described above (256 = 𑁤𑁿𑁓𑁟𑁗). 0 is the empty string. The
 /// buffer needs pn_brahmi_render_size(@param n) bytes plus the 0
 /// byte. On failure buf is not changed.
 ///
 /// @param n - the number to write
-/// @param buf - where the text is written, with room for the 0 byte
+/// @param buf - where the text is written, with room for the null terminator
 /// @param buflen - the size of buf in bytes
 /// @param error - where to put the error report on failure:
 ///     PN_ERROR_RANGE when n is above PN_BRAHMI_MAX_VALUE,
@@ -972,21 +955,18 @@ char* _Nullable pn_brahmi_render(uint64_t n, char* _Nonnull buf, size_t buflen,
 ///     𑁥𑁒      ->  1001   (thousand + one)
 ///
 /// Reading back what pn_brahmi_render wrote always gives the same
-/// number. An empty string reads as 0. On failure *out is not
-/// changed.
+/// number. An empty string reads as 0.
 ///
-/// @param buf - the text to read
-/// @param buflen - how many bytes to read
-/// @param out - where the number is stored on success
+/// @param text - the text to read, null terminated
 /// @param error - where to put the error report on failure:
 ///     PN_ERROR_SYNTAX for a term used twice, terms out of order, a
 ///     joiner anywhere except between a power sign and a digit 2 to
 ///     9, a joined 1 (100 is just 𑁤), 𑁤𑁕𑁕 (the ones term twice), any
 ///     other byte, or a sign cut off short.
-/// @returns the caller's `out` on success, or NULL and the
-/// @param error encountered.
-uint64_t* _Nullable pn_brahmi_parse(const char* _Nonnull buf, size_t buflen, uint64_t* _Nonnull out,
-                                    pn_error* _Nullable* _Nullable error);
+/// @returns the number read, or 0 and the
+/// @param error encountered (check the error, since 0 is also a
+///     real result).
+uint64_t pn_brahmi_parse(const char* _Nonnull text, pn_error* _Nullable* _Nullable error);
 
 /*
     Maya numerals: base 20 in bars and dots.
@@ -1026,17 +1006,17 @@ uint64_t* _Nullable pn_brahmi_parse(const char* _Nonnull buf, size_t buflen, uin
 #define PN_MAYAN_DIGIT_ZERO 0x1D2E0u /* 𝋠 zero; digit d is this + d */
 
 /// The number of bytes pn_mayan_render writes for @param v, not
-/// counting the 0 byte: 4 per place, one space between places, and
+/// counting the null terminator: 4 per place, one space between places, and
 /// 1 for '-' if negative. Never fails; for a malformed value the
 /// answer means nothing, and pn_mayan_render reports the error.
 size_t pn_mayan_render_size(pn_base20 v);
 
 /// Write @param v in Maya numerals into @param buf as UTF-8, ending
-/// with a 0 byte: one sign per place, one space between places, so
+/// with a null terminator: one sign per place, one space between places, so
 /// 429 = 𝋡␣𝋡␣𝋩.  An empty place writes the shell 𝋠, not a gap.
 ///
 /// @param v - the value to write
-/// @param buf - where the text is written, with room for the 0 byte
+/// @param buf - where the text is written, with room for the null terminator
 /// @param buflen - the size of buf in bytes
 /// @param error - where to put the error report on failure:
 ///     PN_ERROR_DOMAIN when v is malformed (no places or too many, a
@@ -1048,8 +1028,8 @@ size_t pn_mayan_render_size(pn_base20 v);
 char* _Nullable pn_mayan_render(pn_base20 v, char* _Nonnull buf, size_t buflen,
                                 pn_error* _Nullable* _Nullable error);
 
-/// Read Maya numerals, the reverse of pn_mayan_render. @param buf
-/// holds @param buflen bytes of UTF-8: an optional '-', then signs
+/// Read Maya numerals, the reverse of pn_mayan_render. @param text
+/// is UTF-8: an optional '-', then signs
 /// separated by single spaces, like 𝋡␣𝋡␣𝋩.  Reading back what
 /// pn_mayan_render wrote always gives the same places, read as a
 /// whole number (radix == n_places), since the signs show no radix
@@ -1057,20 +1037,16 @@ char* _Nullable pn_mayan_render(pn_base20 v, char* _Nonnull buf, size_t buflen,
 ///
 /// An empty string is an error, not zero: zero is written 𝋠.
 ///
-/// @param buf - the text to read
-/// @param buflen - how many bytes to read
-/// @param out - where the value is stored on success; not changed on
-///     failure
+/// @param text - the text to read, null terminated
 /// @param error - where to put the error report on failure:
 ///     PN_ERROR_SYNTAX for a space at the start or end, two spaces in
 ///     a row, two signs with no space between them, any other byte
 ///     (including the unassigned U+1D2F4..U+1D2FF), a sign cut off
 ///     short, or an empty string,
 ///     PN_ERROR_RANGE for more than PN_BASE20_MAX_PLACES places.
-/// @returns the caller's `out` on success, or NULL and the
+/// @returns the value read, or a zeroed value and the
 /// @param error encountered.
-pn_base20* _Nullable pn_mayan_parse(const char* _Nonnull buf, size_t buflen,
-                                    pn_base20* _Nonnull out, pn_error* _Nullable* _Nullable error);
+pn_base20 pn_mayan_parse(const char* _Nonnull text, pn_error* _Nullable* _Nullable error);
 
 /*
     Inca quipu numerals: decimal numbers tied in knots.
@@ -1119,17 +1095,17 @@ pn_base20* _Nullable pn_mayan_parse(const char* _Nonnull buf, size_t buflen,
 #define PN_QUIPU_MAX_VALUE   9999999999999999999ull /* nineteen nines               */
 
 /// The number of bytes pn_quipu_render writes for @param n, not
-/// counting the 0 byte. Never fails; above PN_QUIPU_MAX_VALUE the
+/// counting the null terminator. Never fails; above PN_QUIPU_MAX_VALUE the
 /// answer means nothing, and pn_quipu_render reports the error.
 size_t pn_quipu_render_size(uint64_t n);
 
 /// Write @param n (0 to PN_QUIPU_MAX_VALUE) as quipu knots into
-/// @param buf as UTF-8, ending with a 0 byte: d bullets for a digit
+/// @param buf as UTF-8, null terminated: d bullets for a digit
 /// d above the ones place, d infinity signs for the ones digit, one
 /// space between places (731 = •••••••␣•••␣∞). An empty place
 /// writes no knots, and 0 is the empty string.
 /// @param n - the number to write
-/// @param buf - where the text is written, with room for the 0 byte
+/// @param buf - where the text is written, with room for the null terminator
 /// @param buflen - the size of buf in bytes
 /// @param error - where to put the error report on failure:
 ///     PN_ERROR_RANGE when n is above PN_QUIPU_MAX_VALUE,
@@ -1147,10 +1123,7 @@ char* _Nullable pn_quipu_render(uint64_t n, char* _Nonnull buf, size_t buflen,
 /// signs in the ones place only. Reading back what pn_quipu_render
 /// wrote always gives the same number. An empty string reads as 0.
 ///
-/// @param buf - the text to read
-/// @param buflen - how many bytes to read
-/// @param out - where the number is stored on success; not changed
-///     on failure
+/// @param text - the text to read, null terminated
 /// @param error - where to put the error report on failure:
 ///     PN_ERROR_SYNTAX for a bullet in the ones place, an infinity
 ///     sign above it, mixed knots in one cluster, a space at the
@@ -1158,10 +1131,10 @@ char* _Nullable pn_quipu_render(uint64_t n, char* _Nonnull buf, size_t buflen,
 ///     (including '-'), or a sign cut off short,
 ///     PN_ERROR_RANGE for ten or more knots in one cluster, or more
 ///     than PN_QUIPU_MAX_PLACES places.
-/// @returns the caller's `out` on success, or NULL and the
-/// @param error encountered.
-uint64_t* _Nullable pn_quipu_parse(const char* _Nonnull buf, size_t buflen, uint64_t* _Nonnull out,
-                                   pn_error* _Nullable* _Nullable error);
+/// @returns the number read, or 0 and the
+/// @param error encountered (check the error, since 0 is also a
+///     real result).
+uint64_t pn_quipu_parse(const char* _Nonnull text, pn_error* _Nullable* _Nullable error);
 
 /*
     Greek alphabetic numerals.
@@ -1218,21 +1191,21 @@ uint64_t* _Nullable pn_quipu_parse(const char* _Nonnull buf, size_t buflen, uint
 #define PN_GREEK_MAX_VALUE 999999ull /* ͵ϡϟθ␣ϡϟθʹ */
 
 /// The number of bytes pn_greek_render writes for @param n, not
-/// counting the 0 byte: 2 per sign, keraia included, plus 1 for the
+/// counting the null terminator: 2 per sign, keraia included, plus 1 for the
 /// space between the two groups. 0 gives 0. Never fails; outside
 /// 1..PN_GREEK_MAX_VALUE pn_greek_render reports the error.
 size_t pn_greek_render_size(uint64_t n);
 
 /// Write @param n (0 to PN_GREEK_MAX_VALUE) in Greek numerals into
-/// @param buf as UTF-8, ending with a 0 byte: 2019 = ͵β␣ιθʹ.  0 is
+/// @param buf as UTF-8, null terminated: 2019 = ͵β␣ιθʹ.  0 is
 /// the empty string.
 /// @param n - the number to write
-/// @param buf - where the text is written, with room for the 0 byte
+/// @param buf - where the text is written, with room for the null terminator
 /// @param buflen - the size of buf in bytes
 /// @param error - where to put the error report on failure:
 ///     PN_ERROR_RANGE when n is above PN_GREEK_MAX_VALUE,
 ///     PN_ERROR_BUFFER when buflen can't hold
-///     pn_greek_render_size(n) plus the 0 byte. On failure buf is
+///     pn_greek_render_size(n) plus the null terminator. On failure buf is
 ///     not changed.
 /// @returns the caller's `buf` on success, or NULL and the
 /// @param error encountered.
@@ -1246,18 +1219,15 @@ char* _Nullable pn_greek_render(uint64_t n, char* _Nonnull buf, size_t buflen,
 /// tens and one ones letter, in that order. An empty string reads as
 /// 0.
 ///
-/// @param buf - the text to read
-/// @param buflen - how many bytes to read
-/// @param out - where the number is stored on success; not changed
-///     on failure
+/// @param text - the text to read, null terminated
 /// @param error - where to put the error report on failure:
 ///     PN_ERROR_SYNTAX for anything else, including capitals, other
 ///     sigma forms, accent marks, U+02B9, any ASCII byte, or badly
 ///     formed UTF-8.
-/// @returns the caller's `out` on success, or NULL and the
-/// @param error encountered.
-uint64_t* _Nullable pn_greek_parse(const char* _Nonnull buf, size_t buflen, uint64_t* _Nonnull out,
-                                   pn_error* _Nullable* _Nullable error);
+/// @returns the number read, or 0 and the
+/// @param error encountered (check the error, since 0 is also a
+///     real result).
+uint64_t pn_greek_parse(const char* _Nonnull text, pn_error* _Nullable* _Nullable error);
 
 /*
     Roman numerals.
@@ -1298,22 +1268,22 @@ uint64_t* _Nullable pn_greek_parse(const char* _Nonnull buf, size_t buflen, uint
 
 #define PN_ROMAN_MAX_VALUE 3999ull /* MMMCMXCIX */
 
-#define PN_ROMAN_FORMAT_MAX_LEN 16 /* MMMDCCCLXXXVIII is 15 letters, plus the 0 byte */
+#define PN_ROMAN_FORMAT_MAX_LEN 16 /* MMMDCCCLXXXVIII is 15 letters, plus the null terminator */
 
 /// The number of letters pn_roman_render writes for @param n, not
-/// counting the 0 byte. Returns 0 outside 1..PN_ROMAN_MAX_VALUE.
+/// counting the null terminator. Returns 0 outside 1..PN_ROMAN_MAX_VALUE.
 size_t pn_roman_render_size(uint64_t n);
 
 /// Write @param n (0 to PN_ROMAN_MAX_VALUE) in Roman numerals into
-/// @param buf, ending with a 0 byte: 1999 = MCMXCIX. 0 is the empty
+/// @param buf, null terminated: 1999 = MCMXCIX. 0 is the empty
 /// string.
 /// @param n - the number to write
-/// @param buf - where the text is written, with room for the 0 byte
+/// @param buf - where the text is written, with room for the null terminator
 /// @param buflen - the size of buf in bytes
 /// @param error - where to put the error report on failure:
 ///     PN_ERROR_RANGE when n is above PN_ROMAN_MAX_VALUE,
 ///     PN_ERROR_BUFFER when buflen can't hold
-///     pn_roman_render_size(n) plus the 0 byte. On failure buf is
+///     pn_roman_render_size(n) plus the null terminator. On failure buf is
 ///     not changed.
 /// @returns the caller's `buf` on success, or NULL and the
 /// @param error encountered.
@@ -1325,17 +1295,14 @@ char* _Nullable pn_roman_render(uint64_t n, char* _Nonnull buf, size_t buflen,
 /// it matches the input exactly, so only the standard form is
 /// accepted. An empty string reads as 0.
 ///
-/// @param buf - the text to read
-/// @param buflen - how many bytes to read
-/// @param out - where the number is stored on success; not changed
-///     on failure
+/// @param text - the text to read, null terminated
 /// @param error - where to put the error report on failure:
 ///     PN_ERROR_SYNTAX for non-standard spellings (IIII, IL, VX, XCX),
-///     lowercase letters, spaces, the 0 byte, or any non-ASCII byte.
-/// @returns the caller's `out` on success, or NULL and the
-/// @param error encountered.
-uint64_t* _Nullable pn_roman_parse(const char* _Nonnull buf, size_t buflen, uint64_t* _Nonnull out,
-                                   pn_error* _Nullable* _Nullable error);
+///     lowercase letters, spaces, the null terminator, or any non-ASCII byte.
+/// @returns the number read, or 0 and the
+/// @param error encountered (check the error, since 0 is also a
+///     real result).
+uint64_t pn_roman_parse(const char* _Nonnull text, pn_error* _Nullable* _Nullable error);
 
 // MARK: - Math
 

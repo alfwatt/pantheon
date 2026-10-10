@@ -150,10 +150,7 @@ int main(void) {
         CHECK_OK(pn_egyptian_render(n, rendered, need + 1, &err_), err_);
         CHECK(strlen(rendered) == digit_sum_bytes(n));
         uint64_t back = UINT64_MAX;
-        CHECK_OK(pn_egyptian_parse(rendered, strlen(rendered), &back, &err_), err_);
-        CHECK(back == n);
-        back = UINT64_MAX;
-        CHECK_OK(pn_egyptian_parse(rendered, need, &back, &err_), err_);
+        CHECK_VALUE(back = pn_egyptian_parse(rendered, &err_), err_);
         CHECK(back == n);
         if (pn_fails) {
             break; /* the first failure names n; no need to drown in 10^7 */
@@ -164,16 +161,15 @@ int main(void) {
     uint64_t read;
     const char* karnak =
         LOTUS LOTUS LOTUS LOTUS COIL COIL COIL COIL COIL COIL HOBBLE HOBBLE STROKE STROKE;
-    CHECK_OK(pn_egyptian_parse(karnak, strlen(karnak), &read, &err_), err_);
+    CHECK_VALUE(read = pn_egyptian_parse(karnak, &err_), err_);
     CHECK(read == 4622u);
 
     /* The blank reads back as the nothing it was. */
     read = UINT64_MAX;
-    CHECK_OK(pn_egyptian_parse("", 0, &read, &err_), err_);
+    CHECK_VALUE(read = pn_egyptian_parse("", &err_), err_);
     CHECK(read == 0u);
 
-    /*  Errors: the strict canonical form. (Each leaves *out untouched —
-	   checked via the sentinel below.)
+    /*  Errors: the strict canonical form. (Each failure returns 0 (a zeroed struct for base-60 and base-20 values).)
 	*/
     static const char* const bad_strings[] = {
         " ",                         /* a lone space is not the scribe's blank */
@@ -188,36 +184,33 @@ int main(void) {
     };
     for (size_t i = 0; i < sizeof bad_strings / sizeof bad_strings[0]; i++) {
         read = 4622u; /* sentinel */
-        CHECK_ERROR(pn_egyptian_parse(bad_strings[i], strlen(bad_strings[i]), &read, &err_), err_,
-                    PN_ERROR_SYNTAX);
-        CHECK(read == 4622u); /* untouched */
+        CHECK_VALUE_ERROR(read = pn_egyptian_parse(bad_strings[i], &err_), err_, PN_ERROR_SYNTAX);
+        CHECK(read == 0u); /* a failed parse returns 0 */
     }
 
     /*  Ten strokes overflow one run: that is arithmetic, not grammar —
 	   ten strokes are a hobble, scribe.
 	*/
     read = 4622u;
-    CHECK_ERROR(pn_egyptian_parse(TEN_STROKES, sizeof(TEN_STROKES) - 1, &read, &err_), err_,
-                PN_ERROR_RANGE);
-    CHECK(read == 4622u);
+    CHECK_VALUE_ERROR(read = pn_egyptian_parse(TEN_STROKES, &err_), err_, PN_ERROR_RANGE);
+    CHECK(read == 0u);
 
     /* A run of nine is legal; the tenth copy is what fails. */
     read = 0u;
-    CHECK_OK(pn_egyptian_parse(STROKE STROKE STROKE STROKE STROKE STROKE STROKE STROKE,
-                               sizeof(STROKE STROKE STROKE STROKE STROKE STROKE STROKE STROKE) - 1,
-                               &read, &err_),
-             err_);
+    CHECK_VALUE(
+        read = pn_egyptian_parse(STROKE STROKE STROKE STROKE STROKE STROKE STROKE STROKE, &err_),
+        err_);
     CHECK(read == 8u);
 
     /* A cut-off sign (3 of the stroke's 4 bytes) is not a sign. */
     read = 4622u;
-    CHECK_ERROR(pn_egyptian_parse(STROKE, 3, &read, &err_), err_, PN_ERROR_SYNTAX);
-    CHECK(read == 4622u);
+    CHECK_VALUE_ERROR(read = pn_egyptian_parse(pn_prefix(STROKE, 3), &err_), err_, PN_ERROR_SYNTAX);
+    CHECK(read == 0u);
 
     /* A sign glued after a cut-off run: the tail byte is foreign. */
     read = 4622u;
-    CHECK_ERROR(pn_egyptian_parse(STROKE "\x41", 5, &read, &err_), err_, PN_ERROR_SYNTAX);
-    CHECK(read == 4622u);
+    CHECK_VALUE_ERROR(read = pn_egyptian_parse(STROKE "\x41", &err_), err_, PN_ERROR_SYNTAX);
+    CHECK(read == 0u);
 
     return CHECK_RUN();
 }

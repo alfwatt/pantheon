@@ -125,7 +125,7 @@ char* _Nullable pn_hanzi_render(uint64_t n, char* _Nonnull buf, size_t buflen,
         return NULL;
     }
 
-    const size_t need = hanzi_emit(n, NULL); /* exact, so buflen must also hold the 0 byte */
+    const size_t need = hanzi_emit(n, NULL); /* exact, not counting the null terminator */
 
     if (buflen <= need) {
         if (error) {
@@ -138,7 +138,7 @@ char* _Nullable pn_hanzi_render(uint64_t n, char* _Nonnull buf, size_t buflen,
         return NULL;
     }
     (void) hanzi_emit(n, buf);
-    buf[need] = '\0'; /* n == 0 writes only the 0 byte: an empty string */
+    buf[need] = '\0'; /* n == 0 writes only the null terminator: an empty string */
     return buf;
 }
 
@@ -186,22 +186,22 @@ static int match_mult(const char* p, const char* end) {
     return 0;
 }
 
-uint64_t* _Nullable pn_hanzi_parse(const char* _Nonnull buf, size_t buflen, uint64_t* _Nonnull out,
-                                   pn_error* _Nullable* _Nullable error) {
-    assert(buf && out);
-    if (buflen == 0) {
-        *out = 0; /* an empty string reads as 0 */
-        return out;
+uint64_t pn_hanzi_parse(const char* _Nonnull text, pn_error* _Nullable* _Nullable error) {
+    assert(text);
+
+    size_t text_len = strlen(text);
+    if (text_len == 0) {
+        return 0; /* an empty string reads as 0 */
     }
-    if (buf[0] == ' ' || buf[buflen - 1] == ' ') {
+    if (text[0] == ' ' || text[text_len - 1] == ' ') {
         if (error) {
             *error = pn_error_init(PN_ERROR_SYNTAX, "the blank sits between terms,"
                                                     " never at a border");
         }
-        return NULL;
+        return 0;
     }
 
-    const char* end = buf + buflen;
+    const char* end = text + text_len;
 
     /*
         Split the text at 万 first. There can be at most one, right
@@ -212,31 +212,31 @@ uint64_t* _Nullable pn_hanzi_parse(const char* _Nonnull buf, size_t buflen, uint
     */
     const char* wan = NULL;
 
-    for (const char* w = buf; w + SIGN_BYTES <= end; w++) {
+    for (const char* w = text; w + SIGN_BYTES <= end; w++) {
         if (memcmp(w, WAN, SIGN_BYTES) == 0) {
             if (wan != NULL) {
                 if (error) {
                     *error = pn_error_init(PN_ERROR_SYNTAX, "a second \U00004E07 in one string:"
                                                             " there is one \U00004E07 at most");
                 }
-                return NULL;
+                return 0;
             }
             wan = w;
         }
     }
-    if (wan != NULL && wan == buf) {
+    if (wan != NULL && wan == text) {
         if (error) {
             *error = pn_error_init(PN_ERROR_SYNTAX, "\U00004E07 with no top section for it to"
                                                     " ride on");
         }
-        return NULL;
+        return 0;
     }
 
-    const char* const starts[2] = {buf, wan != NULL ? wan + SIGN_BYTES : buf};
-    const char* const stops[2] = {wan != NULL ? wan : buf, end};
+    const char* const starts[2] = {text, wan != NULL ? wan + SIGN_BYTES : text};
+    const char* const stops[2] = {wan != NULL ? wan : text, end};
     const int bases[2] = {4, 0}; /* the section before 万 starts four places up */
 
-    uint64_t secs[2] = {0u, 0u}; /* built here; *out changes only if the whole parse succeeds */
+    uint64_t secs[2] = {0u, 0u}; /* built here; returned only if the whole parse succeeds */
     int prev_k[2] = {4, 4};      /* each section's last place, so places must keep going down */
     int prev = -1;               /* the place of the last term, to check the spacing */
 
@@ -260,9 +260,9 @@ uint64_t* _Nullable pn_hanzi_parse(const char* _Nonnull buf, size_t buflen, uint
                                            " cut-off sign, or a space"
                                            " right where a digit"
                                            " belongs)",
-                                           (size_t) (p - buf));
+                                           (size_t) (p - text));
                 }
-                return NULL;
+                return 0;
             }
             const char* q = p + run + SIGN_BYTES;
             int k =
@@ -285,9 +285,9 @@ uint64_t* _Nullable pn_hanzi_parse(const char* _Nonnull buf, size_t buflen, uint
                                            " bare units digit): each"
                                            " section walks its places"
                                            " downward",
-                                           (size_t) (q - buf - (k > 0 ? SIGN_BYTES : 0)));
+                                           (size_t) (q - text - (k > 0 ? SIGN_BYTES : 0)));
                 }
-                return NULL;
+                return 0;
             }
             prev_k[s] = k;
             const int gap = prev - place;
@@ -302,7 +302,7 @@ uint64_t* _Nullable pn_hanzi_parse(const char* _Nonnull buf, size_t buflen, uint
                                                " term",
                                                run);
                     }
-                    return NULL;
+                    return 0;
                 }
             }
             else if (gap <= 0) {
@@ -310,7 +310,7 @@ uint64_t* _Nullable pn_hanzi_parse(const char* _Nonnull buf, size_t buflen, uint
                     *error = pn_error_init(PN_ERROR_SYNTAX, "terms cannot step"
                                                             " backwards in place");
                 }
-                return NULL;
+                return 0;
             }
             else if (gap == 1 && run != 0) {
                 if (error) {
@@ -320,7 +320,7 @@ uint64_t* _Nullable pn_hanzi_parse(const char* _Nonnull buf, size_t buflen, uint
                                            " neighbors touch",
                                            run);
                 }
-                return NULL;
+                return 0;
             }
             else if (gap > 1 && run != 1) {
                 if (error) {
@@ -331,7 +331,7 @@ uint64_t* _Nullable pn_hanzi_parse(const char* _Nonnull buf, size_t buflen, uint
                                            " blank",
                                            run, gap);
                 }
-                return NULL;
+                return 0;
             }
             secs[s] += (uint64_t) d * pow10s[k];
             prev = place;
@@ -343,6 +343,5 @@ uint64_t* _Nullable pn_hanzi_parse(const char* _Nonnull buf, size_t buflen, uint
         No overflow check needed: each section is at most 9999, so the
         total can't pass PN_HANZI_MAX_VALUE.
     */
-    *out = secs[0] * 10000u + secs[1];
-    return out;
+    return secs[0] * 10000u + secs[1];
 }

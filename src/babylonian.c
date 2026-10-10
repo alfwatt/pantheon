@@ -96,7 +96,7 @@ char* _Nullable pn_babylonian_render(pn_base60 v, char* _Nonnull buf, size_t buf
         return NULL;
     }
 
-    /* render_size is exact, so buflen must hold that many bytes plus the 0 byte */
+    /* render_size is exact, so buflen must hold that many bytes plus the null terminator */
     size_t need = pn_babylonian_render_size(v);
 
     if (buflen <= need) {
@@ -154,19 +154,19 @@ char* _Nullable pn_babylonian_render(pn_base60 v, char* _Nonnull buf, size_t buf
     order) is rejected. Being this strict is what guarantees that
     reading back written text gives the original value exactly.
 */
-pn_base60* _Nullable pn_babylonian_parse_from(const char* _Nonnull buffer, size_t buflen,
-                                              pn_base60* _Nonnull out,
-                                              pn_error* _Nullable* _Nullable error) {
-    assert(buffer && out);
+pn_base60 pn_babylonian_parse(const char* _Nonnull text, pn_error* _Nullable* _Nullable error) {
+    assert(text);
 
-    pn_base60 v; /* built here; *out changes only if the whole parse succeeds */
+    size_t text_len = strlen(text);
+
+    pn_base60 v; /* built here; returned only if the whole parse succeeds */
 
     memset(&v, 0, sizeof v);
 
-    const char* p = buffer;
-    const char* end = buffer + buflen;
+    const char* p = text;
+    const char* end = text + text_len;
 
-    if (buflen > 0 && *p == '-') {
+    if (text_len > 0 && *p == '-') {
         v.neg = true;
         p++;
     }
@@ -199,7 +199,7 @@ pn_base60* _Nullable pn_babylonian_parse_from(const char* _Nonnull buffer, size_
                                            " (an empty place costs 3)",
                                            spaces);
                 }
-                return NULL;
+                return (pn_base60) {0};
             }
             zeros = spaces / 3u;
         }
@@ -213,7 +213,7 @@ pn_base60* _Nullable pn_babylonian_parse_from(const char* _Nonnull buffer, size_
                                            " at 3 spaces each",
                                            spaces);
                 }
-                return NULL;
+                return (pn_base60) {0};
             }
             zeros = (spaces - 1u) / 3u;
         }
@@ -225,7 +225,7 @@ pn_base60* _Nullable pn_babylonian_parse_from(const char* _Nonnull buffer, size_
                                        " value past its %u place limit",
                                        PN_BASE60_MAX_PLACES);
             }
-            return NULL;
+            return (pn_base60) {0};
         }
 
         for (; zeros > 0; zeros--) {
@@ -247,7 +247,7 @@ pn_base60* _Nullable pn_babylonian_parse_from(const char* _Nonnull buffer, size_
                                                            " group: a place holds at"
                                                            " most five tens");
                 }
-                return NULL;
+                return (pn_base60) {0};
             }
         }
 
@@ -259,7 +259,7 @@ pn_base60* _Nullable pn_babylonian_parse_from(const char* _Nonnull buffer, size_
                                                            " group: a scribe would"
                                                            " carry to the next place");
                 }
-                return NULL;
+                return (pn_base60) {0};
             }
         }
 
@@ -269,9 +269,9 @@ pn_base60* _Nullable pn_babylonian_parse_from(const char* _Nonnull buffer, size_
                                        "byte at position %zu starts no"
                                        " wedge sign (or cuts one off"
                                        " with %zu byte(s) left)",
-                                       (size_t) (p - buffer), (size_t) (end - p));
+                                       (size_t) (p - text), (size_t) (end - p));
             }
-            return NULL;
+            return (pn_base60) {0};
         }
 
         if (p != end && *p != ' ') {
@@ -279,9 +279,9 @@ pn_base60* _Nullable pn_babylonian_parse_from(const char* _Nonnull buffer, size_
                 *error = pn_error_init(PN_ERROR_SYNTAX,
                                        "byte %zu glues a wedge onto the"
                                        " group without a space between",
-                                       (size_t) (p - buffer));
+                                       (size_t) (p - text));
             }
-            return NULL;
+            return (pn_base60) {0};
         }
 
         v.places[n++] = (uint8_t) (nu * 10u + nd);
@@ -298,7 +298,7 @@ pn_base60* _Nullable pn_babylonian_parse_from(const char* _Nonnull buffer, size_
                                   " sight name no value",
                                   spaces); /* the empty string and a lone "-" end up here too */
             }
-            return NULL;
+            return (pn_base60) {0};
         }
         size_t k = (spaces + 1u) / 3u;
 
@@ -309,7 +309,7 @@ pn_base60* _Nullable pn_babylonian_parse_from(const char* _Nonnull buffer, size_
                                        " the value",
                                        k);
             }
-            return NULL;
+            return (pn_base60) {0};
         }
 
         for (; k > 0; k--) {
@@ -324,7 +324,7 @@ pn_base60* _Nullable pn_babylonian_parse_from(const char* _Nonnull buffer, size_
                                    " in rows of 3",
                                    spaces);
         }
-        return NULL;
+        return (pn_base60) {0};
     }
     else {
         size_t zeros = spaces / 3u;
@@ -337,7 +337,7 @@ pn_base60* _Nullable pn_babylonian_parse_from(const char* _Nonnull buffer, size_
                                        " limit",
                                        PN_BASE60_MAX_PLACES);
             }
-            return NULL;
+            return (pn_base60) {0};
         }
 
         for (; zeros > 0; zeros--) {
@@ -351,12 +351,10 @@ pn_base60* _Nullable pn_babylonian_parse_from(const char* _Nonnull buffer, size_
                                                     " (unreachable; belt and"
                                                     " tablet-clay)");
         }
-        return NULL;
+        return (pn_base60) {0};
     }
 
     v.n_places = (uint8_t) n;
     v.radix = (uint8_t) n; /* clay tablets show no radix point, so read it as a whole number */
-    *out = v;
-
-    return out;
+    return v;
 }

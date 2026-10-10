@@ -93,7 +93,7 @@ static int quipu_match_knot(const char* p, const char* end) {
 
 /*
     Write n's knots, or only count the bytes when buf is NULL. The
-    count leaves out the 0 byte at the end. It handles one place
+    count leaves out the null terminator at the end. It handles one place
     more than the library allows, so for n above PN_QUIPU_MAX_VALUE it
     returns a number that means nothing instead of crashing;
     pn_quipu_render reports PN_ERROR_RANGE before writing anything.
@@ -150,7 +150,7 @@ char* _Nullable pn_quipu_render(uint64_t n, char* _Nonnull buf, size_t buflen,
         return NULL;
     }
 
-    const size_t need = quipu_emit(n, NULL); /* exact, so buflen must also hold the 0 byte */
+    const size_t need = quipu_emit(n, NULL); /* exact, not counting the null terminator */
 
     if (buflen <= need) {
         if (error) {
@@ -178,25 +178,25 @@ char* _Nullable pn_quipu_render(uint64_t n, char* _Nonnull buf, size_t buflen,
     goes up to 9, the same way babylonian.c treats too many wedges.
     More places than a uint64_t can hold is PN_ERROR_RANGE too.
 */
-uint64_t* _Nullable pn_quipu_parse(const char* _Nonnull buf, size_t buflen, uint64_t* _Nonnull out,
-                                   pn_error* _Nullable* _Nullable error) {
-    assert(buf && out);
-    if (buflen == 0) {
-        *out = 0; /* an empty string reads as 0      */
-        return out;
+uint64_t pn_quipu_parse(const char* _Nonnull text, pn_error* _Nullable* _Nullable error) {
+    assert(text);
+
+    size_t text_len = strlen(text);
+    if (text_len == 0) {
+        return 0; /* an empty string reads as 0      */
     }
-    if (buf[0] == ' ') {
+    if (text[0] == ' ') {
         if (error) {
             *error = pn_error_init(PN_ERROR_SYNTAX, "the cord never starts inside a"
                                                     " gutter");
         }
-        return NULL;
+        return 0;
     }
 
     size_t spaces = 0; /* counted first: it gives the number of places */
 
-    for (size_t i = 0; i < buflen; i++) {
-        if (buf[i] == ' ') {
+    for (size_t i = 0; i < text_len; i++) {
+        if (text[i] == ' ') {
             spaces++;
         }
     }
@@ -207,16 +207,16 @@ uint64_t* _Nullable pn_quipu_parse(const char* _Nonnull buf, size_t buflen, uint
                                    " more cord than a uint64_t holds",
                                    spaces, spaces + 1u);
         }
-        return NULL;
+        return 0;
     }
 
-    uint64_t sum = 0;         /* *out changes only on success      */
+    uint64_t sum = 0;         /* built here; returned only if the whole parse succeeds */
     int place = (int) spaces; /* the current place; each space steps down one */
     int col_kind = -1;        /* the knot cluster being read           */
     int col_count = 0;
     int col_place = -1; /* the place where this cluster started  */
-    const char* p = buf;
-    const char* end = buf + buflen;
+    const char* p = text;
+    const char* end = text + text_len;
 
     while (p < end) {
         if (*p == ' ') {
@@ -232,7 +232,7 @@ uint64_t* _Nullable pn_quipu_parse(const char* _Nonnull buf, size_t buflen, uint
                                           col_count, (col_kind == 1) ? "figure-eight" : "simple",
                                           (place == 0) ? "units" : "upper");
                     }
-                    return NULL;
+                    return 0;
                 }
                 sum += (uint64_t) col_count * pow10[place];
                 col_count = 0;
@@ -250,9 +250,9 @@ uint64_t* _Nullable pn_quipu_parse(const char* _Nonnull buf, size_t buflen, uint
                 *error = pn_error_init(PN_ERROR_SYNTAX,
                                        "position %zu of the cord holds a"
                                        " foreign byte or half a knot",
-                                       (size_t) (p - buf));
+                                       (size_t) (p - text));
             }
-            return NULL;
+            return 0;
         }
         if (col_count == 0) { /* a cluster starts here */
             if (place < 0) {
@@ -260,7 +260,7 @@ uint64_t* _Nullable pn_quipu_parse(const char* _Nonnull buf, size_t buflen, uint
                     *error = pn_error_init(PN_ERROR_SYNTAX, "knots dangling past the free"
                                                             " end of the cord");
                 }
-                return NULL;
+                return 0;
             }
             col_kind = kind;
             col_place = place;
@@ -271,16 +271,16 @@ uint64_t* _Nullable pn_quipu_parse(const char* _Nonnull buf, size_t buflen, uint
                                        "one column never mixes the two"
                                        " knot families - position %zu"
                                        " switches families",
-                                       (size_t) (p - buf));
+                                       (size_t) (p - text));
             }
-            return NULL;
+            return 0;
         }
         if (col_count == 9) {
             if (error) {
                 *error = pn_error_init(PN_ERROR_RANGE, "a tenth turn in this column:"
                                                        " a digit holds at most 9");
             }
-            return NULL;
+            return 0;
         }
         col_count++;
         p += SIGN_BYTES;
@@ -293,7 +293,7 @@ uint64_t* _Nullable pn_quipu_parse(const char* _Nonnull buf, size_t buflen, uint
                                        " in the wrong line",
                                        col_count, (col_kind == 1) ? "figure-eight" : "simple");
             }
-            return NULL;
+            return 0;
         }
         sum += (uint64_t) col_count * pow10[place];
     }
@@ -305,6 +305,5 @@ uint64_t* _Nullable pn_quipu_parse(const char* _Nonnull buf, size_t buflen, uint
         can only end in the right spot. Each cluster has
         already checked that it ended at its own place.
     */
-    *out = sum;
-    return out;
+    return sum;
 }

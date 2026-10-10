@@ -76,11 +76,10 @@ static int well_formed(pn_base20 v) {
     return 1;
 }
 
-pn_base20* _Nullable pn_base20_parse(const char* _Nonnull text, pn_base20* _Nonnull out,
-                                     pn_error* _Nullable* _Nullable error) {
-    assert(text && out);
+pn_base20 pn_base20_parse(const char* _Nonnull text, pn_error* _Nullable* _Nullable error) {
+    assert(text);
 
-    pn_base20 v; /* built here; *out changes only if the whole parse succeeds */
+    pn_base20 v; /* built here; returned only if the whole parse succeeds */
 
     memset(&v, 0, sizeof v);
 
@@ -115,7 +114,7 @@ pn_base20* _Nullable pn_base20_parse(const char* _Nonnull text, pn_base20* _Nonn
                                        " string",
                                        (size_t) (p - text));
             }
-            return NULL;
+            return (pn_base20) {0};
         }
         if (nd > 2 || d > 19u) {
             if (error) {
@@ -125,7 +124,7 @@ pn_base20* _Nullable pn_base20_parse(const char* _Nonnull text, pn_base20* _Nonn
                                        " digits",
                                        v.n_places, d);
             }
-            return NULL;
+            return (pn_base20) {0};
         }
         if (v.n_places == PN_BASE20_MAX_PLACES) {
             if (error) {
@@ -135,7 +134,7 @@ pn_base20* _Nullable pn_base20_parse(const char* _Nonnull text, pn_base20* _Nonn
                                        " stores)",
                                        PN_BASE20_MAX_PLACES, PN_BASE20_MAX_PLACES);
             }
-            return NULL;
+            return (pn_base20) {0};
         }
 
         v.places[v.n_places++] = (uint8_t) d;
@@ -152,7 +151,7 @@ pn_base20* _Nullable pn_base20_parse(const char* _Nonnull text, pn_base20* _Nonn
                                            " point at most",
                                            (size_t) (p - text));
                 }
-                return NULL;
+                return (pn_base20) {0};
             }
             radix = v.n_places; /* the number of places before the radix point */
         }
@@ -164,14 +163,13 @@ pn_base20* _Nullable pn_base20_parse(const char* _Nonnull text, pn_base20* _Nonn
                                        " end the value",
                                        (size_t) (p - text));
             }
-            return NULL;
+            return (pn_base20) {0};
         }
         p++;
     }
 
     v.radix = (uint8_t) (radix >= 0 ? radix : v.n_places);
-    *out = v;
-    return out;
+    return v;
 }
 
 char* _Nullable pn_base20_format(pn_base20 v, char sep, char* _Nonnull buf, size_t buflen,
@@ -201,7 +199,7 @@ char* _Nullable pn_base20_format(pn_base20 v, char sep, char* _Nonnull buf, size
     /*
         Write into a scratch buffer first, so a failure never leaves
         buf holding half a number. The worst case is '-' + 16
-        places x 2 digits + 15 separators + the 0 byte = 49 bytes,
+        places x 2 digits + 15 separators + the null terminator = 49 bytes,
         which fits in the declared maximum.
 
         Unlike pn_base60_format, places are written with as few

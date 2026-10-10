@@ -157,11 +157,11 @@ int main(void) {
         CHECK_OK(pn_mayan_render(v, rendered, need + 1, &err_), err_);
         pn_base20 back;
         memset(&back, 0xEE, sizeof back); /* junk sentinel */
-        CHECK_OK(pn_mayan_parse(rendered, need, &back, &err_), err_);
+        CHECK_VALUE(back = pn_mayan_parse(rendered, &err_), err_);
         CHECK(back.n_places == v.n_places && back.radix == v.n_places && !back.neg
               && memcmp(back.places, v.places, v.n_places) == 0);
         back.radix = 7; /* period style, both spellings */
-        CHECK_OK(pn_mayan_parse(rendered, strlen(rendered), &back, &err_), err_);
+        CHECK_VALUE(back = pn_mayan_parse(rendered, &err_), err_);
         CHECK(back.radix == v.n_places);
         if (pn_fails) {
             break; /* the first failure names n */
@@ -171,25 +171,25 @@ int main(void) {
     /* the shell alone parses to {0}; period style and exact count both */
     pn_base20 back;
     memset(&back, 0xEE, sizeof back);
-    CHECK_OK(pn_mayan_parse(SHELL, 4, &back, &err_), err_);
+    CHECK_VALUE(back = pn_mayan_parse(SHELL, &err_), err_);
     CHECK(back.n_places == 1 && back.radix == 1 && !back.neg && back.places[0] == 0);
 
     /*  leading shells are kept, not rejected (a value may carry them,
 	   the way pn_base20_parse keeps the 0 of "0;5" literal); three
 	   whole signs of four bytes each make the exact count 14
 	*/
-    CHECK_OK(pn_mayan_parse(SHELL " " DOT " " THREE, 14, &back, &err_), err_);
+    CHECK_VALUE(back = pn_mayan_parse(SHELL " " DOT " " THREE, &err_), err_);
     CHECK(back.n_places == 3 && back.radix == 3 && back.places[0] == 0 && back.places[1] == 1
           && back.places[2] == 3);
 
     /* negative: the '-' reads out of the period-style places */
     const char* negs = "-" DOT " " SHELL; /* [1,0] neg = -20 */
-    CHECK_OK(pn_mayan_parse(negs, strlen(negs), &back, &err_), err_);
+    CHECK_VALUE(back = pn_mayan_parse(negs, &err_), err_);
     CHECK(back.neg && back.n_places == 2 && back.radix == 2 && back.places[0] == 1
           && back.places[1] == 0);
 
     /*  errors: parse — foreign bytes, bad spacing, cut-offs
-	   Each leaves *out untouched — checked via the sentinel.
+	   Each failure returns 0 (a zeroed struct for base-60 and base-20 values).
 	*/
     static const char* const bad_strings[] = {
         "",            /* the empty tablet: syntax, not zero */
@@ -213,19 +213,18 @@ int main(void) {
     };
     for (size_t i = 0; i < sizeof bad_strings / sizeof bad_strings[0]; i++) {
         memset(&back, 0xFF, sizeof back); /* sentinel */
-        CHECK_ERROR(pn_mayan_parse(bad_strings[i], strlen(bad_strings[i]), &back, &err_), err_,
-                    PN_ERROR_SYNTAX);
-        CHECK(back.radix == 255u && back.n_places == 255u); /* untouched */
+        CHECK_VALUE_ERROR(back = pn_mayan_parse(bad_strings[i], &err_), err_, PN_ERROR_SYNTAX);
+        CHECK(back.radix == 0u && back.n_places == 0u); /* a failed parse returns 0 */
     }
 
     /* cut-off signs: partial UTF-8 is never a sign */
     memset(&back, 0xFF, sizeof back);
-    CHECK_ERROR(pn_mayan_parse(SHELL, 3, &back, &err_), err_, PN_ERROR_SYNTAX);
-    CHECK(back.n_places == 255u);
+    CHECK_VALUE_ERROR(back = pn_mayan_parse(pn_prefix(SHELL, 3), &err_), err_, PN_ERROR_SYNTAX);
+    CHECK(back.n_places == 0u);
     const char* half = DOT " "
                            "\xF0\x9D\x8B"; /* a stem with no tail */
-    CHECK_ERROR(pn_mayan_parse(half, 4 + 1 + 3, &back, &err_), err_, PN_ERROR_SYNTAX);
-    CHECK(back.n_places == 255u);
+    CHECK_VALUE_ERROR(back = pn_mayan_parse(half, &err_), err_, PN_ERROR_SYNTAX);
+    CHECK(back.n_places == 0u);
 
     /*  the page boundary: sixteen rows fit the struct, a seventeenth is
 	   the scribe's page overrun - range, not grammar. Count first is
@@ -241,14 +240,16 @@ int main(void) {
         w += 4;
     }
     memset(&back, 0xFF, sizeof back);
-    CHECK_OK(pn_mayan_parse(rows, w, &back, &err_), err_); /* 16 rows fit */
+    rows[w] = '\0';
+    CHECK_VALUE(back = pn_mayan_parse(rows, &err_), err_); /* 16 rows fit */
     CHECK(back.n_places == PN_BASE20_MAX_PLACES);
     rows[w++] = ' '; /* the seventeenth */
     memcpy(rows + w, DOT, 4);
     w += 4;
     memset(&back, 0xFF, sizeof back);
-    CHECK_ERROR(pn_mayan_parse(rows, w, &back, &err_), err_, PN_ERROR_RANGE);
-    CHECK(back.n_places == 255u);
+    rows[w] = '\0';
+    CHECK_VALUE_ERROR(back = pn_mayan_parse(rows, &err_), err_, PN_ERROR_RANGE);
+    CHECK(back.n_places == 0u);
 
     /*  render_size is pure and total even on a junk struct (meaningless,
 	   never fatal - the sibling contract, babylonian.c's is the same)

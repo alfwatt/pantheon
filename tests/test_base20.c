@@ -18,14 +18,14 @@ int main(void) {
 
     /* the codex page's worked examples */
 
-    CHECK_OK(pn_base20_parse("1;12,9", &v, &err_), err_);
+    CHECK_VALUE(v = pn_base20_parse("1;12,9", &err_), err_);
     CHECK(v.n_places == 3 && v.radix == 1 && !v.neg);
     CHECK(v.places[0] == 1 && v.places[1] == 12 && v.places[2] == 9);
     CHECK_OK(pn_base20_to_double(v, &d, &err_), err_);
     CHECK_DBL(d, 1.6225, 1e-15);
 
     /* 0;5 is a quarter: exact in binary, unlike sexagesimal's 0;20 = 1/3 */
-    CHECK_OK(pn_base20_parse("0;5", &v, &err_), err_);
+    CHECK_VALUE(v = pn_base20_parse("0;5", &err_), err_);
     CHECK(v.n_places == 2 && v.radix == 1);
     CHECK_OK(pn_base20_to_double(v, &d, &err_), err_);
     CHECK_DBL(d, 0.25, 0.0); /* exact: 1/4 is dyadic */
@@ -36,8 +36,8 @@ int main(void) {
     CHECK(u == 8800);
 
     /* separators: comma, colon — three spellings, one value */
-    CHECK_OK(pn_base20_parse("1,2,0,0", &v, &err_), err_);
-    CHECK_OK(pn_base20_parse("1:2:0:0", &w, &err_), err_);
+    CHECK_VALUE(v = pn_base20_parse("1,2,0,0", &err_), err_);
+    CHECK_VALUE(w = pn_base20_parse("1:2:0:0", &err_), err_);
     CHECK(v.n_places == 4 && v.radix == 4);
     CHECK(memcmp(&v, &w, sizeof v) == 0);
     CHECK_OK(pn_base20_to_double(v, &d, &err_), err_);
@@ -81,7 +81,7 @@ int main(void) {
     CHECK(strcmp(buf, "1:2:0:0") == 0);
     CHECK_ERROR(pn_base20_format(v, ',', buf, strlen("1,2,0,0"), &err_), err_, PN_ERROR_BUFFER);
 
-    CHECK_OK(pn_base20_parse("1;12,9", &v, &err_), err_);
+    CHECK_VALUE(v = pn_base20_parse("1;12,9", &err_), err_);
     CHECK_OK(pn_base20_format(v, ',', buf, sizeof buf, &err_), err_);
     CHECK(strcmp(buf, "1;12,9") == 0); /* interior radix writes ';' */
 
@@ -94,7 +94,7 @@ int main(void) {
 
     /* conversions: negatives, fractions, rounding */
 
-    CHECK_OK(pn_base20_parse("-1,2,0,0", &v, &err_), err_);
+    CHECK_VALUE(v = pn_base20_parse("-1,2,0,0", &err_), err_);
     CHECK(v.neg);
     /*  to_u64 reads the magnitude: the same quirk pn_base60_to_u64 carries
 	   (neg is the caller's business; see src/sex60.c)
@@ -199,16 +199,16 @@ int main(void) {
         "x", "1.x", "1,,2", "1;2:", "1:",    ";;", "1-1",
     };
     for (size_t i = 0; i < sizeof bad_strings / sizeof bad_strings[0]; i++) {
-        CHECK_ERROR(pn_base20_parse(bad_strings[i], &v, &err_), err_, PN_ERROR_SYNTAX);
+        CHECK_VALUE_ERROR(v = pn_base20_parse(bad_strings[i], &err_), err_, PN_ERROR_SYNTAX);
     }
 
     /* value-shaped but out-of-range rows */
-    CHECK_ERROR(pn_base20_parse("25", &v, &err_), err_, PN_ERROR_RANGE);   /* 25 > 19 */
-    CHECK_ERROR(pn_base20_parse("100", &v, &err_), err_, PN_ERROR_RANGE);  /* 3 digits */
-    CHECK_ERROR(pn_base20_parse("0;45", &v, &err_), err_, PN_ERROR_RANGE); /* 45 > 19 */
+    CHECK_VALUE_ERROR(v = pn_base20_parse("25", &err_), err_, PN_ERROR_RANGE);   /* 25 > 19 */
+    CHECK_VALUE_ERROR(v = pn_base20_parse("100", &err_), err_, PN_ERROR_RANGE);  /* 3 digits */
+    CHECK_VALUE_ERROR(v = pn_base20_parse("0;45", &err_), err_, PN_ERROR_RANGE); /* 45 > 19 */
     /* 17 places is past the struct */
-    CHECK_ERROR(pn_base20_parse("0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0", &v, &err_), err_,
-                PN_ERROR_RANGE);
+    CHECK_VALUE_ERROR(v = pn_base20_parse("0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0", &err_), err_,
+                      PN_ERROR_RANGE);
 
     return CHECK_RUN();
 }

@@ -112,7 +112,7 @@ char* _Nullable pn_rods_render(uint64_t n, char* _Nonnull buf, size_t buflen,
         return NULL;
     }
 
-    const size_t need = pn_rods_render_size(n); /* exact, so buflen must also hold the 0 byte */
+    const size_t need = pn_rods_render_size(n); /* exact, not counting the null terminator */
 
     if (buflen <= need) {
         if (error) {
@@ -187,24 +187,24 @@ static int match_rod(const char* p, const char* end, int* digit) {
     return -1;
 }
 
-uint64_t* _Nullable pn_rods_parse(const char* _Nonnull buf, size_t buflen, uint64_t* _Nonnull out,
-                                  pn_error* _Nullable* _Nullable error) {
-    assert(buf && out);
-    if (buflen == 0) {
-        *out = 0; /* an empty string reads as 0 */
-        return out;
+uint64_t pn_rods_parse(const char* _Nonnull text, pn_error* _Nullable* _Nullable error) {
+    assert(text);
+
+    size_t text_len = strlen(text);
+    if (text_len == 0) {
+        return 0; /* an empty string reads as 0 */
     }
-    if (buf[0] == ' ') {
+    if (text[0] == ' ') {
         if (error) {
             *error = pn_error_init(PN_ERROR_SYNTAX, "the board never starts out blank");
         }
-        return NULL;
+        return 0;
     }
 
     size_t spaces = 0; /* counted first: it gives the number of columns */
 
-    for (size_t i = 0; i < buflen; i++) {
-        if (buf[i] == ' ') {
+    for (size_t i = 0; i < text_len; i++) {
+        if (text[i] == ' ') {
             spaces++;
         }
     }
@@ -218,14 +218,14 @@ uint64_t* _Nullable pn_rods_parse(const char* _Nonnull buf, size_t buflen, uint6
                                    " can hold",
                                    spaces, (size_t) m);
         }
-        return NULL;
+        return 0;
     }
 
-    uint64_t sum = 0; /* built here; *out changes only if the whole parse succeeds */
+    uint64_t sum = 0; /* built here; returned only if the whole parse succeeds */
     int place = m - 1;
     int glyphs = 0;
     bool after_glyph = false;
-    const char *p = buf, *end = buf + buflen;
+    const char *p = text, *end = text + text_len;
 
     while (p < end) {
         if (*p == ' ') {
@@ -240,9 +240,9 @@ uint64_t* _Nullable pn_rods_parse(const char* _Nonnull buf, size_t buflen, uint6
                                        "two columns with no"
                                        " boundary space between"
                                        " them at position %zu",
-                                       (size_t) (p - buf));
+                                       (size_t) (p - text));
             }
-            return NULL;
+            return 0;
         }
 
         int digit;
@@ -254,9 +254,9 @@ uint64_t* _Nullable pn_rods_parse(const char* _Nonnull buf, size_t buflen, uint6
                                        "position %zu holds a"
                                        " foreign byte or a sign"
                                        " cut off short",
-                                       (size_t) (p - buf));
+                                       (size_t) (p - text));
             }
-            return NULL;
+            return 0;
         }
         if (set != (place & 1)) {
             if (error) {
@@ -266,9 +266,9 @@ uint64_t* _Nullable pn_rods_parse(const char* _Nonnull buf, size_t buflen, uint6
                                        " %zu: a rod's set must"
                                        " match its column",
                                        (set == 0) ? "unit" : "tens", (place & 1) ? "tens" : "unit",
-                                       (size_t) (p - buf));
+                                       (size_t) (p - text));
             }
-            return NULL;
+            return 0;
         }
 
         /*
@@ -286,8 +286,7 @@ uint64_t* _Nullable pn_rods_parse(const char* _Nonnull buf, size_t buflen, uint6
             *error = pn_error_init(PN_ERROR_SYNTAX, "all spaces: not one rod on the"
                                                     " board");
         }
-        return NULL;
+        return 0;
     }
-    *out = sum;
-    return out;
+    return sum;
 }

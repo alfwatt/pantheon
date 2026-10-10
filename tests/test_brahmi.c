@@ -225,10 +225,7 @@ int main(void) {
         (void) expect_render(n, want);
         CHECK(strcmp(rendered, want) == 0);
         uint64_t back = UINT64_MAX;
-        CHECK_OK(pn_brahmi_parse(rendered, strlen(rendered), &back, &err_), err_);
-        CHECK(back == n);
-        back = UINT64_MAX;
-        CHECK_OK(pn_brahmi_parse(rendered, need, &back, &err_), err_);
+        CHECK_VALUE(back = pn_brahmi_parse(rendered, &err_), err_);
         CHECK(back == n);
         if (pn_fails) {
             break; /* the first failure names n */
@@ -238,29 +235,29 @@ int main(void) {
     /* The Sasaram reading, spelled out. */
     uint64_t read;
     const char* sasaram = HUNDRED JOINER TWO FIFTY SIX;
-    CHECK_OK(pn_brahmi_parse(sasaram, strlen(sasaram), &read, &err_), err_);
+    CHECK_VALUE(read = pn_brahmi_parse(sasaram, &err_), err_);
     CHECK(read == 256u);
 
     /* The Damasena reading. */
     const char* damasena = HUNDRED FIFTY THREE;
-    CHECK_OK(pn_brahmi_parse(damasena, strlen(damasena), &read, &err_), err_);
+    CHECK_VALUE(read = pn_brahmi_parse(damasena, &err_), err_);
     CHECK(read == 153u);
 
     /* The additive component: 100 then 4 reads 104, no ligature. */
-    CHECK_OK(pn_brahmi_parse(HUNDRED FOUR, 8, &read, &err_), err_);
+    CHECK_VALUE(read = pn_brahmi_parse(HUNDRED FOUR, &err_), err_);
     CHECK(read == 104u);
 
     /* The ligatured form reads the product, not the sum. */
-    CHECK_OK(pn_brahmi_parse(HUNDRED JOINER FOUR, 12, &read, &err_), err_);
+    CHECK_VALUE(read = pn_brahmi_parse(HUNDRED JOINER FOUR, &err_), err_);
     CHECK(read == 400u);
 
     /* The blank reads back as the nothing it was. */
     read = UINT64_MAX;
-    CHECK_OK(pn_brahmi_parse("", 0, &read, &err_), err_);
+    CHECK_VALUE(read = pn_brahmi_parse("", &err_), err_);
     CHECK(read == 0u);
 
     /*  errors: the strict canonical form
-	   Each leaves *out untouched — checked via the sentinel.
+	   Each failure returns 0 (a zeroed struct for base-60 and base-20 values).
 	*/
     static const char* const bad_strings[] = {
         " ",             /* a lone space is not the scribe's blank */
@@ -294,33 +291,33 @@ int main(void) {
     };
     for (size_t i = 0; i < sizeof bad_strings / sizeof bad_strings[0]; i++) {
         read = 256u; /* sentinel */
-        CHECK_ERROR(pn_brahmi_parse(bad_strings[i], strlen(bad_strings[i]), &read, &err_), err_,
-                    PN_ERROR_SYNTAX);
-        CHECK(read == 256u); /* untouched */
+        CHECK_VALUE_ERROR(read = pn_brahmi_parse(bad_strings[i], &err_), err_, PN_ERROR_SYNTAX);
+        CHECK(read == 0u); /* a failed parse returns 0 */
     }
 
     /* A cut-off sign (3 of the ONE sign's 4 bytes) is not a sign. */
     read = 256u;
-    CHECK_ERROR(pn_brahmi_parse(ONE, 3, &read, &err_), err_, PN_ERROR_SYNTAX);
-    CHECK(read == 256u);
+    CHECK_VALUE_ERROR(read = pn_brahmi_parse(pn_prefix(ONE, 3), &err_), err_, PN_ERROR_SYNTAX);
+    CHECK(read == 0u);
 
     /* Half a ligature: the joiner's first 3 bytes are foreign. */
     read = 256u;
-    CHECK_ERROR(pn_brahmi_parse(HUNDRED JOINER, 4 + 3, &read, &err_), err_, PN_ERROR_SYNTAX);
-    CHECK(read == 256u);
+    CHECK_VALUE_ERROR(read = pn_brahmi_parse(pn_prefix(HUNDRED JOINER, 7), &err_), err_,
+                      PN_ERROR_SYNTAX);
+    CHECK(read == 0u);
 
     /* A sign glued after a cut-off run: the tail byte is foreign. */
     read = 256u;
-    CHECK_ERROR(pn_brahmi_parse(ONE "\x41", 5, &read, &err_), err_, PN_ERROR_SYNTAX);
-    CHECK(read == 256u);
+    CHECK_VALUE_ERROR(read = pn_brahmi_parse(ONE "\x41", &err_), err_, PN_ERROR_SYNTAX);
+    CHECK(read == 0u);
 
     /*  A Brahmi DIGIT (U+11066..U+1106F) is not a Brahmi NUMBER: the
 	   joiner is legal only between number signs, and the digits are a
 	   different invention entirely.
 	*/
     read = 256u;
-    CHECK_ERROR(pn_brahmi_parse("𑁦", 4, &read, &err_), err_, PN_ERROR_SYNTAX);
-    CHECK(read == 256u);
+    CHECK_VALUE_ERROR(read = pn_brahmi_parse("𑁦", &err_), err_, PN_ERROR_SYNTAX);
+    CHECK(read == 0u);
 
     return CHECK_RUN();
 }

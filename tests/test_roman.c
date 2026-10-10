@@ -23,7 +23,7 @@ static void render_ok(uint64_t n, char* buf, size_t buflen) {
 
 static void expect_parse(const char* cord, uint64_t want) {
     uint64_t v = 0xA5A5u;
-    CHECK_OK(pn_roman_parse(cord, strlen(cord), &v, &err_), err_);
+    CHECK_VALUE(v = pn_roman_parse(cord, &err_), err_);
     CHECK(v == want);
 }
 
@@ -101,7 +101,7 @@ int main(void) {
         CHECK_OK(pn_roman_render(n, b2, sizeof b2, &err_), err_);
         CHECK(strlen(b2) == need);
         uint64_t back = 0;
-        CHECK_OK(pn_roman_parse(b2, strlen(b2), &back, &err_), err_);
+        CHECK_VALUE(back = pn_roman_parse(b2, &err_), err_);
         CHECK(back == n);
         /* the exact-fit buffer, and one byte short of the NUL */
         CHECK_OK(pn_roman_render(n, buf, need + 1u, &err_), err_);
@@ -114,54 +114,52 @@ int main(void) {
     CHECK(strcmp(buf, "MMMCMXCVIII") == 0);
 
     /* near-miss battery: the grammar the abacist settled on */
-    CHECK_ERROR(pn_roman_parse("IIII", 4u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* the clock maker's fourth I */
-    CHECK_ERROR(pn_roman_parse("XXXX", 4u, &v, &err_), err_, PN_ERROR_SYNTAX); /* a fourth X */
-    CHECK_ERROR(pn_roman_parse("CCCC", 4u, &v, &err_), err_, PN_ERROR_SYNTAX); /* a fourth C */
-    CHECK_ERROR(pn_roman_parse("MMMM", 4u, &v, &err_), err_, PN_ERROR_SYNTAX); /* a fourth M */
-    CHECK_ERROR(pn_roman_parse("VL", 2u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* V may not subtract */
-    CHECK_ERROR(pn_roman_parse("IC", 2u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* unit leaps past its decade */
-    CHECK_ERROR(pn_roman_parse("XM", 2u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* X may not undershoot M */
-    CHECK_ERROR(pn_roman_parse("IIX", 3u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* two units before a ten */
-    CHECK_ERROR(pn_roman_parse("IXI", 3u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* tokens out of order */
-    CHECK_ERROR(pn_roman_parse("XVX", 3u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* a decade reshuffled */
-    CHECK_ERROR(pn_roman_parse("ix", 2u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* lowercase - the abacist's heresy */
-    CHECK_ERROR(pn_roman_parse("MCMXCix", 7u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* lowercase tail */
-    CHECK_ERROR(pn_roman_parse("MMMDCCCLXXXVIIIA", 16u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* junk past the last I */
-    CHECK_ERROR(pn_roman_parse("M M", 3u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* a space inside the tally */
-    CHECK_ERROR(pn_roman_parse("I\xc2\xb9", 3u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* the superscript-one impostor U+00B9 */
-    CHECK_ERROR(pn_roman_parse("\xe2\x85\xa0", 3u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* the Roman numeral block glyph U+2160 */
-    CHECK_ERROR(pn_roman_parse("\xce\x99", 2u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* a Greek capital iota wearing I's coat */
-    CHECK_ERROR(pn_roman_parse("MMMM", 4u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* past MMM the ceiling: also ungrammatical */
-    CHECK_ERROR(pn_roman_parse("IVI", 3u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* digraph then its own unit again */
-    CHECK_ERROR(pn_roman_parse("CMCM", 4u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* the hundreds subtracted twice */
-    CHECK_ERROR(pn_roman_parse("XCX", 3u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* the tens subtracted twice */
-    CHECK_ERROR(pn_roman_parse("IXIX", 4u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* the units subtracted twice */
-    CHECK_ERROR(pn_roman_parse("VIV", 3u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* V then IV: not descending */
-    CHECK_ERROR(pn_roman_parse("MDCCCCLXXXXVIIII", 16u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* the un-abacised long form: four each */
-    CHECK_ERROR(pn_roman_parse("\x01", 1u, &v, &err_), err_, PN_ERROR_SYNTAX); /* control byte */
-    CHECK_ERROR(pn_roman_parse("I\x00x", 3u, &v, &err_), err_,
-                PN_ERROR_SYNTAX); /* NUL inside the stated buflen */
+    CHECK_VALUE_ERROR(v = pn_roman_parse("IIII", &err_), err_,
+                      PN_ERROR_SYNTAX); /* the clock maker's fourth I */
+    CHECK_VALUE_ERROR(v = pn_roman_parse("XXXX", &err_), err_, PN_ERROR_SYNTAX); /* a fourth X */
+    CHECK_VALUE_ERROR(v = pn_roman_parse("CCCC", &err_), err_, PN_ERROR_SYNTAX); /* a fourth C */
+    CHECK_VALUE_ERROR(v = pn_roman_parse("MMMM", &err_), err_, PN_ERROR_SYNTAX); /* a fourth M */
+    CHECK_VALUE_ERROR(v = pn_roman_parse("VL", &err_), err_,
+                      PN_ERROR_SYNTAX); /* V may not subtract */
+    CHECK_VALUE_ERROR(v = pn_roman_parse("IC", &err_), err_,
+                      PN_ERROR_SYNTAX); /* unit leaps past its decade */
+    CHECK_VALUE_ERROR(v = pn_roman_parse("XM", &err_), err_,
+                      PN_ERROR_SYNTAX); /* X may not undershoot M */
+    CHECK_VALUE_ERROR(v = pn_roman_parse("IIX", &err_), err_,
+                      PN_ERROR_SYNTAX); /* two units before a ten */
+    CHECK_VALUE_ERROR(v = pn_roman_parse("IXI", &err_), err_,
+                      PN_ERROR_SYNTAX); /* tokens out of order */
+    CHECK_VALUE_ERROR(v = pn_roman_parse("XVX", &err_), err_,
+                      PN_ERROR_SYNTAX); /* a decade reshuffled */
+    CHECK_VALUE_ERROR(v = pn_roman_parse("ix", &err_), err_,
+                      PN_ERROR_SYNTAX); /* lowercase - the abacist's heresy */
+    CHECK_VALUE_ERROR(v = pn_roman_parse("MCMXCix", &err_), err_,
+                      PN_ERROR_SYNTAX); /* lowercase tail */
+    CHECK_VALUE_ERROR(v = pn_roman_parse("MMMDCCCLXXXVIIIA", &err_), err_,
+                      PN_ERROR_SYNTAX); /* junk past the last I */
+    CHECK_VALUE_ERROR(v = pn_roman_parse("M M", &err_), err_,
+                      PN_ERROR_SYNTAX); /* a space inside the tally */
+    CHECK_VALUE_ERROR(v = pn_roman_parse("I\xc2\xb9", &err_), err_,
+                      PN_ERROR_SYNTAX); /* the superscript-one impostor U+00B9 */
+    CHECK_VALUE_ERROR(v = pn_roman_parse("\xe2\x85\xa0", &err_), err_,
+                      PN_ERROR_SYNTAX); /* the Roman numeral block glyph U+2160 */
+    CHECK_VALUE_ERROR(v = pn_roman_parse("\xce\x99", &err_), err_,
+                      PN_ERROR_SYNTAX); /* a Greek capital iota wearing I's coat */
+    CHECK_VALUE_ERROR(v = pn_roman_parse("MMMM", &err_), err_,
+                      PN_ERROR_SYNTAX); /* past MMM the ceiling: also ungrammatical */
+    CHECK_VALUE_ERROR(v = pn_roman_parse("IVI", &err_), err_,
+                      PN_ERROR_SYNTAX); /* digraph then its own unit again */
+    CHECK_VALUE_ERROR(v = pn_roman_parse("CMCM", &err_), err_,
+                      PN_ERROR_SYNTAX); /* the hundreds subtracted twice */
+    CHECK_VALUE_ERROR(v = pn_roman_parse("XCX", &err_), err_,
+                      PN_ERROR_SYNTAX); /* the tens subtracted twice */
+    CHECK_VALUE_ERROR(v = pn_roman_parse("IXIX", &err_), err_,
+                      PN_ERROR_SYNTAX); /* the units subtracted twice */
+    CHECK_VALUE_ERROR(v = pn_roman_parse("VIV", &err_), err_,
+                      PN_ERROR_SYNTAX); /* V then IV: not descending */
+    CHECK_VALUE_ERROR(v = pn_roman_parse("MDCCCCLXXXXVIIII", &err_), err_,
+                      PN_ERROR_SYNTAX); /* the un-abacised long form: four each */
+    CHECK_VALUE_ERROR(v = pn_roman_parse("\x01", &err_), err_, PN_ERROR_SYNTAX); /* control byte */
 
     /* legal tallies the goldens do not show */
     expect_parse("", 0u);                   /* 0 */
@@ -180,7 +178,7 @@ int main(void) {
     CHECK(buf[0] == '\0');
     CHECK(pn_roman_render_size(0u) == 0u);
     v = 0xA5A5u;
-    CHECK_OK(pn_roman_parse("", 0, &v, &err_), err_);
+    CHECK_VALUE(v = pn_roman_parse("", &err_), err_);
     CHECK(v == 0u);
 
     /* range */

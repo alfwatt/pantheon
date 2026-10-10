@@ -120,7 +120,7 @@ char* _Nullable pn_mayan_render(pn_base20 v, char* _Nonnull buf, size_t buflen,
         return NULL;
     }
 
-    /* render_size is exact, so buflen must hold that many bytes plus the 0 byte */
+    /* render_size is exact, so buflen must hold that many bytes plus the null terminator */
     const size_t need = pn_mayan_render_size(v);
 
     if (buflen <= need) {
@@ -156,21 +156,22 @@ char* _Nullable pn_mayan_render(pn_base20 v, char* _Nonnull buf, size_t buflen,
     than PN_BASE20_MAX_PLACES places is PN_ERROR_RANGE (too big),
     not a syntax error.
 */
-pn_base20* _Nullable pn_mayan_parse(const char* _Nonnull buf, size_t buflen,
-                                    pn_base20* _Nonnull out, pn_error* _Nullable* _Nullable error) {
-    assert(buf && out);
-    if (buflen == 0) {
+pn_base20 pn_mayan_parse(const char* _Nonnull text, pn_error* _Nullable* _Nullable error) {
+    assert(text);
+
+    size_t text_len = strlen(text);
+    if (text_len == 0) {
         if (error) {
             *error = pn_error_init(PN_ERROR_SYNTAX, "an empty tablet is no number:"
                                                     " the shell is how zero spells"
                                                     " itself");
         }
-        return NULL;
+        return (pn_base20) {0};
     }
 
-    const char *p = buf, *end = buf + buflen;
+    const char *p = text, *end = text + text_len;
 
-    pn_base20 v; /* *out changes only if the whole parse succeeds */
+    pn_base20 v; /* built here; returned only if the whole parse succeeds */
 
     memset(&v, 0, sizeof v);
 
@@ -179,7 +180,7 @@ pn_base20* _Nullable pn_mayan_parse(const char* _Nonnull buf, size_t buflen,
             if (error) {
                 *error = pn_error_init(PN_ERROR_SYNTAX, "a '-' sitting over nothing");
             }
-            return NULL;
+            return (pn_base20) {0};
         }
         v.neg = true;
         p++;
@@ -199,9 +200,9 @@ pn_base20* _Nullable pn_mayan_parse(const char* _Nonnull buf, size_t buflen,
                                        " space (doubled gutter or"
                                        " two signs touching look"
                                        " the same from here)",
-                                       (size_t) (end - p), (size_t) (p - buf));
+                                       (size_t) (end - p), (size_t) (p - text));
             }
-            return NULL;
+            return (pn_base20) {0};
         }
         if (k == PN_BASE20_MAX_PLACES) {
             if (error) {
@@ -210,7 +211,7 @@ pn_base20* _Nullable pn_mayan_parse(const char* _Nonnull buf, size_t buflen,
                                        " a codex stack holds %u",
                                        PN_BASE20_MAX_PLACES);
             }
-            return NULL;
+            return (pn_base20) {0};
         }
         v.places[k++] = (uint8_t) digit;
         p += SIGN_BYTES;
@@ -223,13 +224,13 @@ pn_base20* _Nullable pn_mayan_parse(const char* _Nonnull buf, size_t buflen,
                                        "rows join with one space:"
                                        " position %zu wears a"
                                        "%s",
-                                       (size_t) (p - buf),
+                                       (size_t) (p - text),
                                        (*p == ' ') ? " trailing"
                                                      " space with no row under"
                                                      " it"
                                                    : " no gutter");
             }
-            return NULL;
+            return (pn_base20) {0};
         }
         p++;
     }
@@ -239,6 +240,5 @@ pn_base20* _Nullable pn_mayan_parse(const char* _Nonnull buf, size_t buflen,
         reader does
     */
     v.radix = v.n_places;
-    *out = v;
-    return out;
+    return v;
 }

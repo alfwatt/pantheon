@@ -127,6 +127,20 @@ static int pn_checks, pn_fails;
         }                                                                                         \
     } while (0)
 
+/*
+    pn_prefix(s, n): the first n bytes of s as a null terminated string,
+    for testing a sign cut off in the middle of its UTF-8.  It reuses one
+    buffer, so use the result before calling it again.
+*/
+static inline const char* pn_prefix(const char* s, size_t n) {
+    static char cut[256];
+
+    memcpy(cut, s, n);
+    cut[n] = '\0';
+
+    return cut;
+}
+
 #define CHECK_RUN() (printf("%d checks, %d failed\n", pn_checks, pn_fails), pn_fails ? 1 : 0)
 
 #endif /* CHECK_H */

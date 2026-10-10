@@ -37,7 +37,7 @@
 
 /*
     Build one error report in a single malloc: the struct first, then
-    the message text right after it, ending in a 0 byte so it can be
+    the message text right after it, null terminated so it can be
     printed directly. vsnprintf runs twice: once with no buffer, to
     measure how long the message is, then again to write it. The
     first call fails only if the format string itself is broken,

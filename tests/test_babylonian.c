@@ -180,13 +180,10 @@ int main(void) {
             size_t need = pn_babylonian_render_size(v);
             CHECK_OK(pn_babylonian_render(v, rendered, need + 1, &err_), err_);
             pn_base60 w;
-            CHECK_OK(pn_babylonian_parse_from(rendered, strlen(rendered), &w, &err_), err_);
+            CHECK_VALUE(w = pn_babylonian_parse(rendered, &err_), err_);
             CHECK(w.n_places == rt_lens[c] && w.neg == v.neg);
             CHECK(memcmp(w.places, rts[c], rt_lens[c]) == 0);
             CHECK(w.radix == rt_lens[c]); /* period-style reading */
-                                          /* the length-based call, NUL not included */
-            CHECK_OK(pn_babylonian_parse_from(rendered, need, &w, &err_), err_);
-            CHECK(w.n_places == rt_lens[c]);
         }
     }
 
@@ -194,12 +191,12 @@ int main(void) {
     static const uint8_t expect_8583[] = {2, 23, 3};
     pn_base60 read;
     const char* tablet = DISH DISH " " U U DISH DISH DISH " " DISH DISH DISH;
-    CHECK_OK(pn_babylonian_parse_from(tablet, strlen(tablet), &read, &err_), err_);
+    CHECK_VALUE(read = pn_babylonian_parse(tablet, &err_), err_);
     CHECK(read.n_places == 3 && read.radix == 3 && !read.neg);
     CHECK(memcmp(read.places, expect_8583, sizeof expect_8583) == 0);
 
     /*  Errors: the strict spacing law and the canonical group shape.
-	   (Each leaves *out untouched — checked via the sentinel below.)
+	   (Each failure returns 0 (a zeroed struct for base-60 and base-20 values).)
 	*/
     static const char* const bad_strings[] = {
         "",        /* nothing at all */
@@ -213,24 +210,21 @@ int main(void) {
     for (size_t i = 0; i < sizeof bad_strings / sizeof bad_strings[0]; i++) {
         read = mk(one, 1, 1);
         read.n_places = 7; /* sentinel */
-        CHECK_ERROR(pn_babylonian_parse_from(bad_strings[i], strlen(bad_strings[i]), &read, &err_),
-                    err_, PN_ERROR_SYNTAX);
-        CHECK(read.n_places == 7); /* untouched */
+        CHECK_VALUE_ERROR(read = pn_babylonian_parse(bad_strings[i], &err_), err_, PN_ERROR_SYNTAX);
+        CHECK(read.n_places == 0); /* a failed parse returns 0 */
     }
 
     /* Six U signs overflow one place: that is range, not grammar. */
     read = mk(one, 1, 1);
     read.n_places = 7;
-    CHECK_ERROR(pn_babylonian_parse_from(U U U U U U, sizeof(U U U U U U) - 1, &read, &err_), err_,
-                PN_ERROR_RANGE);
-    CHECK(read.n_places == 7);
+    CHECK_VALUE_ERROR(read = pn_babylonian_parse(U U U U U U, &err_), err_, PN_ERROR_RANGE);
+    CHECK(read.n_places == 0);
 
     /* Ten DISH signs overflow one place too: range, not grammar. */
     read = mk(one, 1, 1);
     read.n_places = 7;
-    CHECK_ERROR(pn_babylonian_parse_from(TEN_DISH, sizeof(TEN_DISH) - 1, &read, &err_), err_,
-                PN_ERROR_RANGE);
-    CHECK(read.n_places == 7);
+    CHECK_VALUE_ERROR(read = pn_babylonian_parse(TEN_DISH, &err_), err_, PN_ERROR_RANGE);
+    CHECK(read.n_places == 0);
 
     /* Seventeen places: too deep a tablet. */
     char deep[PN_BASE60_MAX_PLACES * 5 + 2];
@@ -243,11 +237,10 @@ int main(void) {
         }
     }
     *dp = '\0';
-    CHECK_ERROR(pn_babylonian_parse_from(deep, (size_t) (dp - deep), &read, &err_), err_,
-                PN_ERROR_RANGE);
+    CHECK_VALUE_ERROR(read = pn_babylonian_parse(deep, &err_), err_, PN_ERROR_RANGE);
 
     /* A cut-off sign (3 of DISH's 4 bytes) is not a sign. */
-    CHECK_ERROR(pn_babylonian_parse_from(DISH, 3, &read, &err_), err_, PN_ERROR_SYNTAX);
+    CHECK_VALUE_ERROR(read = pn_babylonian_parse(pn_prefix(DISH, 3), &err_), err_, PN_ERROR_SYNTAX);
 
     /* A negative round-trips its sign. */
     pn_base60 neg_zero = mk(rt6, 1, 1);
@@ -255,7 +248,7 @@ int main(void) {
     char neg_rendered[16];
     size_t neg_need = pn_babylonian_render_size(neg_zero);
     CHECK_OK(pn_babylonian_render(neg_zero, neg_rendered, neg_need + 1, &err_), err_);
-    CHECK_OK(pn_babylonian_parse_from(neg_rendered, neg_need, &read, &err_), err_);
+    CHECK_VALUE(read = pn_babylonian_parse(neg_rendered, &err_), err_);
     CHECK(read.neg && read.n_places == 1 && read.places[0] == 0);
 
     return CHECK_RUN();

@@ -343,7 +343,7 @@ char* _Nullable pn_fraction_format_into(pn_fraction value, char* _Nonnull buffer
     /*
         Write into a scratch buffer first, so a short buffer never
         holds half a number. The worst case is '-' + 20 digits + '/'
-        + 20 digits + the 0 byte = 43 bytes, the declared maximum.
+        + 20 digits + the null terminator = 43 bytes, the declared maximum.
     */
     char tmp[PN_FRACTION_FORMAT_MAX_LEN];
     int written = value.denominator == 1

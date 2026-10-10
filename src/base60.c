@@ -211,7 +211,7 @@ char* _Nullable pn_base60_format_into(pn_base60 value, char place_sep, char* _No
     /*
         Write into a scratch buffer first, so a failure never leaves
         buffer holding half a number. The worst case is '-' + 16
-        places x 2 digits + 15 separators + the 0 byte = 49 bytes,
+        places x 2 digits + 15 separators + the null terminator = 49 bytes,
         which fits in the declared maximum.
     */
     char tmp[PN_BASE60_FORMAT_MAX_LEN];

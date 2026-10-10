@@ -148,7 +148,7 @@ char* _Nullable pn_brahmi_render(uint64_t n, char* _Nonnull buf, size_t buflen,
         return NULL;
     }
 
-    const size_t need = brahmi_emit(n, NULL); /* exact, so buflen must also hold the 0 byte */
+    const size_t need = brahmi_emit(n, NULL); /* exact, not counting the null terminator */
 
     if (buflen <= need) {
         if (error) {
@@ -208,17 +208,17 @@ static int match_sign(const char* p, const char* end) {
     return -1;
 }
 
-uint64_t* _Nullable pn_brahmi_parse(const char* _Nonnull buf, size_t buflen, uint64_t* _Nonnull out,
-                                    pn_error* _Nullable* _Nullable error) {
-    assert(buf && out);
-    if (buflen == 0) {
-        *out = 0; /* an empty string reads as 0 */
-        return out;
+uint64_t pn_brahmi_parse(const char* _Nonnull text, pn_error* _Nullable* _Nullable error) {
+    assert(text);
+
+    size_t text_len = strlen(text);
+    if (text_len == 0) {
+        return 0; /* an empty string reads as 0 */
     }
 
-    uint64_t sum = 0; /* built here; *out changes only if the whole parse succeeds */
+    uint64_t sum = 0; /* built here; returned only if the whole parse succeeds */
     int slot = 0;     /* the next slot allowed: 0 thousands, 1 hundreds, 2 tens, 3 ones */
-    const char *p = buf, *end = buf + buflen;
+    const char *p = text, *end = text + text_len;
 
     while (p < end) {
         const int s = match_sign(p, end);
@@ -228,9 +228,9 @@ uint64_t* _Nullable pn_brahmi_parse(const char* _Nonnull buf, size_t buflen, uin
                 *error = pn_error_init(PN_ERROR_SYNTAX,
                                        "position %zu holds a foreign"
                                        " byte or a sign cut off short",
-                                       (size_t) (p - buf));
+                                       (size_t) (p - text));
             }
-            return NULL;
+            return 0;
         }
         if (s == SIG_JOINER) {
             if (error) {
@@ -239,9 +239,9 @@ uint64_t* _Nullable pn_brahmi_parse(const char* _Nonnull buf, size_t buflen, uin
                                        " nothing being joined to it"
                                        " (doubled, leading, or off its"
                                        " power sign)",
-                                       (size_t) (p - buf));
+                                       (size_t) (p - text));
             }
-            return NULL;
+            return 0;
         }
         p += SIGN_BYTES;
 
@@ -259,7 +259,7 @@ uint64_t* _Nullable pn_brahmi_parse(const char* _Nonnull buf, size_t buflen, uin
                                                             " one: the pillar walks"
                                                             " down from the thousand");
                 }
-                return NULL;
+                return 0;
             }
 
             /*
@@ -279,9 +279,9 @@ uint64_t* _Nullable pn_brahmi_parse(const char* _Nonnull buf, size_t buflen, uin
                                                " non-multiplier (a tens"
                                                " sign, a power, a second"
                                                " joiner) or to nothing",
-                                               (size_t) (p - buf) - SIGN_BYTES);
+                                               (size_t) (p - text) - SIGN_BYTES);
                     }
-                    return NULL;
+                    return 0;
                 }
                 if (c == 0) {
                     if (error) {
@@ -289,7 +289,7 @@ uint64_t* _Nullable pn_brahmi_parse(const char* _Nonnull buf, size_t buflen, uin
                                                                 " the power sign bare,"
                                                                 " not ligatured");
                     }
-                    return NULL;
+                    return 0;
                 }
                 worth = (uint64_t) (c + 1) * power;
                 p += SIGN_BYTES;
@@ -302,7 +302,7 @@ uint64_t* _Nullable pn_brahmi_parse(const char* _Nonnull buf, size_t buflen, uin
                     *error = pn_error_init(PN_ERROR_SYNTAX, "a tens term twice, or after"
                                                             " the ones term");
                 }
-                return NULL;
+                return 0;
             }
             worth = (uint64_t) (s - SIG_TEN + 1) * 10u;
             next = 3;
@@ -313,7 +313,7 @@ uint64_t* _Nullable pn_brahmi_parse(const char* _Nonnull buf, size_t buflen, uin
                     *error = pn_error_init(PN_ERROR_SYNTAX, "the ones term is already"
                                                             " spoken");
                 }
-                return NULL;
+                return 0;
             }
             worth = (uint64_t) (s + 1);
             next = 4;
@@ -326,6 +326,5 @@ uint64_t* _Nullable pn_brahmi_parse(const char* _Nonnull buf, size_t buflen, uin
         sum += worth;
         slot = next;
     }
-    *out = sum;
-    return out;
+    return sum;
 }

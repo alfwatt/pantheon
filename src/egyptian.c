@@ -88,7 +88,7 @@ char* _Nullable pn_egyptian_render(uint64_t n, char* _Nonnull buf, size_t buflen
         return NULL;
     }
 
-    /* render_size is exact, so buflen must also hold the 0 byte */
+    /* render_size is exact, so buflen must also hold the null terminator */
     size_t need = pn_egyptian_render_size(n);
     if (buflen <= need) {
         if (error) {
@@ -109,7 +109,7 @@ char* _Nullable pn_egyptian_render(uint64_t n, char* _Nonnull buf, size_t buflen
             q += SIGN_BYTES;
         }
     }
-    *q = '\0'; /* for n == 0 this writes only the 0 byte: an empty string */
+    *q = '\0'; /* for n == 0 this writes only the null terminator: an empty string */
     return buf;
 }
 
@@ -121,16 +121,16 @@ char* _Nullable pn_egyptian_render(uint64_t n, char* _Nonnull buf, size_t buflen
     is PN_ERROR_SYNTAX. Ten of one sign is PN_ERROR_RANGE instead: a
     scribe would have written one sign of the next power, so that
     group is a value too big for its place, not a spelling mistake.
-    pn_babylonian_parse_from treats six tens-wedges the same way.
+    pn_babylonian_parse treats six tens-wedges the same way.
 */
-uint64_t* _Nullable pn_egyptian_parse(const char* _Nonnull buf, size_t buflen,
-                                      uint64_t* _Nonnull out,
-                                      pn_error* _Nullable* _Nullable error) {
-    assert(buf && out);
+uint64_t pn_egyptian_parse(const char* _Nonnull text, pn_error* _Nullable* _Nullable error) {
+    assert(text);
 
-    uint64_t sum = 0; /* built here: *out stays untouched unless all works */
+    size_t text_len = strlen(text);
+
+    uint64_t sum = 0; /* built here; returned only if the whole parse succeeds */
     int prev = -1;    /* which sign the previous run used; runs step down */
-    const char *p = buf, *end = buf + buflen;
+    const char *p = text, *end = text + text_len;
 
     while (p < end) {
         int found = -1;
@@ -154,12 +154,12 @@ uint64_t* _Nullable pn_egyptian_parse(const char* _Nonnull buf, size_t buflen,
                                        " start a hieroglyphic sign (%zu bytes"
                                        " left there: not enough)"
                                        "%s",
-                                       (size_t) (p - buf), buflen, room,
+                                       (size_t) (p - text), text_len, room,
                                        room < SIGN_BYTES ? " - a sign is 4"
                                                            " bytes whole"
                                                          : "");
             }
-            return NULL;
+            return 0;
         }
         if (prev >= 0 && found <= prev) {
             if (error) {
@@ -168,9 +168,9 @@ uint64_t* _Nullable pn_egyptian_parse(const char* _Nonnull buf, size_t buflen,
                                        " down in power: runs must go from the"
                                        " Heh toward the stroke, and one sign"
                                        " gets a single run",
-                                       (size_t) (p - buf));
+                                       (size_t) (p - text));
             }
-            return NULL;
+            return 0;
         }
 
         size_t count = 0;
@@ -183,9 +183,9 @@ uint64_t* _Nullable pn_egyptian_parse(const char* _Nonnull buf, size_t buflen,
                                            " position %zu: ten strokes are"
                                            " written as one hobble, scribe"
                                            " - a run holds 1 to 9",
-                                           (size_t) (p - buf) - SIGN_BYTES);
+                                           (size_t) (p - text) - SIGN_BYTES);
                 }
-                return NULL;
+                return 0;
             }
         } while (p + SIGN_BYTES <= end && memcmp(p, signs[found], SIGN_BYTES) == 0);
 
@@ -198,6 +198,5 @@ uint64_t* _Nullable pn_egyptian_parse(const char* _Nonnull buf, size_t buflen,
     }
 
     /* An empty string is a blank: it reads as 0. */
-    *out = sum;
-    return out;
+    return sum;
 }
