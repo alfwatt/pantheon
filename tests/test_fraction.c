@@ -81,7 +81,7 @@ int main(void) {
     double d;
 
     CHECK_VALUE(v = pn_base60_parse("1;24,51,10", &err_), err_);
-    CHECK_OK(pn_base60_to_double(v, &d, &err_), err_);
+    d = pn_base60_to_double(v);
     f = pn_fraction_from_double(d, 21600);
     CHECK_FRACTION(f, 30547, 21600, false);
 

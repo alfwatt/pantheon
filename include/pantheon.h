@@ -460,36 +460,29 @@ char* _Nullable pn_base60_format_into(pn_base60 value, char place_sep, char* _No
                                       size_t buflen, pn_error* _Nullable* _Nullable error);
 
 /// Convert a whole number to base-60 places: divide by 60 again and
-/// again, keeping the remainders.
+/// again, keeping the remainders. This can't fail: UINT64_MAX needs
+/// only 11 of the 16 places.
 ///
 ///        8583 -> places {2,23,3}, radix 3   (2 x 3600 + 23 x 60 + 3)
 ///        0    -> the single place {0}
 ///
-/// @param n - the whole number to convert
-/// @param out - where the value is stored on success
-/// @param error - where to put the error report on failure:
-///     PN_ERROR_RANGE when more than PN_BASE60_MAX_PLACES places are
-///     needed (this can't actually happen: UINT64_MAX needs 11).
-/// @returns the caller's `out` on success, or NULL and the
-/// @param error encountered.
-pn_base60* _Nullable pn_base60_from_u64(uint64_t n, pn_base60* _Nonnull out,
-                                        pn_error* _Nullable* _Nullable error);
+/// @returns the base-60 value, a whole number (radix == n_places), of the
+/// @param number provided
+pn_base60 pn_base60_from_u64(uint64_t number);
 
 /// Convert base-60 places back to a whole number with Horner's
 /// method: start at 0, and for each place multiply by 60 and add the
 /// place. The value must be a whole number (radix == n_places).
 /// https://en.wikipedia.org/wiki/Horner%27s_method
 ///
-/// @param v - the value to convert; it must be well-formed
-/// @param out - where the number is stored on success
-/// @param error - where to put the error report on failure:
-///     PN_ERROR_DOMAIN when v is malformed (including a place above
-///     59) or has a fraction part,
+/// @returns the whole number held by the
+/// @param value provided, or 0 and the
+/// @param error encountered (check the error, since 0 is also a real
+///     result):
+///     PN_ERROR_DOMAIN when value is malformed (including a place
+///     above 59) or has a fraction part,
 ///     PN_ERROR_RANGE when the value is too big for a uint64_t.
-/// @returns the caller's `out` on success, or NULL and the
-/// @param error encountered.
-uint64_t* _Nullable pn_base60_to_u64(pn_base60 v, uint64_t* _Nonnull out,
-                                     pn_error* _Nullable* _Nullable error);
+uint64_t pn_base60_to_u64(pn_base60 value, pn_error* _Nullable* _Nullable error);
 
 /// Convert a base-60 value to a double. The whole part and the
 /// fraction are each computed exactly as whole numbers where they
@@ -498,14 +491,9 @@ uint64_t* _Nullable pn_base60_to_u64(pn_base60 v, uint64_t* _Nonnull out,
 /// be held exactly: 0;20 is 1/3, which repeats forever in binary,
 /// and whole numbers past 2^53 (just under 60^9) get rounded.
 ///
-/// @param v - the value to convert; it must be well-formed
-/// @param out - where the double is stored on success
-/// @param error - where to put the error report on failure:
-///     PN_ERROR_DOMAIN when v is malformed.
-/// @returns the caller's `out` on success, or NULL and the
-/// @param error encountered.
-double* _Nullable pn_base60_to_double(pn_base60 v, double* _Nonnull out,
-                                      pn_error* _Nullable* _Nullable error);
+/// @returns the double nearest the
+/// @param value provided, which must be well-formed
+double pn_base60_to_double(pn_base60 value);
 
 /// Convert a double to base-60 places with exactly
 /// @param frac_places fraction places (0 to PN_BASE60_MAX_PLACES),
@@ -519,18 +507,16 @@ double* _Nullable pn_base60_to_double(pn_base60 v, double* _Nonnull out,
 ///
 /// NaN and infinity are rejected. See pn_base60_to_double about
 /// which values a double can hold exactly.
-/// @param x - the number to convert
-/// @param frac_places - how many fraction places to keep
-/// @param out - where the value is stored on success
-/// @param error - where to put the error report on failure:
+///
+/// @returns the base-60 value of the
+/// @param x provided, or a zeroed value and the
+/// @param error encountered:
 ///     PN_ERROR_DOMAIN for NaN, infinity, or frac_places above the
 ///     maximum,
 ///     PN_ERROR_RANGE when the result needs more than
 ///     PN_BASE60_MAX_PLACES places.
-/// @returns the caller's `out` on success, or NULL and the
-/// @param error encountered.
-pn_base60* _Nullable pn_base60_from_double(double x, uint8_t frac_places, pn_base60* _Nonnull out,
-                                           pn_error* _Nullable* _Nullable error);
+pn_base60 pn_base60_from_double(double x, uint8_t frac_places,
+                                pn_error* _Nullable* _Nullable error);
 
 // MARK: - Cuneiform Numbers
 
