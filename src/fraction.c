@@ -28,6 +28,10 @@
 
 #include "pantheon.h"
 
+#define FRACTION_SLASH_UTF8    "\u2044" /* ⁄ bytes: E2 81 84 */
+#define DIVISION_SLASH_UTF8    "\u2215" /* ∕ bytes: E2 88 95 */
+#define FULLWIDTH_SOLIDUS_UTF8 "\uFF0F" /* ／ bytes: EF BC 8F */
+
 /* 2^64, the smallest double too big for a uint64_t */
 #define PN_FRACTION_TWO_64 18446744073709551616.0
 
@@ -248,6 +252,20 @@ static int read_digits(const char* _Nonnull* _Nonnull cursor, uint64_t* _Nonnull
     return 1;
 }
 
+/*
+    How many bytes of p make up a slash: 3 for ⁄ FRACTION SLASH, ∕ DIVISION
+    SLASH or ／ FULLWIDTH SOLIDUS, 1 for / SOLIDUS, 0 for anything else.
+*/
+static size_t slash_length(const char* _Nonnull p) {
+    assert(p);
+    if (strncmp(p, FRACTION_SLASH_UTF8, 3) == 0 || strncmp(p, DIVISION_SLASH_UTF8, 3) == 0
+        || strncmp(p, FULLWIDTH_SOLIDUS_UTF8, 3) == 0) {
+        return 3; /* strncmp stops at the null terminator, so a short string is safe */
+    }
+
+    return *p == '/' ? 1 : 0;
+}
+
 pn_fraction pn_fraction_parse(const char* _Nonnull text, pn_error* _Nullable* _Nullable error) {
     assert(text);
 
@@ -289,14 +307,17 @@ pn_fraction pn_fraction_parse(const char* _Nonnull text, pn_error* _Nullable* _N
         if (*p == '\0') {
             break; // for
         }
-        if (side == 0 && *p == '/') {
-            p++;
+        size_t slash = slash_length(p);
+
+        if (side == 0 && slash > 0) {
+            p += slash;
             continue;
         }
         if (error) {
-            *error = pn_error_init(PN_ERROR_SYNTAX, "byte %zu of the string must %s",
-                                   (size_t) (p - text),
-                                   side == 0 ? "be a '/' or end the value" : "end the value");
+            *error = pn_error_init(
+                PN_ERROR_SYNTAX, "byte %zu of the string must %s", (size_t) (p - text),
+                side == 0 ? "be a slash (U+2044, U+2215, U+FF0F or '/') or end the value"
+                          : "end the value");
         }
         return (pn_fraction) {0};
     }
@@ -342,15 +363,16 @@ char* _Nullable pn_fraction_format_into(pn_fraction value, char* _Nonnull buffer
 
     /*
         Write into a scratch buffer first, so a short buffer never
-        holds half a number. The worst case is '-' + 20 digits + '/'
-        + 20 digits + the null terminator = 43 bytes, the declared maximum.
+        holds half a number. The worst case is '-' + 20 digits + the
+        3-byte ⁄ + 20 digits + the null terminator = 45 bytes, the declared
+        maximum.
     */
     char tmp[PN_FRACTION_FORMAT_MAX_LEN];
     int written = value.denominator == 1
                       ? snprintf(tmp, sizeof tmp, "%s%llu", value.neg ? "-" : "",
                                  (unsigned long long) value.numerator)
-                      : snprintf(tmp, sizeof tmp, "%s%llu/%llu", value.neg ? "-" : "",
-                                 (unsigned long long) value.numerator,
+                      : snprintf(tmp, sizeof tmp, "%s%llu" FRACTION_SLASH_UTF8 "%llu",
+                                 value.neg ? "-" : "", (unsigned long long) value.numerator,
                                  (unsigned long long) value.denominator);
 
     assert(written > 0 && (size_t) written < sizeof tmp);

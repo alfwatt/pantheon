@@ -106,11 +106,23 @@ const char* _Nonnull pn_error_describe(const pn_error* _Nullable error);
     Compare fractions with pn_fraction_equals, not memcmp: the struct
     has unused padding bytes after neg.
 
+    Fractions are written with ⁄ U+2044 FRACTION SLASH, the character
+    Unicode provides for building fractions: many fonts draw 3⁄4 with a
+    raised 3 and a lowered 4.  pn_fraction_parse also accepts ∕ U+2215
+    DIVISION SLASH (the math operator), ／ U+FF0F FULLWIDTH SOLIDUS (from
+    Chinese, Japanese and Korean text) and the plain ASCII / SOLIDUS.
+
     Further reading:
     - https://en.wikipedia.org/wiki/Fraction
+    - https://en.wikipedia.org/wiki/Slash_(punctuation)
     - https://en.wikipedia.org/wiki/Continued_fraction
     - https://en.wikipedia.org/wiki/Rhind_Mathematical_Papyrus
 */
+
+#define PN_FRACTION_SLASH             0x2044u /* ⁄ FRACTION SLASH     UTF-8: E2 81 84 */
+#define PN_FRACTION_DIVISION_SLASH    0x2215u /* ∕ DIVISION SLASH     UTF-8: E2 88 95 */
+#define PN_FRACTION_FULLWIDTH_SOLIDUS 0xFF0Fu /* ／ FULLWIDTH SOLIDUS  UTF-8: EF BC 8F */
+#define PN_FRACTION_SOLIDUS           0x002Fu /* / SOLIDUS            UTF-8: 2F       */
 
 typedef struct pn_fraction {
     uint64_t numerator;   /* the top number                            */
@@ -163,11 +175,14 @@ bool pn_fraction_equals(pn_fraction left, pn_fraction right);
 /// @param value provided, whose denominator must not be 0
 double pn_fraction_to_double(pn_fraction value);
 
-/// Read a fraction: an optional '-', digits, then optionally '/'
-/// and more digits. The result is reduced to lowest terms:
+/// Read a fraction: an optional '-', digits, then optionally a slash
+/// (⁄ U+2044, ∕ U+2215, ／ U+FF0F or /) and more digits. The result is
+/// reduced to lowest terms:
 ///
-///        "355/113"  -> 355/113
-///        "-6/8"     -> -3/4
+///        "355⁄113"  -> 355/113
+///        "-6∕8"     -> -3/4
+///        "22／7"    -> 22/7
+///        "3/1"      -> 3/1
 ///        "3"        -> 3/1
 ///
 /// No spaces, no '+', and no empty side.
@@ -181,19 +196,20 @@ double pn_fraction_to_double(pn_fraction value);
 ///     PN_ERROR_DOMAIN when the denominator is 0.
 pn_fraction pn_fraction_parse(const char* _Nonnull text, pn_error* _Nullable* _Nullable error);
 
-#define PN_FRACTION_FORMAT_MAX_LEN (1 + 20 + 1 + 20 + 1) /* '-', top, '/', bottom, null */
+#define PN_FRACTION_FORMAT_MAX_LEN (1 + 20 + 3 + 20 + 1) /* '-', top, ⁄, bottom, null */
 
-/// @returns a new string, like "355/113", formatted from the
+/// @returns a new string, like "355⁄113", formatted from the
 /// @param value provided, or NULL and the
 /// @param error encountered; the caller owns the `char*` and should `free` it
 [[nodiscard]]
 char* _Nullable pn_fraction_format(pn_fraction value, pn_error* _Nullable* _Nullable error);
 
-/// Write the value as "numerator/denominator", with '-' in front if
-/// negative. A denominator of 1 writes just the whole number ("3"),
-/// so every output can be read back by pn_fraction_parse. The text
-/// is null terminated and needs at most PN_FRACTION_FORMAT_MAX_LEN
-/// bytes. On failure the buffer is not changed.
+/// Write the value as "numerator⁄denominator" with ⁄ U+2044 FRACTION
+/// SLASH, and '-' in front if negative: 355⁄113, -1⁄2. A denominator
+/// of 1 writes just the whole number ("3"), so every output can be
+/// read back by pn_fraction_parse. The text is null terminated and
+/// needs at most PN_FRACTION_FORMAT_MAX_LEN bytes. On failure the
+/// buffer is not changed.
 ///
 /// @returns the caller's `char*` with the
 /// @param value written into the

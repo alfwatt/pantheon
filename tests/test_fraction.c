@@ -122,6 +122,31 @@ int main(void) {
 
     CHECK_VALUE_ERROR(f = pn_fraction_parse("", &err_), err_, PN_ERROR_SYNTAX);
     CHECK_VALUE_ERROR(f = pn_fraction_parse("-", &err_), err_, PN_ERROR_SYNTAX);
+    /* every slash: ⁄ FRACTION SLASH, ∕ DIVISION SLASH, ／ FULLWIDTH SOLIDUS, / SOLIDUS */
+    CHECK_VALUE(f = pn_fraction_parse("355⁄113", &err_), err_);
+    CHECK_FRACTION(f, 355, 113, false);
+    CHECK_VALUE(f = pn_fraction_parse("-6∕8", &err_), err_);
+    CHECK_FRACTION(f, 3, 4, true);
+    CHECK(pn_fraction_equals(pn_fraction_parse("1⁄3", NULL), pn_fraction_parse("2∕6", NULL)));
+    CHECK(pn_fraction_equals(pn_fraction_parse("1⁄3", NULL), pn_fraction_parse("3/9", NULL)));
+    CHECK_VALUE(f = pn_fraction_parse("22／7", &err_), err_); /* ／ FULLWIDTH SOLIDUS */
+    CHECK_FRACTION(f, 22, 7, false);
+    CHECK_VALUE_ERROR(f = pn_fraction_parse("1\xEF\xBC", &err_), err_,
+                      PN_ERROR_SYNTAX); /* ／ cut short */
+
+    CHECK_VALUE_ERROR(f = pn_fraction_parse("1⁄", &err_), err_, PN_ERROR_SYNTAX);
+    CHECK_VALUE_ERROR(f = pn_fraction_parse("⁄2", &err_), err_, PN_ERROR_SYNTAX);
+    CHECK_VALUE_ERROR(f = pn_fraction_parse("1⁄∕2", &err_), err_, PN_ERROR_SYNTAX);
+    CHECK_VALUE_ERROR(f = pn_fraction_parse("1⁄2⁄3", &err_), err_, PN_ERROR_SYNTAX);
+    CHECK_VALUE_ERROR(f = pn_fraction_parse("1\xE2\x81"
+                                            "2",
+                                            &err_),
+                      err_, PN_ERROR_SYNTAX); /* ⁄ cut short */
+    CHECK_VALUE_ERROR(f = pn_fraction_parse("1\xE2\x81", &err_), err_,
+                      PN_ERROR_SYNTAX); /* cut at the end */
+    CHECK_VALUE_ERROR(f = pn_fraction_parse("1÷2", &err_), err_,
+                      PN_ERROR_SYNTAX); /* ÷ is not a slash */
+
     CHECK_VALUE_ERROR(f = pn_fraction_parse("1/", &err_), err_, PN_ERROR_SYNTAX);
     CHECK_VALUE_ERROR(f = pn_fraction_parse("/2", &err_), err_, PN_ERROR_SYNTAX);
     CHECK_VALUE_ERROR(f = pn_fraction_parse("1//2", &err_), err_, PN_ERROR_SYNTAX);
@@ -137,9 +162,9 @@ int main(void) {
 
     CHECK_OK(pn_fraction_format_into(pn_fraction_make(355, 113, false), buf, sizeof buf, &err_),
              err_);
-    CHECK(strcmp(buf, "355/113") == 0);
+    CHECK(strcmp(buf, "355⁄113") == 0);
     CHECK_OK(pn_fraction_format_into(pn_fraction_make(1, 2, true), buf, sizeof buf, &err_), err_);
-    CHECK(strcmp(buf, "-1/2") == 0);
+    CHECK(strcmp(buf, "-1⁄2") == 0);
     CHECK_OK(pn_fraction_format_into(pn_fraction_make(3, 1, false), buf, sizeof buf, &err_), err_);
     CHECK(strcmp(buf, "3") == 0);
 
@@ -162,7 +187,7 @@ int main(void) {
     char* text = NULL;
 
     CHECK_OK(text = pn_fraction_format(pn_fraction_make(22, 7, false), &err_), err_);
-    CHECK(text && strcmp(text, "22/7") == 0);
+    CHECK(text && strcmp(text, "22⁄7") == 0);
     free(text);
 
     // MARK: - Round Trips
