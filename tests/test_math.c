@@ -10,324 +10,333 @@
 static uint64_t sink; /* out for uint64 results */
 static bool ibool;    /* out for bool verdicts */
 static size_t icount; /* out for row counts */
+static pn_math_triple triple;
 
 static void t_gcd(void) {
     sink = 0ull;
-    CHECK_OK(pn_math_gcd(1071ull, 462ull, &sink, &err_), err_);
+    sink = pn_math_greatest_common_divisor(1071ull, 462ull);
     CHECK(sink == 21ull); /* gcd(1071, 462) */
     sink = 0ull;
-    CHECK_OK(pn_math_gcd(0ull, 0ull, &sink, &err_), err_);
+    sink = pn_math_greatest_common_divisor(0ull, 0ull);
     CHECK(sink == 0ull); /* gcd(0, 0) */
     sink = 0ull;
-    CHECK_OK(pn_math_gcd(0ull, 7ull, &sink, &err_), err_);
+    sink = pn_math_greatest_common_divisor(0ull, 7ull);
     CHECK(sink == 7ull); /* gcd(0, 7) */
     sink = 0ull;
-    CHECK_OK(pn_math_gcd(7ull, 0ull, &sink, &err_), err_);
+    sink = pn_math_greatest_common_divisor(7ull, 0ull);
     CHECK(sink == 7ull); /* gcd(7, 0) */
     sink = 0ull;
-    CHECK_OK(pn_math_gcd(18446744073709551615ull, 18446744073709551614ull, &sink, &err_), err_);
+    sink = pn_math_greatest_common_divisor(18446744073709551615ull, 18446744073709551614ull);
     CHECK(sink == 1ull); /* gcd(18446744073709551615, 18446744073709551614) */
     sink = 0ull;
-    CHECK_OK(pn_math_gcd(10ull, 15ull, &sink, &err_), err_);
+    sink = pn_math_greatest_common_divisor(10ull, 15ull);
     CHECK(sink == 5ull); /* gcd(10, 15) */
     sink = 0ull;
-    CHECK_OK(pn_math_gcd(123456789ull, 987654321ull, &sink, &err_), err_);
+    sink = pn_math_greatest_common_divisor(123456789ull, 987654321ull);
     CHECK(sink == 9ull); /* gcd(123456789, 987654321) */
     sink = 0ull;
-    CHECK_OK(pn_math_gcd(9223372036854775808ull, 4611686018427387904ull, &sink, &err_), err_);
+    sink = pn_math_greatest_common_divisor(9223372036854775808ull, 4611686018427387904ull);
     CHECK(sink == 4611686018427387904ull); /* gcd(9223372036854775808, 4611686018427387904) */
     sink = 0ull;
-    CHECK_OK(pn_math_gcd(3037000499ull, 3037000499ull, &sink, &err_), err_);
+    sink = pn_math_greatest_common_divisor(3037000499ull, 3037000499ull);
     CHECK(sink == 3037000499ull); /* gcd(3037000499, 3037000499) */
     sink = 0ull;
-    CHECK_OK(pn_math_gcd(1ull, 1ull, &sink, &err_), err_);
+    sink = pn_math_greatest_common_divisor(1ull, 1ull);
     CHECK(sink == 1ull); /* gcd(1, 1) */
     sink = 0ull;
-    CHECK_OK(pn_math_gcd(46349ull, 46337ull, &sink, &err_), err_);
+    sink = pn_math_greatest_common_divisor(46349ull, 46337ull);
     CHECK(sink == 1ull); /* gcd(46349, 46337) */
     sink = 0ull;
 }
 
 static void t_lcm(void) {
     sink = 0ull;
-    CHECK_OK(pn_math_lcm(1071ull, 462ull, &sink, &err_), err_);
+    CHECK_VALUE(sink = pn_math_least_common_multiple(1071ull, 462ull, &err_), err_);
     CHECK(sink == 23562ull); /* lcm(1071, 462) */
     sink = 0ull;
-    CHECK_OK(pn_math_lcm(0ull, 0ull, &sink, &err_), err_);
+    CHECK_VALUE(sink = pn_math_least_common_multiple(0ull, 0ull, &err_), err_);
     CHECK(sink == 0ull); /* lcm(0, 0) */
     sink = 0ull;
-    CHECK_OK(pn_math_lcm(0ull, 7ull, &sink, &err_), err_);
+    CHECK_VALUE(sink = pn_math_least_common_multiple(0ull, 7ull, &err_), err_);
     CHECK(sink == 0ull); /* lcm(0, 7) */
     sink = 0ull;
-    CHECK_OK(pn_math_lcm(4ull, 6ull, &sink, &err_), err_);
+    CHECK_VALUE(sink = pn_math_least_common_multiple(4ull, 6ull, &err_), err_);
     CHECK(sink == 12ull); /* lcm(4, 6) */
     sink = 0ull;
-    CHECK_OK(pn_math_lcm(0ull, 5ull, &sink, &err_), err_);
+    CHECK_VALUE(sink = pn_math_least_common_multiple(0ull, 5ull, &err_), err_);
     CHECK(sink == 0ull); /* lcm(0, 5) */
     sink = 0ull;
-    CHECK_ERROR(pn_math_lcm(1099511627777ull, 1099511627775ull, &sink, &err_), err_,
-                PN_ERROR_RANGE);
+    CHECK_VALUE_ERROR(sink =
+                          pn_math_least_common_multiple(1099511627777ull, 1099511627775ull, &err_),
+                      err_, PN_ERROR_RANGE);
     CHECK(sink == 0ull); /* error: sink keeps its word */
     sink = 0ull;
-    CHECK_OK(pn_math_lcm(1000000007ull, 9999999967ull, &sink, &err_), err_);
+    CHECK_VALUE(sink = pn_math_least_common_multiple(1000000007ull, 9999999967ull, &err_), err_);
     CHECK(sink == 10000000036999999769ull); /* lcm(1000000007, 9999999967) */
     sink = 0ull;
-    CHECK_ERROR(pn_math_lcm(9223372036854775808ull, 9223372036854775807ull, &sink, &err_), err_,
-                PN_ERROR_RANGE);
+    CHECK_VALUE_ERROR(
+        sink = pn_math_least_common_multiple(9223372036854775808ull, 9223372036854775807ull, &err_),
+        err_, PN_ERROR_RANGE);
     CHECK(sink == 0ull); /* error: sink keeps its word */
     sink = 0ull;
-    CHECK_OK(pn_math_lcm(10ull, 15ull, &sink, &err_), err_);
+    CHECK_VALUE(sink = pn_math_least_common_multiple(10ull, 15ull, &err_), err_);
     CHECK(sink == 30ull); /* lcm(10, 15) */
     sink = 0ull;
-    CHECK_OK(pn_math_lcm(144ull, 252ull, &sink, &err_), err_);
+    CHECK_VALUE(sink = pn_math_least_common_multiple(144ull, 252ull, &err_), err_);
     CHECK(sink == 1008ull); /* lcm(144, 252) */
     sink = 0ull;
-    CHECK_ERROR(pn_math_lcm(18446744073709551615ull, 18446744073709551614ull, &sink, &err_), err_,
-                PN_ERROR_RANGE);
+    CHECK_VALUE_ERROR(sink = pn_math_least_common_multiple(18446744073709551615ull,
+                                                           18446744073709551614ull, &err_),
+                      err_, PN_ERROR_RANGE);
     CHECK(sink == 0ull); /* error: sink keeps its word */
     sink = 0ull;
-    CHECK_OK(pn_math_lcm(123456789ull, 987654321ull, &sink, &err_), err_);
+    CHECK_VALUE(sink = pn_math_least_common_multiple(123456789ull, 987654321ull, &err_), err_);
     CHECK(sink == 13548070123626141ull); /* lcm(123456789, 987654321) */
     sink = 0ull;
-    CHECK_OK(pn_math_lcm(4611686018427387904ull, 4611686018427387904ull, &sink, &err_), err_);
+    CHECK_VALUE(
+        sink = pn_math_least_common_multiple(4611686018427387904ull, 4611686018427387904ull, &err_),
+        err_);
     CHECK(sink == 4611686018427387904ull); /* lcm(4611686018427387904, 4611686018427387904) */
     sink = 0ull;
-    CHECK_OK(pn_math_lcm(9ull, 12ull, &sink, &err_), err_);
+    CHECK_VALUE(sink = pn_math_least_common_multiple(9ull, 12ull, &err_), err_);
     CHECK(sink == 36ull); /* lcm(9, 12) */
     sink = 0ull;
-    CHECK_ERROR(pn_math_lcm(18446744073709551615ull, 2ull, &sink, &err_), err_, PN_ERROR_RANGE);
+    CHECK_VALUE_ERROR(sink = pn_math_least_common_multiple(18446744073709551615ull, 2ull, &err_),
+                      err_, PN_ERROR_RANGE);
     CHECK(sink == 0ull); /* error: sink keeps its word */
     sink = 0ull;
-    CHECK_OK(pn_math_lcm(4294967296ull, 4294967296ull, &sink, &err_), err_);
+    CHECK_VALUE(sink = pn_math_least_common_multiple(4294967296ull, 4294967296ull, &err_), err_);
     CHECK(sink == 4294967296ull); /* lcm(4294967296, 4294967296) */
     sink = 0ull;
 }
 
 static void t_is_square(void) {
     ibool = false; /* square(0) */
-    CHECK_OK(pn_math_is_square(0ull, &ibool, &err_), err_);
+    ibool = pn_math_is_square(0ull);
     CHECK(ibool == true);
     ibool = false; /* square(1) */
-    CHECK_OK(pn_math_is_square(1ull, &ibool, &err_), err_);
+    ibool = pn_math_is_square(1ull);
     CHECK(ibool == true);
     ibool = false; /* square(4) */
-    CHECK_OK(pn_math_is_square(4ull, &ibool, &err_), err_);
+    ibool = pn_math_is_square(4ull);
     CHECK(ibool == true);
     ibool = false; /* square(9) */
-    CHECK_OK(pn_math_is_square(9ull, &ibool, &err_), err_);
+    ibool = pn_math_is_square(9ull);
     CHECK(ibool == true);
     ibool = true; /* square(99) */
-    CHECK_OK(pn_math_is_square(99ull, &ibool, &err_), err_);
+    ibool = pn_math_is_square(99ull);
     CHECK(ibool == false);
     ibool = false; /* square(100) */
-    CHECK_OK(pn_math_is_square(100ull, &ibool, &err_), err_);
+    ibool = pn_math_is_square(100ull);
     CHECK(ibool == true);
     ibool = false; /* square(999950884) */
-    CHECK_OK(pn_math_is_square(999950884ull, &ibool, &err_), err_);
+    ibool = pn_math_is_square(999950884ull);
     CHECK(ibool == true);
     ibool = false; /* square(4611686018427387904) */
-    CHECK_OK(pn_math_is_square(4611686018427387904ull, &ibool, &err_), err_);
+    ibool = pn_math_is_square(4611686018427387904ull);
     CHECK(ibool == true);
     ibool = true; /* square(4611686018427387903) */
-    CHECK_OK(pn_math_is_square(4611686018427387903ull, &ibool, &err_), err_);
+    ibool = pn_math_is_square(4611686018427387903ull);
     CHECK(ibool == false);
     ibool = true; /* square(4611686018427387905) */
-    CHECK_OK(pn_math_is_square(4611686018427387905ull, &ibool, &err_), err_);
+    ibool = pn_math_is_square(4611686018427387905ull);
     CHECK(ibool == false);
     ibool = true; /* square(4294967295) */
-    CHECK_OK(pn_math_is_square(4294967295ull, &ibool, &err_), err_);
+    ibool = pn_math_is_square(4294967295ull);
     CHECK(ibool == false);
     ibool = true; /* square(18446744073709551615) */
-    CHECK_OK(pn_math_is_square(18446744073709551615ull, &ibool, &err_), err_);
+    ibool = pn_math_is_square(18446744073709551615ull);
     CHECK(ibool == false);
     ibool = false; /* square(18446744065119617025) */
-    CHECK_OK(pn_math_is_square(18446744065119617025ull, &ibool, &err_), err_);
+    ibool = pn_math_is_square(18446744065119617025ull);
     CHECK(ibool == true);
     ibool = false; /* square(9223372030926249001) */
-    CHECK_OK(pn_math_is_square(9223372030926249001ull, &ibool, &err_), err_);
+    ibool = pn_math_is_square(9223372030926249001ull);
     CHECK(ibool == true);
     ibool = false; /* square(9223372024852248004) */
-    CHECK_OK(pn_math_is_square(9223372024852248004ull, &ibool, &err_), err_);
+    ibool = pn_math_is_square(9223372024852248004ull);
     CHECK(ibool == true);
     ibool = true; /* square(2) */
-    CHECK_OK(pn_math_is_square(2ull, &ibool, &err_), err_);
+    ibool = pn_math_is_square(2ull);
     CHECK(ibool == false);
     ibool = true;
 }
 
 static void t_is_prime(void) {
     ibool = true; /* prime(0) */
-    CHECK_OK(pn_math_is_prime(0ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(0ull);
     CHECK(ibool == false);
     ibool = true; /* prime(1) */
-    CHECK_OK(pn_math_is_prime(1ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(1ull);
     CHECK(ibool == false);
     ibool = false; /* prime(2) */
-    CHECK_OK(pn_math_is_prime(2ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(2ull);
     CHECK(ibool == true);
     ibool = false; /* prime(3) */
-    CHECK_OK(pn_math_is_prime(3ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(3ull);
     CHECK(ibool == true);
     ibool = true; /* prime(4) */
-    CHECK_OK(pn_math_is_prime(4ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(4ull);
     CHECK(ibool == false);
     ibool = true; /* prime(9) */
-    CHECK_OK(pn_math_is_prime(9ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(9ull);
     CHECK(ibool == false);
     ibool = true; /* prime(25) */
-    CHECK_OK(pn_math_is_prime(25ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(25ull);
     CHECK(ibool == false);
     ibool = true; /* prime(121) */
-    CHECK_OK(pn_math_is_prime(121ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(121ull);
     CHECK(ibool == false);
     ibool = true; /* prime(561) */
-    CHECK_OK(pn_math_is_prime(561ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(561ull);
     CHECK(ibool == false);
     ibool = true; /* prime(1105) */
-    CHECK_OK(pn_math_is_prime(1105ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(1105ull);
     CHECK(ibool == false);
     ibool = true; /* prime(41041) */
-    CHECK_OK(pn_math_is_prime(41041ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(41041ull);
     CHECK(ibool == false);
     ibool = true; /* prime(825265) */
-    CHECK_OK(pn_math_is_prime(825265ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(825265ull);
     CHECK(ibool == false);
     ibool = true; /* prime(2305843009213693952) */
-    CHECK_OK(pn_math_is_prime(2305843009213693952ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(2305843009213693952ull);
     CHECK(ibool == false);
     ibool = false; /* prime(2305843009213693951) */
-    CHECK_OK(pn_math_is_prime(2305843009213693951ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(2305843009213693951ull);
     CHECK(ibool == true);
     ibool = true; /* prime(3037000499) */
-    CHECK_OK(pn_math_is_prime(3037000499ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(3037000499ull);
     CHECK(ibool == false);
     ibool = true; /* prime(3037000501) */
-    CHECK_OK(pn_math_is_prime(3037000501ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(3037000501ull);
     CHECK(ibool == false);
     ibool = true; /* prime(18446744073709551615) */
-    CHECK_OK(pn_math_is_prime(18446744073709551615ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(18446744073709551615ull);
     CHECK(ibool == false);
     ibool = true; /* prime(18446744073709551614) */
-    CHECK_OK(pn_math_is_prime(18446744073709551614ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(18446744073709551614ull);
     CHECK(ibool == false);
     ibool = false; /* prime(18446744073709551557) */
-    CHECK_OK(pn_math_is_prime(18446744073709551557ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(18446744073709551557ull);
     CHECK(ibool == true);
     ibool = false; /* prime(46337) */
-    CHECK_OK(pn_math_is_prime(46337ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(46337ull);
     CHECK(ibool == true);
     ibool = false; /* prime(46349) */
-    CHECK_OK(pn_math_is_prime(46349ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(46349ull);
     CHECK(ibool == true);
     ibool = true; /* prime(46341) */
-    CHECK_OK(pn_math_is_prime(46341ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(46341ull);
     CHECK(ibool == false);
     ibool = false; /* prime(1000000007) */
-    CHECK_OK(pn_math_is_prime(1000000007ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(1000000007ull);
     CHECK(ibool == true);
     ibool = false; /* prime(1000000009) */
-    CHECK_OK(pn_math_is_prime(1000000009ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(1000000009ull);
     CHECK(ibool == true);
     ibool = false; /* prime(1000003) */
-    CHECK_OK(pn_math_is_prime(1000003ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(1000003ull);
     CHECK(ibool == true);
     ibool = false; /* prime(1000033) */
-    CHECK_OK(pn_math_is_prime(1000033ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(1000033ull);
     CHECK(ibool == true);
     ibool = false; /* prime(1000037) */
-    CHECK_OK(pn_math_is_prime(1000037ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(1000037ull);
     CHECK(ibool == true);
     ibool = false; /* prime(4294967291) */
-    CHECK_OK(pn_math_is_prime(4294967291ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(4294967291ull);
     CHECK(ibool == true);
     ibool = true; /* prime(1099511627777) */
-    CHECK_OK(pn_math_is_prime(1099511627777ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(1099511627777ull);
     CHECK(ibool == false);
     ibool = true; /* prime(1099511627775) */
-    CHECK_OK(pn_math_is_prime(1099511627775ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(1099511627775ull);
     CHECK(ibool == false);
     ibool = true; /* prime(4294967295) */
-    CHECK_OK(pn_math_is_prime(4294967295ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(4294967295ull);
     CHECK(ibool == false);
     ibool = true; /* prime(4294967296) */
-    CHECK_OK(pn_math_is_prime(4294967296ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(4294967296ull);
     CHECK(ibool == false);
     ibool = false; /* prime(1009) */
-    CHECK_OK(pn_math_is_prime(1009ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(1009ull);
     CHECK(ibool == true);
     ibool = false; /* prime(997) */
-    CHECK_OK(pn_math_is_prime(997ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(997ull);
     CHECK(ibool == true);
     ibool = true; /* prime(1000036000099) */
-    CHECK_OK(pn_math_is_prime(1000036000099ull, &ibool, &err_), err_);
+    ibool = pn_math_is_prime(1000036000099ull);
     CHECK(ibool == false);
     ibool = true;
 }
 
 static void t_next_prime(void) {
     sink = 0ull;
-    CHECK_OK(pn_math_next_prime(0ull, &sink, &err_), err_);
+    CHECK_VALUE(sink = pn_math_next_prime(0ull, &err_), err_);
     CHECK(sink == 2ull); /* next_prime(0) */
     sink = 0ull;
-    CHECK_OK(pn_math_next_prime(1ull, &sink, &err_), err_);
+    CHECK_VALUE(sink = pn_math_next_prime(1ull, &err_), err_);
     CHECK(sink == 2ull); /* next_prime(1) */
     sink = 0ull;
-    CHECK_OK(pn_math_next_prime(2ull, &sink, &err_), err_);
+    CHECK_VALUE(sink = pn_math_next_prime(2ull, &err_), err_);
     CHECK(sink == 2ull); /* next_prime(2) */
     sink = 0ull;
-    CHECK_OK(pn_math_next_prime(3ull, &sink, &err_), err_);
+    CHECK_VALUE(sink = pn_math_next_prime(3ull, &err_), err_);
     CHECK(sink == 3ull); /* next_prime(3) */
     sink = 0ull;
-    CHECK_OK(pn_math_next_prime(4ull, &sink, &err_), err_);
+    CHECK_VALUE(sink = pn_math_next_prime(4ull, &err_), err_);
     CHECK(sink == 5ull); /* next_prime(4) */
     sink = 0ull;
-    CHECK_OK(pn_math_next_prime(7ull, &sink, &err_), err_);
+    CHECK_VALUE(sink = pn_math_next_prime(7ull, &err_), err_);
     CHECK(sink == 7ull); /* next_prime(7) */
     sink = 0ull;
-    CHECK_OK(pn_math_next_prime(8ull, &sink, &err_), err_);
+    CHECK_VALUE(sink = pn_math_next_prime(8ull, &err_), err_);
     CHECK(sink == 11ull); /* next_prime(8) */
     sink = 0ull;
-    CHECK_OK(pn_math_next_prime(96ull, &sink, &err_), err_);
+    CHECK_VALUE(sink = pn_math_next_prime(96ull, &err_), err_);
     CHECK(sink == 97ull); /* next_prime(96) */
     sink = 0ull;
-    CHECK_OK(pn_math_next_prime(97ull, &sink, &err_), err_);
+    CHECK_VALUE(sink = pn_math_next_prime(97ull, &err_), err_);
     CHECK(sink == 97ull); /* next_prime(97) */
     sink = 0ull;
-    CHECK_OK(pn_math_next_prime(98ull, &sink, &err_), err_);
+    CHECK_VALUE(sink = pn_math_next_prime(98ull, &err_), err_);
     CHECK(sink == 101ull); /* next_prime(98) */
     sink = 0ull;
-    CHECK_OK(pn_math_next_prime(46336ull, &sink, &err_), err_);
+    CHECK_VALUE(sink = pn_math_next_prime(46336ull, &err_), err_);
     CHECK(sink == 46337ull); /* next_prime(46336) */
     sink = 0ull;
-    CHECK_OK(pn_math_next_prime(46340ull, &sink, &err_), err_);
+    CHECK_VALUE(sink = pn_math_next_prime(46340ull, &err_), err_);
     CHECK(sink == 46349ull); /* next_prime(46340) */
     sink = 0ull;
-    CHECK_OK(pn_math_next_prime(46341ull, &sink, &err_), err_);
+    CHECK_VALUE(sink = pn_math_next_prime(46341ull, &err_), err_);
     CHECK(sink == 46349ull); /* next_prime(46341) */
     sink = 0ull;
-    CHECK_OK(pn_math_next_prime(46348ull, &sink, &err_), err_);
+    CHECK_VALUE(sink = pn_math_next_prime(46348ull, &err_), err_);
     CHECK(sink == 46349ull); /* next_prime(46348) */
     sink = 0ull;
-    CHECK_OK(pn_math_next_prime(46349ull, &sink, &err_), err_);
+    CHECK_VALUE(sink = pn_math_next_prime(46349ull, &err_), err_);
     CHECK(sink == 46349ull); /* next_prime(46349) */
     sink = 0ull;
-    CHECK_OK(pn_math_next_prime(46350ull, &sink, &err_), err_);
+    CHECK_VALUE(sink = pn_math_next_prime(46350ull, &err_), err_);
     CHECK(sink == 46351ull); /* next_prime(46350) */
     sink = 0ull;
-    CHECK_OK(pn_math_next_prime(18446744073709551555ull, &sink, &err_), err_);
+    CHECK_VALUE(sink = pn_math_next_prime(18446744073709551555ull, &err_), err_);
     CHECK(sink == 18446744073709551557ull); /* next_prime(18446744073709551555) */
     sink = 0ull;
-    CHECK_OK(pn_math_next_prime(18446744073709551557ull, &sink, &err_), err_);
+    CHECK_VALUE(sink = pn_math_next_prime(18446744073709551557ull, &err_), err_);
     CHECK(sink == 18446744073709551557ull); /* next_prime(18446744073709551557) */
     sink = 0ull;
-    CHECK_ERROR(pn_math_next_prime(18446744073709551614ull, &sink, &err_), err_, PN_ERROR_RANGE);
+    CHECK_VALUE_ERROR(sink = pn_math_next_prime(18446744073709551614ull, &err_), err_,
+                      PN_ERROR_RANGE);
     sink = 0ull;
-    CHECK_ERROR(pn_math_next_prime(18446744073709551615ull, &sink, &err_), err_, PN_ERROR_RANGE);
+    CHECK_VALUE_ERROR(sink = pn_math_next_prime(18446744073709551615ull, &err_), err_,
+                      PN_ERROR_RANGE);
     sink = 0ull;
-    CHECK_OK(pn_math_next_prime(6ull, &sink, &err_), err_);
+    CHECK_VALUE(sink = pn_math_next_prime(6ull, &err_), err_);
     CHECK(sink == 7ull); /* next_prime(6) */
     sink = 0ull;
-    CHECK_OK(pn_math_next_prime(10ull, &sink, &err_), err_);
+    CHECK_VALUE(sink = pn_math_next_prime(10ull, &err_), err_);
     CHECK(sink == 11ull); /* next_prime(10) */
     sink = 0ull;
 }
@@ -354,50 +363,51 @@ static void t_sieve(void) {
     CHECK(pn_math_sieve_size(999979ull) == 78497u);  /* pi(999979) */
     CHECK(pn_math_sieve_size(18446744073709551615ull) == 0u);
     icount = 0u;
-    CHECK_OK(pn_math_sieve(30ull, board, 80000u, &icount, &err_), err_);
+    CHECK_VALUE(icount = pn_math_sieve(30ull, board, 80000u, &err_), err_);
     CHECK(icount == 10u);
     CHECK(board[0] == 2ull);
     CHECK(board[icount - 1u] == 29ull); /* sieve(30) */
     icount = 0u;
-    CHECK_OK(pn_math_sieve(10000ull, board, 80000u, &icount, &err_), err_);
+    CHECK_VALUE(icount = pn_math_sieve(10000ull, board, 80000u, &err_), err_);
     CHECK(icount == 1229u);
     CHECK(board[0] == 2ull);
     CHECK(board[icount - 1u] == 9973ull); /* sieve(10000) */
     icount = 0u;
-    CHECK_OK(pn_math_sieve(100000ull, board, 80000u, &icount, &err_), err_);
+    CHECK_VALUE(icount = pn_math_sieve(100000ull, board, 80000u, &err_), err_);
     CHECK(icount == 9592u);
     CHECK(board[0] == 2ull);
     CHECK(board[icount - 1u] == 99991ull); /* sieve(100000) */
     icount = 0u;
-    CHECK_OK(pn_math_sieve(46341ull, board, 80000u, &icount, &err_), err_);
+    CHECK_VALUE(icount = pn_math_sieve(46341ull, board, 80000u, &err_), err_);
     CHECK(icount == 4792u);
     CHECK(board[0] == 2ull);
     CHECK(board[icount - 1u] == 46337ull); /* sieve(46341) */
     icount = 0u;
-    CHECK_OK(pn_math_sieve(1000000ull, board, 80000u, &icount, &err_), err_);
+    CHECK_VALUE(icount = pn_math_sieve(1000000ull, board, 80000u, &err_), err_);
     CHECK(icount == 78498u);
     CHECK(board[0] == 2ull);
     CHECK(board[icount - 1u] == 999983ull); /* sieve(1000000) */
     icount = 7u;
     /* one row short of pi(100) = 25: the buffer refuses */
-    CHECK_ERROR(pn_math_sieve(100ull, board, 24u, &icount, &err_), err_, PN_ERROR_BUFFER);
-    CHECK(icount == 7u); /* count keeps its word */
+    CHECK_VALUE_ERROR(icount = pn_math_sieve(100ull, board, 24u, &err_), err_, PN_ERROR_BUFFER);
+    CHECK(icount == 0u); /* a failed call returns 0 */
     icount = 0u;
     icount = 0u;
-    CHECK_ERROR(pn_math_sieve(1000001ull, board, 80000u, &icount, &err_), err_, PN_ERROR_RANGE);
+    CHECK_VALUE_ERROR(icount = pn_math_sieve(1000001ull, board, 80000u, &err_), err_,
+                      PN_ERROR_RANGE);
 }
 
 static void t_factorize(void) {
     uint64_t f[72];
     icount = 999u;
-    CHECK_OK(pn_math_factorize(0ull, f, 72u, &icount, &err_), err_);
+    CHECK_VALUE(icount = pn_math_factorize(0ull, f, 72u, &err_), err_);
     CHECK(icount == 0u); /* 0: empty product */
     icount = 999u;
-    CHECK_OK(pn_math_factorize(1ull, f, 72u, &icount, &err_), err_);
+    CHECK_VALUE(icount = pn_math_factorize(1ull, f, 72u, &err_), err_);
     CHECK(icount == 0u); /* 1: empty product */
     icount = 999u;
     static const uint64_t want_2[] = {2ull};
-    CHECK_OK(pn_math_factorize(2ull, f, 72u, &icount, &err_), err_);
+    CHECK_VALUE(icount = pn_math_factorize(2ull, f, 72u, &err_), err_);
     CHECK(icount == 1u); /* factorize(2) */
     for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_2[i]);
@@ -405,7 +415,7 @@ static void t_factorize(void) {
     CHECK(pn_math_factorize_size(2ull) == 1u);
     icount = 999u;
     static const uint64_t want_360[] = {2ull, 2ull, 2ull, 3ull, 3ull, 5ull};
-    CHECK_OK(pn_math_factorize(360ull, f, 72u, &icount, &err_), err_);
+    CHECK_VALUE(icount = pn_math_factorize(360ull, f, 72u, &err_), err_);
     CHECK(icount == 6u); /* factorize(360) */
     for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_360[i]);
@@ -418,7 +428,7 @@ static void t_factorize(void) {
         2ull, 2ull, 2ull, 2ull, 2ull, 2ull, 2ull, 2ull, 2ull, 2ull, 2ull, 2ull, 2ull,
         2ull, 2ull, 2ull, 2ull, 2ull, 2ull, 2ull, 2ull, 2ull, 2ull, 2ull, 2ull, 2ull,
         2ull, 2ull, 2ull, 2ull, 2ull, 2ull, 2ull, 2ull, 2ull, 2ull, 2ull};
-    CHECK_OK(pn_math_factorize(9223372036854775808ull, f, 72u, &icount, &err_), err_);
+    CHECK_VALUE(icount = pn_math_factorize(9223372036854775808ull, f, 72u, &err_), err_);
     CHECK(icount == 63u); /* factorize(9223372036854775808) */
     for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_9223372036854775808[i]);
@@ -426,7 +436,7 @@ static void t_factorize(void) {
     CHECK(pn_math_factorize_size(9223372036854775808ull) == 63u);
     icount = 999u;
     static const uint64_t want_496[] = {2ull, 2ull, 2ull, 2ull, 31ull};
-    CHECK_OK(pn_math_factorize(496ull, f, 72u, &icount, &err_), err_);
+    CHECK_VALUE(icount = pn_math_factorize(496ull, f, 72u, &err_), err_);
     CHECK(icount == 5u); /* factorize(496) */
     for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_496[i]);
@@ -434,7 +444,7 @@ static void t_factorize(void) {
     CHECK(pn_math_factorize_size(496ull) == 5u);
     icount = 999u;
     static const uint64_t want_8128[] = {2ull, 2ull, 2ull, 2ull, 2ull, 2ull, 127ull};
-    CHECK_OK(pn_math_factorize(8128ull, f, 72u, &icount, &err_), err_);
+    CHECK_VALUE(icount = pn_math_factorize(8128ull, f, 72u, &err_), err_);
     CHECK(icount == 7u); /* factorize(8128) */
     for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_8128[i]);
@@ -443,7 +453,7 @@ static void t_factorize(void) {
     icount = 999u;
     static const uint64_t want_33550336[] = {2ull, 2ull, 2ull, 2ull, 2ull, 2ull,   2ull,
                                              2ull, 2ull, 2ull, 2ull, 2ull, 8191ull};
-    CHECK_OK(pn_math_factorize(33550336ull, f, 72u, &icount, &err_), err_);
+    CHECK_VALUE(icount = pn_math_factorize(33550336ull, f, 72u, &err_), err_);
     CHECK(icount == 13u); /* factorize(33550336) */
     for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_33550336[i]);
@@ -453,7 +463,7 @@ static void t_factorize(void) {
     static const uint64_t want_8589869056[] = {2ull, 2ull, 2ull, 2ull, 2ull,     2ull,
                                                2ull, 2ull, 2ull, 2ull, 2ull,     2ull,
                                                2ull, 2ull, 2ull, 2ull, 131071ull};
-    CHECK_OK(pn_math_factorize(8589869056ull, f, 72u, &icount, &err_), err_);
+    CHECK_VALUE(icount = pn_math_factorize(8589869056ull, f, 72u, &err_), err_);
     CHECK(icount == 17u); /* factorize(8589869056) */
     for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_8589869056[i]);
@@ -463,7 +473,7 @@ static void t_factorize(void) {
     static const uint64_t want_137438691328[] = {2ull, 2ull, 2ull, 2ull, 2ull,     2ull, 2ull,
                                                  2ull, 2ull, 2ull, 2ull, 2ull,     2ull, 2ull,
                                                  2ull, 2ull, 2ull, 2ull, 524287ull};
-    CHECK_OK(pn_math_factorize(137438691328ull, f, 72u, &icount, &err_), err_);
+    CHECK_VALUE(icount = pn_math_factorize(137438691328ull, f, 72u, &err_), err_);
     CHECK(icount == 19u); /* factorize(137438691328) */
     for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_137438691328[i]);
@@ -473,7 +483,7 @@ static void t_factorize(void) {
     static const uint64_t want_1152921504576299008[] = {2ull, 2ull, 2ull, 2ull,   2ull,
                                                         2ull, 2ull, 2ull, 2ull,   2ull,
                                                         2ull, 2ull, 2ull, 643ull, 218876342693ull};
-    CHECK_OK(pn_math_factorize(1152921504576299008ull, f, 72u, &icount, &err_), err_);
+    CHECK_VALUE(icount = pn_math_factorize(1152921504576299008ull, f, 72u, &err_), err_);
     CHECK(icount == 15u); /* factorize(1152921504576299008) */
     for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_1152921504576299008[i]);
@@ -481,7 +491,7 @@ static void t_factorize(void) {
     CHECK(pn_math_factorize_size(1152921504576299008ull) == 15u);
     icount = 999u;
     static const uint64_t want_1000000016000000063[] = {1000000007ull, 1000000009ull};
-    CHECK_OK(pn_math_factorize(1000000016000000063ull, f, 72u, &icount, &err_), err_);
+    CHECK_VALUE(icount = pn_math_factorize(1000000016000000063ull, f, 72u, &err_), err_);
     CHECK(icount == 2u); /* factorize(1000000016000000063) */
     for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_1000000016000000063[i]);
@@ -489,7 +499,7 @@ static void t_factorize(void) {
     CHECK(pn_math_factorize_size(1000000016000000063ull) == 2u);
     icount = 999u;
     static const uint64_t want_1000073001431003663[] = {1000003ull, 1000033ull, 1000037ull};
-    CHECK_OK(pn_math_factorize(1000073001431003663ull, f, 72u, &icount, &err_), err_);
+    CHECK_VALUE(icount = pn_math_factorize(1000073001431003663ull, f, 72u, &err_), err_);
     CHECK(icount == 3u); /* factorize(1000073001431003663) */
     for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_1000073001431003663[i]);
@@ -497,7 +507,7 @@ static void t_factorize(void) {
     CHECK(pn_math_factorize_size(1000073001431003663ull) == 3u);
     icount = 999u;
     static const uint64_t want_18446744073709551613[] = {13ull, 3889ull, 364870227143809ull};
-    CHECK_OK(pn_math_factorize(18446744073709551613ull, f, 72u, &icount, &err_), err_);
+    CHECK_VALUE(icount = pn_math_factorize(18446744073709551613ull, f, 72u, &err_), err_);
     CHECK(icount == 3u); /* factorize(18446744073709551613) */
     for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_18446744073709551613[i]);
@@ -505,7 +515,7 @@ static void t_factorize(void) {
     CHECK(pn_math_factorize_size(18446744073709551613ull) == 3u);
     icount = 999u;
     static const uint64_t want_90[] = {2ull, 3ull, 3ull, 5ull};
-    CHECK_OK(pn_math_factorize(90ull, f, 72u, &icount, &err_), err_);
+    CHECK_VALUE(icount = pn_math_factorize(90ull, f, 72u, &err_), err_);
     CHECK(icount == 4u); /* factorize(90) */
     for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_90[i]);
@@ -513,7 +523,7 @@ static void t_factorize(void) {
     CHECK(pn_math_factorize_size(90ull) == 4u);
     icount = 999u;
     static const uint64_t want_137438953471[] = {223ull, 616318177ull};
-    CHECK_OK(pn_math_factorize(137438953471ull, f, 72u, &icount, &err_), err_);
+    CHECK_VALUE(icount = pn_math_factorize(137438953471ull, f, 72u, &err_), err_);
     CHECK(icount == 2u); /* factorize(137438953471) */
     for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_137438953471[i]);
@@ -521,7 +531,7 @@ static void t_factorize(void) {
     CHECK(pn_math_factorize_size(137438953471ull) == 2u);
     icount = 999u;
     static const uint64_t want_8191[] = {8191ull};
-    CHECK_OK(pn_math_factorize(8191ull, f, 72u, &icount, &err_), err_);
+    CHECK_VALUE(icount = pn_math_factorize(8191ull, f, 72u, &err_), err_);
     CHECK(icount == 1u); /* factorize(8191) */
     for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_8191[i]);
@@ -530,7 +540,7 @@ static void t_factorize(void) {
     icount = 999u;
     static const uint64_t want_18446744073709551615[] = {3ull,   5ull,     17ull,     257ull,
                                                          641ull, 65537ull, 6700417ull};
-    CHECK_OK(pn_math_factorize(18446744073709551615ull, f, 72u, &icount, &err_), err_);
+    CHECK_VALUE(icount = pn_math_factorize(18446744073709551615ull, f, 72u, &err_), err_);
     CHECK(icount == 7u); /* factorize(18446744073709551615) */
     for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_18446744073709551615[i]);
@@ -539,7 +549,7 @@ static void t_factorize(void) {
     icount = 999u;
     static const uint64_t want_1152921504606846975[] = {
         3ull, 3ull, 5ull, 5ull, 7ull, 11ull, 13ull, 31ull, 41ull, 61ull, 151ull, 331ull, 1321ull};
-    CHECK_OK(pn_math_factorize(1152921504606846975ull, f, 72u, &icount, &err_), err_);
+    CHECK_VALUE(icount = pn_math_factorize(1152921504606846975ull, f, 72u, &err_), err_);
     CHECK(icount == 13u); /* factorize(1152921504606846975) */
     for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_1152921504606846975[i]);
@@ -547,7 +557,7 @@ static void t_factorize(void) {
     CHECK(pn_math_factorize_size(1152921504606846975ull) == 13u);
     icount = 999u;
     static const uint64_t want_649[] = {11ull, 59ull};
-    CHECK_OK(pn_math_factorize(649ull, f, 72u, &icount, &err_), err_);
+    CHECK_VALUE(icount = pn_math_factorize(649ull, f, 72u, &err_), err_);
     CHECK(icount == 2u); /* factorize(649) */
     for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_649[i]);
@@ -555,7 +565,7 @@ static void t_factorize(void) {
     CHECK(pn_math_factorize_size(649ull) == 2u);
     icount = 999u;
     static const uint64_t want_23[] = {23ull};
-    CHECK_OK(pn_math_factorize(23ull, f, 72u, &icount, &err_), err_);
+    CHECK_VALUE(icount = pn_math_factorize(23ull, f, 72u, &err_), err_);
     CHECK(icount == 1u); /* factorize(23) */
     for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_23[i]);
@@ -563,7 +573,7 @@ static void t_factorize(void) {
     CHECK(pn_math_factorize_size(23ull) == 1u);
     icount = 999u;
     static const uint64_t want_18446744073709551557[] = {18446744073709551557ull};
-    CHECK_OK(pn_math_factorize(18446744073709551557ull, f, 72u, &icount, &err_), err_);
+    CHECK_VALUE(icount = pn_math_factorize(18446744073709551557ull, f, 72u, &err_), err_);
     CHECK(icount == 1u); /* factorize(18446744073709551557) */
     for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_18446744073709551557[i]);
@@ -574,17 +584,17 @@ static void t_factorize(void) {
         3ull, 3ull, 3ull, 3ull, 3ull, 3ull, 3ull, 3ull, 3ull, 3ull, 3ull, 3ull, 3ull, 3ull,
         3ull, 3ull, 3ull, 3ull, 3ull, 3ull, 3ull, 3ull, 3ull, 3ull, 3ull, 3ull, 3ull, 3ull,
         3ull, 3ull, 3ull, 3ull, 3ull, 3ull, 3ull, 3ull, 3ull, 3ull, 3ull, 3ull};
-    CHECK_OK(pn_math_factorize(12157665459056928801ull, f, 72u, &icount, &err_), err_);
+    CHECK_VALUE(icount = pn_math_factorize(12157665459056928801ull, f, 72u, &err_), err_);
     CHECK(icount == 40u); /* factorize(12157665459056928801) */
     for (size_t i = 0u; i < icount; i++) {
         CHECK(f[i] == want_12157665459056928801[i]);
     }
     CHECK(pn_math_factorize_size(12157665459056928801ull) == 40u);
     icount = 999u;
-    /* cap short of the 40 threes of 3^40: buffer error, count silent */
-    CHECK_ERROR(pn_math_factorize(12157665459056928801ull, f, 39u, &icount, &err_), err_,
-                PN_ERROR_BUFFER);
-    CHECK(icount == 999u); /* caller's count stands */
+    /* capacity short of the 40 threes of 3^40: buffer error */
+    CHECK_VALUE_ERROR(icount = pn_math_factorize(12157665459056928801ull, f, 39u, &err_), err_,
+                      PN_ERROR_BUFFER);
+    CHECK(icount == 0u); /* a failed call returns 0 */
     icount = 0u;
 }
 
@@ -593,7 +603,7 @@ static void t_factorize_sweep(void) {
     size_t cnt;
     for (uint64_t n = 1ull; n <= 5000ull; n++) {
         uint64_t prod = 1ull;
-        CHECK_OK(pn_math_factorize(n, f, 72u, &cnt, &err_), err_);
+        CHECK_VALUE(cnt = pn_math_factorize(n, f, 72u, &err_), err_);
         CHECK(cnt == pn_math_factorize_size(n));
         for (size_t i = 0u; i < cnt; i++) {
             CHECK(f[i] >= 2ull);
@@ -609,117 +619,150 @@ static void t_factorize_sweep(void) {
 
 static void t_perfect(void) {
     ibool = true; /* perfect(2) */
-    CHECK_OK(pn_math_perfect_check(2ull, &ibool, &err_), err_);
+    CHECK_VALUE(ibool = pn_math_is_perfect(2ull, &err_), err_);
     CHECK(ibool == false);
     ibool = false; /* perfect(6) */
-    CHECK_OK(pn_math_perfect_check(6ull, &ibool, &err_), err_);
+    CHECK_VALUE(ibool = pn_math_is_perfect(6ull, &err_), err_);
     CHECK(ibool == true);
     ibool = true; /* perfect(9) */
-    CHECK_OK(pn_math_perfect_check(9ull, &ibool, &err_), err_);
+    CHECK_VALUE(ibool = pn_math_is_perfect(9ull, &err_), err_);
     CHECK(ibool == false);
     ibool = true; /* perfect(20) */
-    CHECK_OK(pn_math_perfect_check(20ull, &ibool, &err_), err_);
+    CHECK_VALUE(ibool = pn_math_is_perfect(20ull, &err_), err_);
     CHECK(ibool == false);
     ibool = false; /* perfect(28) */
-    CHECK_OK(pn_math_perfect_check(28ull, &ibool, &err_), err_);
+    CHECK_VALUE(ibool = pn_math_is_perfect(28ull, &err_), err_);
     CHECK(ibool == true);
     ibool = true; /* perfect(90) */
-    CHECK_OK(pn_math_perfect_check(90ull, &ibool, &err_), err_);
+    CHECK_VALUE(ibool = pn_math_is_perfect(90ull, &err_), err_);
     CHECK(ibool == false);
     ibool = false; /* perfect(496) */
-    CHECK_OK(pn_math_perfect_check(496ull, &ibool, &err_), err_);
+    CHECK_VALUE(ibool = pn_math_is_perfect(496ull, &err_), err_);
     CHECK(ibool == true);
     ibool = false; /* perfect(8128) */
-    CHECK_OK(pn_math_perfect_check(8128ull, &ibool, &err_), err_);
+    CHECK_VALUE(ibool = pn_math_is_perfect(8128ull, &err_), err_);
     CHECK(ibool == true);
     ibool = false; /* perfect(33550336) */
-    CHECK_OK(pn_math_perfect_check(33550336ull, &ibool, &err_), err_);
+    CHECK_VALUE(ibool = pn_math_is_perfect(33550336ull, &err_), err_);
     CHECK(ibool == true);
     ibool = false; /* perfect(8589869056) */
-    CHECK_OK(pn_math_perfect_check(8589869056ull, &ibool, &err_), err_);
+    CHECK_VALUE(ibool = pn_math_is_perfect(8589869056ull, &err_), err_);
     CHECK(ibool == true);
     ibool = false; /* perfect(137438691328) */
-    CHECK_OK(pn_math_perfect_check(137438691328ull, &ibool, &err_), err_);
+    CHECK_VALUE(ibool = pn_math_is_perfect(137438691328ull, &err_), err_);
     CHECK(ibool == true);
     ibool = true; /* perfect(1152921504576299008) */
-    CHECK_OK(pn_math_perfect_check(1152921504576299008ull, &ibool, &err_), err_);
+    CHECK_VALUE(ibool = pn_math_is_perfect(1152921504576299008ull, &err_), err_);
     CHECK(ibool == false);
     ibool = true; /* perfect(1152921504576299007) */
-    CHECK_OK(pn_math_perfect_check(1152921504576299007ull, &ibool, &err_), err_);
+    CHECK_VALUE(ibool = pn_math_is_perfect(1152921504576299007ull, &err_), err_);
     CHECK(ibool == false);
     ibool = true; /* perfect(4611686018427387904) */
-    CHECK_OK(pn_math_perfect_check(4611686018427387904ull, &ibool, &err_), err_);
+    CHECK_VALUE(ibool = pn_math_is_perfect(4611686018427387904ull, &err_), err_);
     CHECK(ibool == false);
     ibool = true; /* perfect(2305843009213693951) */
-    CHECK_OK(pn_math_perfect_check(2305843009213693951ull, &ibool, &err_), err_);
+    CHECK_VALUE(ibool = pn_math_is_perfect(2305843009213693951ull, &err_), err_);
     CHECK(ibool == false);
     ibool = true; /* perfect(2305843009211598783) */
-    CHECK_OK(pn_math_perfect_check(2305843009211598783ull, &ibool, &err_), err_);
+    CHECK_VALUE(ibool = pn_math_is_perfect(2305843009211598783ull, &err_), err_);
     CHECK(ibool == false);
     ibool = true;
-    CHECK_ERROR(pn_math_perfect_check(0ull, &ibool, &err_), err_, PN_ERROR_RANGE);
+    CHECK_VALUE_ERROR(ibool = pn_math_is_perfect(0ull, &err_), err_, PN_ERROR_RANGE);
     ibool = true;
-    CHECK_ERROR(pn_math_perfect_check(1ull, &ibool, &err_), err_, PN_ERROR_RANGE);
+    CHECK_VALUE_ERROR(ibool = pn_math_is_perfect(1ull, &err_), err_, PN_ERROR_RANGE);
     ibool = true;
 }
 
 static void t_triple(void) {
     uint64_t x, y, z;
-    CHECK_OK(pn_math_pythagorean_triple(2ull, 1ull, &x, &y, &z, &err_), err_);
+    CHECK_VALUE(triple = pn_math_pythagorean_triple(2ull, 1ull, &err_), err_);
+    x = triple.leg1;
+    y = triple.leg2;
+    z = triple.hypotenuse;
     CHECK(x == 3ull);
     CHECK(y == 4ull);
     CHECK(z == 5ull);
-    CHECK_OK(pn_math_pythagorean_triple(3ull, 2ull, &x, &y, &z, &err_), err_);
+    CHECK_VALUE(triple = pn_math_pythagorean_triple(3ull, 2ull, &err_), err_);
+    x = triple.leg1;
+    y = triple.leg2;
+    z = triple.hypotenuse;
     CHECK(x == 5ull);
     CHECK(y == 12ull);
     CHECK(z == 13ull);
-    CHECK_OK(pn_math_pythagorean_triple(12ull, 5ull, &x, &y, &z, &err_), err_);
+    CHECK_VALUE(triple = pn_math_pythagorean_triple(12ull, 5ull, &err_), err_);
+    x = triple.leg1;
+    y = triple.leg2;
+    z = triple.hypotenuse;
     CHECK(x == 119ull);
     CHECK(y == 120ull);
     CHECK(z == 169ull);
-    CHECK_OK(pn_math_pythagorean_triple(12ull, 1ull, &x, &y, &z, &err_), err_);
+    CHECK_VALUE(triple = pn_math_pythagorean_triple(12ull, 1ull, &err_), err_);
+    x = triple.leg1;
+    y = triple.leg2;
+    z = triple.hypotenuse;
     CHECK(x == 143ull);
     CHECK(y == 24ull);
     CHECK(z == 145ull);
-    CHECK_OK(pn_math_pythagorean_triple(65535ull, 1ull, &x, &y, &z, &err_), err_);
+    CHECK_VALUE(triple = pn_math_pythagorean_triple(65535ull, 1ull, &err_), err_);
+    x = triple.leg1;
+    y = triple.leg2;
+    z = triple.hypotenuse;
     CHECK(x == 4294836224ull);
     CHECK(y == 131070ull);
     CHECK(z == 4294836226ull);
-    CHECK_OK(pn_math_pythagorean_triple(65535ull, 2ull, &x, &y, &z, &err_), err_);
+    CHECK_VALUE(triple = pn_math_pythagorean_triple(65535ull, 2ull, &err_), err_);
+    x = triple.leg1;
+    y = triple.leg2;
+    z = triple.hypotenuse;
     CHECK(x == 4294836221ull);
     CHECK(y == 262140ull);
     CHECK(z == 4294836229ull);
-    CHECK_ERROR(pn_math_pythagorean_triple(65535ull, 65534ull, &x, &y, &z, &err_), err_,
-                PN_ERROR_RANGE); /* triple(65535, 65534) off the tablet */
-    CHECK_OK(pn_math_pythagorean_triple(90ull, 1ull, &x, &y, &z, &err_), err_);
+    CHECK_VALUE_ERROR(triple = pn_math_pythagorean_triple(65535ull, 65534ull, &err_), err_,
+                      PN_ERROR_RANGE); /* triple(65535, 65534) off the tablet */
+    CHECK_VALUE(triple = pn_math_pythagorean_triple(90ull, 1ull, &err_), err_);
+    x = triple.leg1;
+    y = triple.leg2;
+    z = triple.hypotenuse;
     CHECK(x == 8099ull);
     CHECK(y == 180ull);
     CHECK(z == 8101ull);
-    CHECK_ERROR(pn_math_pythagorean_triple(1ull, 1ull, &x, &y, &z, &err_), err_,
-                PN_ERROR_RANGE); /* triple(1, 1) off the tablet */
-    CHECK_ERROR(pn_math_pythagorean_triple(2ull, 0ull, &x, &y, &z, &err_), err_,
-                PN_ERROR_RANGE); /* triple(2, 0) off the tablet */
-    CHECK_ERROR(pn_math_pythagorean_triple(0ull, 1ull, &x, &y, &z, &err_), err_,
-                PN_ERROR_RANGE); /* triple(0, 1) off the tablet */
-    CHECK_ERROR(pn_math_pythagorean_triple(100000ull, 1ull, &x, &y, &z, &err_), err_,
-                PN_ERROR_RANGE); /* triple(100000, 1) off the tablet */
-    CHECK_ERROR(pn_math_pythagorean_triple(65536ull, 1ull, &x, &y, &z, &err_), err_,
-                PN_ERROR_RANGE); /* triple(65536, 1) off the tablet */
-    CHECK_OK(pn_math_pythagorean_triple(65535ull, 17ull, &x, &y, &z, &err_), err_);
+    CHECK_VALUE_ERROR(triple = pn_math_pythagorean_triple(1ull, 1ull, &err_), err_,
+                      PN_ERROR_RANGE); /* triple(1, 1) off the tablet */
+    CHECK_VALUE_ERROR(triple = pn_math_pythagorean_triple(2ull, 0ull, &err_), err_,
+                      PN_ERROR_RANGE); /* triple(2, 0) off the tablet */
+    CHECK_VALUE_ERROR(triple = pn_math_pythagorean_triple(0ull, 1ull, &err_), err_,
+                      PN_ERROR_RANGE); /* triple(0, 1) off the tablet */
+    CHECK_VALUE_ERROR(triple = pn_math_pythagorean_triple(100000ull, 1ull, &err_), err_,
+                      PN_ERROR_RANGE); /* triple(100000, 1) off the tablet */
+    CHECK_VALUE_ERROR(triple = pn_math_pythagorean_triple(65536ull, 1ull, &err_), err_,
+                      PN_ERROR_RANGE); /* triple(65536, 1) off the tablet */
+    CHECK_VALUE(triple = pn_math_pythagorean_triple(65535ull, 17ull, &err_), err_);
+    x = triple.leg1;
+    y = triple.leg2;
+    z = triple.hypotenuse;
     CHECK(x == 4294835936ull);
     CHECK(y == 2228190ull);
     CHECK(z == 4294836514ull);
-    CHECK_ERROR(pn_math_pythagorean_triple(65535ull, 32768ull, &x, &y, &z, &err_), err_,
-                PN_ERROR_RANGE); /* triple(65535, 32768) off the tablet */
-    CHECK_OK(pn_math_pythagorean_triple(3ull, 1ull, &x, &y, &z, &err_), err_);
+    CHECK_VALUE_ERROR(triple = pn_math_pythagorean_triple(65535ull, 32768ull, &err_), err_,
+                      PN_ERROR_RANGE); /* triple(65535, 32768) off the tablet */
+    CHECK_VALUE(triple = pn_math_pythagorean_triple(3ull, 1ull, &err_), err_);
+    x = triple.leg1;
+    y = triple.leg2;
+    z = triple.hypotenuse;
     CHECK(x == 8ull);
     CHECK(y == 6ull);
     CHECK(z == 10ull);
-    CHECK_OK(pn_math_pythagorean_triple(4ull, 2ull, &x, &y, &z, &err_), err_);
+    CHECK_VALUE(triple = pn_math_pythagorean_triple(4ull, 2ull, &err_), err_);
+    x = triple.leg1;
+    y = triple.leg2;
+    z = triple.hypotenuse;
     CHECK(x == 12ull);
     CHECK(y == 16ull);
     CHECK(z == 20ull);
-    CHECK_OK(pn_math_pythagorean_triple(5ull, 3ull, &x, &y, &z, &err_), err_);
+    CHECK_VALUE(triple = pn_math_pythagorean_triple(5ull, 3ull, &err_), err_);
+    x = triple.leg1;
+    y = triple.leg2;
+    z = triple.hypotenuse;
     CHECK(x == 16ull);
     CHECK(y == 30ull);
     CHECK(z == 34ull);
@@ -728,50 +771,69 @@ static void t_triple(void) {
 
 static void t_pyth_check(void) {
     ibool = false; /* (119,120,169) */
-    CHECK_OK(pn_math_pythagorean_check(119ull, 120ull, 169ull, &ibool, &err_), err_);
+    CHECK_VALUE(ibool =
+                    pn_math_is_pythagorean_triple((pn_math_triple) {119ull, 120ull, 169ull}, &err_),
+                err_);
     CHECK(ibool == true);
     ibool = false; /* (120,119,169) */
-    CHECK_OK(pn_math_pythagorean_check(120ull, 119ull, 169ull, &ibool, &err_), err_);
+    CHECK_VALUE(ibool =
+                    pn_math_is_pythagorean_triple((pn_math_triple) {120ull, 119ull, 169ull}, &err_),
+                err_);
     CHECK(ibool == true);
     ibool = false; /* (3,4,5) */
-    CHECK_OK(pn_math_pythagorean_check(3ull, 4ull, 5ull, &ibool, &err_), err_);
+    CHECK_VALUE(ibool = pn_math_is_pythagorean_triple((pn_math_triple) {3ull, 4ull, 5ull}, &err_),
+                err_);
     CHECK(ibool == true);
     ibool = true; /* (1,2,3) */
-    CHECK_OK(pn_math_pythagorean_check(1ull, 2ull, 3ull, &ibool, &err_), err_);
+    CHECK_VALUE(ibool = pn_math_is_pythagorean_triple((pn_math_triple) {1ull, 2ull, 3ull}, &err_),
+                err_);
     CHECK(ibool == false);
     ibool = true; /* (1,1,1) */
-    CHECK_OK(pn_math_pythagorean_check(1ull, 1ull, 1ull, &ibool, &err_), err_);
+    CHECK_VALUE(ibool = pn_math_is_pythagorean_triple((pn_math_triple) {1ull, 1ull, 1ull}, &err_),
+                err_);
     CHECK(ibool == false);
     ibool = true; /* (1,4,5) */
-    CHECK_OK(pn_math_pythagorean_check(1ull, 4ull, 5ull, &ibool, &err_), err_);
+    CHECK_VALUE(ibool = pn_math_is_pythagorean_triple((pn_math_triple) {1ull, 4ull, 5ull}, &err_),
+                err_);
     CHECK(ibool == false);
     ibool = false; /* (5,12,13) */
-    CHECK_OK(pn_math_pythagorean_check(5ull, 12ull, 13ull, &ibool, &err_), err_);
+    CHECK_VALUE(ibool = pn_math_is_pythagorean_triple((pn_math_triple) {5ull, 12ull, 13ull}, &err_),
+                err_);
     CHECK(ibool == true);
     ibool = false; /* (8,15,17) */
-    CHECK_OK(pn_math_pythagorean_check(8ull, 15ull, 17ull, &ibool, &err_), err_);
+    CHECK_VALUE(ibool = pn_math_is_pythagorean_triple((pn_math_triple) {8ull, 15ull, 17ull}, &err_),
+                err_);
     CHECK(ibool == true);
     ibool = true; /* (2,3,4) */
-    CHECK_OK(pn_math_pythagorean_check(2ull, 3ull, 4ull, &ibool, &err_), err_);
+    CHECK_VALUE(ibool = pn_math_is_pythagorean_triple((pn_math_triple) {2ull, 3ull, 4ull}, &err_),
+                err_);
     CHECK(ibool == false);
     ibool = true; /* (4294967295,4294967295,1) */
-    CHECK_OK(pn_math_pythagorean_check(4294967295ull, 4294967295ull, 1ull, &ibool, &err_), err_);
+    CHECK_VALUE(ibool = pn_math_is_pythagorean_triple(
+                    (pn_math_triple) {4294967295ull, 4294967295ull, 1ull}, &err_),
+                err_);
     CHECK(ibool == false);
     ibool = true;
-    CHECK_ERROR(pn_math_pythagorean_check(0ull, 4ull, 5ull, &ibool, &err_), err_,
-                PN_ERROR_RANGE); /* (0, 4, 5) off the rod */
+    CHECK_VALUE_ERROR(ibool =
+                          pn_math_is_pythagorean_triple((pn_math_triple) {0ull, 4ull, 5ull}, &err_),
+                      err_, PN_ERROR_RANGE); /* (0, 4, 5) off the rod */
     ibool = true;
-    CHECK_ERROR(pn_math_pythagorean_check(4294967296ull, 3ull, 5ull, &ibool, &err_), err_,
-                PN_ERROR_RANGE); /* (4294967296, 3, 5) off the rod */
-    ibool = true;                /* (4294967295,2,4294967295) */
-    CHECK_OK(pn_math_pythagorean_check(4294967295ull, 2ull, 4294967295ull, &ibool, &err_), err_);
+    CHECK_VALUE_ERROR(
+        ibool = pn_math_is_pythagorean_triple((pn_math_triple) {4294967296ull, 3ull, 5ull}, &err_),
+        err_, PN_ERROR_RANGE); /* (4294967296, 3, 5) off the rod */
+    ibool = true;              /* (4294967295,2,4294967295) */
+    CHECK_VALUE(ibool = pn_math_is_pythagorean_triple(
+                    (pn_math_triple) {4294967295ull, 2ull, 4294967295ull}, &err_),
+                err_);
     CHECK(ibool == false);
     ibool = true; /* (3,4,7) */
-    CHECK_OK(pn_math_pythagorean_check(3ull, 4ull, 7ull, &ibool, &err_), err_);
+    CHECK_VALUE(ibool = pn_math_is_pythagorean_triple((pn_math_triple) {3ull, 4ull, 7ull}, &err_),
+                err_);
     CHECK(ibool == false);
     ibool = true; /* (1855032277,1855028160,2621439) */
-    CHECK_OK(pn_math_pythagorean_check(1855032277ull, 1855028160ull, 2621439ull, &ibool, &err_),
-             err_);
+    CHECK_VALUE(ibool = pn_math_is_pythagorean_triple(
+                    (pn_math_triple) {1855032277ull, 1855028160ull, 2621439ull}, &err_),
+                err_);
     CHECK(ibool == false);
     ibool = true;
 }
@@ -782,9 +844,12 @@ static void t_loom_and_rod(void) {
     for (uint64_t m = 2ull; m <= 256ull; m++) {
         for (uint64_t n = 1ull; n < m; n++) {
             pn_error* st = NULL;
-            bool wove = pn_math_pythagorean_triple(m, n, &x, &y, &z, &st);
+            triple = pn_math_pythagorean_triple(m, n, &st);
+            x = triple.leg1;
+            y = triple.leg2;
+            z = triple.hypotenuse;
 
-            if (!wove) {
+            if (st != NULL) {
                 CHECK(st != NULL && st->code == PN_ERROR_RANGE);
                 CHECK(m * m + n * n > PN_MATH_SIDE_MAX_VALUE);
                 pn_error_free(st);
@@ -793,13 +858,16 @@ static void t_loom_and_rod(void) {
             CHECK(st == NULL);
             pn_error_free(st);
             CHECK(z > x && z > y);
-            CHECK_OK(pn_math_pythagorean_check(x, y, z, &verdict, &err_), err_);
+            CHECK_VALUE(verdict = pn_math_is_pythagorean_triple((pn_math_triple) {x, y, z}, &err_),
+                        err_);
             CHECK(verdict);
-            CHECK_OK(pn_math_pythagorean_check(y, x, z, &verdict, &err_), err_);
+            CHECK_VALUE(verdict = pn_math_is_pythagorean_triple((pn_math_triple) {y, x, z}, &err_),
+                        err_);
             CHECK(verdict);
             CHECK(x * x + y * y == z * z); /* the C rod agrees */
             x = x + 1ull;                  /* spoil one leg */
-            CHECK_OK(pn_math_pythagorean_check(x, y, z, &verdict, &err_), err_);
+            CHECK_VALUE(verdict = pn_math_is_pythagorean_triple((pn_math_triple) {x, y, z}, &err_),
+                        err_);
             CHECK(!verdict);
         }
     }

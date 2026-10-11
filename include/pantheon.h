@@ -1348,17 +1348,18 @@ size_t pn_math_sieve_size(uint64_t limit);
 /// https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes
 ///
 /// @param limit - the largest number to check
-/// @param out - where the primes are written, with @param cap slots
-/// @param cap - how many slots out has
-/// @param count - how many primes were written, on success
+/// @param primes - where the primes are written, with @param capacity slots
+/// @param capacity - how many slots primes has; pn_math_sieve_size(limit)
+///     is enough
 /// @param error - where to put the error report on failure:
 ///     PN_ERROR_RANGE when limit is above PN_MATH_SIEVE_MAX_VALUE,
-///     PN_ERROR_BUFFER when cap is less than the number of primes.
-///     On failure out and count are not changed.
-/// @returns the caller's `out` on success, or NULL and the
-/// @param error encountered.
-uint64_t* _Nullable pn_math_sieve(uint64_t limit, uint64_t* _Nonnull out, size_t cap,
-                                  size_t* _Nonnull count, pn_error* _Nullable* _Nullable error);
+///     PN_ERROR_BUFFER when capacity is less than the number of primes.
+///     On failure primes is not changed.
+/// @returns how many primes were written, or 0 and the
+/// @param error encountered (check the error, since there are no
+///     primes below 2).
+size_t pn_math_sieve(uint64_t limit, uint64_t* _Nonnull primes, size_t capacity,
+                     pn_error* _Nullable* _Nullable error);
 
 /// The greatest common divisor of @param a and @param b: the biggest
 /// number that divides both. Uses Euclid's algorithm (Elements,
@@ -1367,112 +1368,106 @@ uint64_t* _Nullable pn_math_sieve(uint64_t limit, uint64_t* _Nonnull out, size_t
 /// gcd(1071, 462) = 21. gcd(0, 0) is 0 by convention.
 /// https://en.wikipedia.org/wiki/Euclidean_algorithm
 ///
-/// @param a - one number
-/// @param b - the other number
-/// @param out - where the answer is stored on success
-/// @param error - where to put the error report on failure.
-/// @returns the caller's `out` on success, or NULL and the
-/// @param error encountered.
-uint64_t* _Nullable pn_math_gcd(uint64_t a, uint64_t b, uint64_t* _Nonnull out,
-                                pn_error* _Nullable* _Nullable error);
+/// @returns the greatest common divisor of the
+/// @param a and
+/// @param b provided
+uint64_t pn_math_greatest_common_divisor(uint64_t a, uint64_t b);
 
 /// The least common multiple of @param a and @param b: the smallest
 /// number both divide into, computed as a / gcd(a, b) x b.
 /// lcm(1071, 462) = 23562. lcm(0, n) is 0 by convention.
 /// https://en.wikipedia.org/wiki/Least_common_multiple
 ///
-/// @param a - one number
-/// @param b - the other number
-/// @param out - where the answer is stored on success
-/// @param error - where to put the error report on failure:
+/// @returns the least common multiple of the
+/// @param a and
+/// @param b provided, or 0 and the
+/// @param error encountered:
 ///     PN_ERROR_RANGE when the answer is too big for a uint64_t.
-/// @returns the caller's `out` on success, or NULL and the
-/// @param error encountered.
-uint64_t* _Nullable pn_math_lcm(uint64_t a, uint64_t b, uint64_t* _Nonnull out,
-                                pn_error* _Nullable* _Nullable error);
+uint64_t pn_math_least_common_multiple(uint64_t a, uint64_t b,
+                                       pn_error* _Nullable* _Nullable error);
 
-/// Is @param n a square number (k x k for some whole k)? The
+/// Is @param number a square number (k x k for some whole k)? The
 /// Pythagoreans drew square numbers as square arrays of dots.
 /// is_square(999950884) is true: it is 31622 x 31622.
 /// https://en.wikipedia.org/wiki/Square_number
 ///
-/// @param n - the number to check
-/// @param out - where the answer is stored on success
-/// @param error - where to put the error report on failure.
-/// @returns the caller's `out` on success, or NULL and the
-/// @param error encountered.
-bool* _Nullable pn_math_is_square(uint64_t n, bool* _Nonnull out,
-                                  pn_error* _Nullable* _Nullable error);
+/// @returns true when the
+/// @param number provided is a square
+bool pn_math_is_square(uint64_t number);
 
-/// Is @param n prime? The answer is exact for every uint64_t: trial
-/// division below 2^32, and Miller-Rabin with seven fixed bases above
-/// (see the Math notes above). An easy test that only checks
-/// Fermat's little theorem is fooled by Carmichael numbers such as
-/// 561 = 3 x 11 x 17; this one is not, so is_prime(561) is false.
+/// Is @param number prime? The answer is exact for every uint64_t:
+/// trial division below 2^32, and Miller-Rabin with seven fixed
+/// bases above (see the Math notes above). An easy test that only
+/// checks Fermat's little theorem is fooled by Carmichael numbers
+/// such as 561 = 3 x 11 x 17; this one is not, so is_prime(561) is
+/// false.
 /// https://en.wikipedia.org/wiki/Carmichael_number
 ///
-/// @param n - the number to check
-/// @param out - where the answer is stored on success
-/// @param error - where to put the error report on failure.
-/// @returns the caller's `out` on success, or NULL and the
-/// @param error encountered.
-bool* _Nullable pn_math_is_prime(uint64_t n, bool* _Nonnull out,
-                                 pn_error* _Nullable* _Nullable error);
+/// @returns true when the
+/// @param number provided is prime
+bool pn_math_is_prime(uint64_t number);
 
-/// The smallest prime that is at least @param n, so a prime n is its
-/// own answer: next_prime(1) = 2, next_prime(2) = 2,
+/// The smallest prime that is at least @param number, so a prime is
+/// its own answer: next_prime(1) = 2, next_prime(2) = 2,
 /// next_prime(46340) = 46349.
 ///
-/// @param n - where to start looking
-/// @param out - where the answer is stored on success
-/// @param error - where to put the error report on failure:
-///     PN_ERROR_RANGE when there is no prime from n up to UINT64_MAX.
-/// @returns the caller's `out` on success, or NULL and the
-/// @param error encountered.
-uint64_t* _Nullable pn_math_next_prime(uint64_t n, uint64_t* _Nonnull out,
-                                       pn_error* _Nullable* _Nullable error);
+/// @returns the next prime from the
+/// @param number provided, or 0 and the
+/// @param error encountered:
+///     PN_ERROR_RANGE when there is no prime from number up to
+///     UINT64_MAX.
+uint64_t pn_math_next_prime(uint64_t number, pn_error* _Nullable* _Nullable error);
 
 /// @returns how many prime factors @param n has, counting repeats
 /// (90 = 2 x 3 x 3 x 5 has 4), the number of slots pn_math_factorize
 /// needs. 0 and 1 have none.
 size_t pn_math_factorize_size(uint64_t n);
 
-/// Split @param n into its prime factors, smallest first, with
+/// Split @param number into its prime factors, smallest first, with
 /// repeats: 90 = 2 x 3 x 3 x 5, 649 = 11 x 59. Every whole number
 /// above 1 has exactly one such list (the fundamental theorem of
 /// arithmetic). 0 and 1 give an empty list.
 /// https://en.wikipedia.org/wiki/Fundamental_theorem_of_arithmetic
 ///
-/// @param n - the number to factor
-/// @param out - where the factors are written, with @param cap slots
-/// @param cap - how many slots out has
-/// @param count - how many factors were written, on success
+/// @param number - the number to factor
+/// @param factors - where the factors are written, with @param capacity
+///     slots
+/// @param capacity - how many slots factors has;
+///     pn_math_factorize_size(number) is enough
 /// @param error - where to put the error report on failure:
-///     PN_ERROR_BUFFER when cap is less than the number of factors.
-///     On failure out and count are not changed.
-/// @returns the caller's `out` on success, or NULL and the
-/// @param error encountered.
-uint64_t* _Nullable pn_math_factorize(uint64_t n, uint64_t* _Nonnull out, size_t cap,
-                                      size_t* _Nonnull count, pn_error* _Nullable* _Nullable error);
+///     PN_ERROR_BUFFER when capacity is less than the number of
+///     factors. On failure factors is not changed.
+/// @returns how many factors were written, or 0 and the
+/// @param error encountered (check the error, since 0 and 1 have no
+///     factors).
+size_t pn_math_factorize(uint64_t number, uint64_t* _Nonnull factors, size_t capacity,
+                         pn_error* _Nullable* _Nullable error);
 
-/// Is @param n a perfect number, equal to the sum of its divisors
-/// other than itself? 6 = 1 + 2 + 3 is the first; then come 28, 496
-/// and 8128. Euclid showed how to build even perfect numbers
+/// Is @param number a perfect number, equal to the sum of its
+/// divisors other than itself? 6 = 1 + 2 + 3 is the first; then come
+/// 28, 496 and 8128. Euclid showed how to build even perfect numbers
 /// (Elements, Book IX, Proposition 36), and Euler proved every even
 /// perfect number has that form. Nobody knows if an odd one exists.
-/// perfect_check(90) is false; perfect_check(0) and (1) are errors.
+/// is_perfect(90) is false; is_perfect(0) and (1) are errors.
 /// https://en.wikipedia.org/wiki/Perfect_number
 ///
-/// @param n - the number to check
-/// @param out - where the answer is stored on success
-/// @param error - where to put the error report on failure:
-///     PN_ERROR_RANGE when n is below 2.
-/// @returns the caller's `out` on success, or NULL and the
-/// @param error encountered.
-bool* _Nullable pn_math_perfect_check(uint64_t n, bool* _Nonnull out,
-                                      pn_error* _Nullable* _Nullable error);
+/// @returns true when the
+/// @param number provided is perfect, or false and the
+/// @param error encountered:
+///     PN_ERROR_RANGE when number is below 2.
+bool pn_math_is_perfect(uint64_t number, pn_error* _Nullable* _Nullable error);
 
 // MARK: - Pythagoras
+
+/// @struct `pn_math_triple`: the sides of a right triangle
+/// @field leg1 - one short side
+/// @field leg2 - the other short side
+/// @field hypotenuse - the long side, opposite the right angle
+typedef struct pn_math_triple {
+    uint64_t leg1;
+    uint64_t leg2;
+    uint64_t hypotenuse;
+} pn_math_triple;
 
 /// Make a Pythagorean triple (whole-number sides of a right
 /// triangle) with Euclid's formula, from two numbers
@@ -1484,37 +1479,27 @@ bool* _Nullable pn_math_perfect_check(uint64_t n, bool* _Nonnull out,
 /// first row of the Babylonian tablet Plimpton 322.
 /// https://en.wikipedia.org/wiki/Pythagorean_triple
 /// https://en.wikipedia.org/wiki/Plimpton_322
-/// @param m - the bigger starting number, at most PN_MATH_M_MAX_VALUE
-/// @param n - the smaller starting number
-/// @param leg1 - where m^2 - n^2 is stored
-/// @param leg2 - where 2mn is stored
-/// @param hypotenuse - where m^2 + n^2 is stored
-/// @param error - where to put the error report on failure:
-///     PN_ERROR_RANGE when not 1 <= n < m <= 65535, or a side is
-///     above PN_MATH_SIDE_MAX_VALUE.
-/// @returns the caller's `leg1` on success, or NULL and the
-/// @param error encountered.
-uint64_t* _Nullable pn_math_pythagorean_triple(uint64_t m, uint64_t n, uint64_t* _Nonnull leg1,
-                                               uint64_t* _Nonnull leg2,
-                                               uint64_t* _Nonnull hypotenuse,
-                                               pn_error* _Nullable* _Nullable error);
+///
+/// @returns the triple made from the
+/// @param m and
+/// @param n provided, or a zeroed triple and the
+/// @param error encountered:
+///     PN_ERROR_RANGE when not 1 <= n < m <= PN_MATH_M_MAX_VALUE, or
+///     a side is above PN_MATH_SIDE_MAX_VALUE.
+pn_math_triple pn_math_pythagorean_triple(uint64_t m, uint64_t n,
+                                          pn_error* _Nullable* _Nullable error);
 
-/// Is x^2 + y^2 = z^2, so that @param x, @param y and @param z are
-/// the sides of a right triangle (the Pythagorean theorem)?
-/// (119, 120, 169) is.
+/// Is leg1^2 + leg2^2 = hypotenuse^2, so that the
+/// @param triple provided is a right triangle (the Pythagorean
+/// theorem)? (119, 120, 169) is.
 /// https://en.wikipedia.org/wiki/Pythagorean_theorem
 ///
-/// @param x - one short side
-/// @param y - the other short side
-/// @param z - the longest side
-/// @param out - where the answer is stored on success
-/// @param error - where to put the error report on failure:
+/// @returns true when the triple is a right triangle, or false and
+/// the
+/// @param error encountered:
 ///     PN_ERROR_RANGE when a side is below 1 or above
 ///     PN_MATH_SIDE_MAX_VALUE.
-/// @returns the caller's `out` on success, or NULL and the
-/// @param error encountered.
-bool* _Nullable pn_math_pythagorean_check(uint64_t x, uint64_t y, uint64_t z, bool* _Nonnull out,
-                                          pn_error* _Nullable* _Nullable error);
+bool pn_math_is_pythagorean_triple(pn_math_triple triple, pn_error* _Nullable* _Nullable error);
 
 #pragma clang diagnostic pop
 

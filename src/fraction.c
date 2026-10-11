@@ -48,27 +48,11 @@
 
 __extension__ typedef unsigned __int128 pn_u128;
 
-/*
-    Greatest common divisor by Euclid's algorithm (Elements, Book VII,
-    Proposition 2). pn_math_gcd does the same but reports through an
-    out-parameter, which this file doesn't need.
-    https://en.wikipedia.org/wiki/Euclidean_algorithm
-*/
-static uint64_t gcd(uint64_t a, uint64_t b) {
-    while (b != 0) {
-        uint64_t r = a % b;
-
-        a = b;
-        b = r;
-    }
-
-    return a;
-}
-
 pn_fraction pn_fraction_make(uint64_t numerator, uint64_t denominator, bool neg) {
     assert(denominator != 0);
 
-    uint64_t divisor = gcd(numerator, denominator); /* never 0, because the denominator isn't 0 */
+    /* never 0, because the denominator isn't 0 */
+    uint64_t divisor = pn_math_greatest_common_divisor(numerator, denominator);
 
     return (pn_fraction) {
         .numerator = numerator / divisor,

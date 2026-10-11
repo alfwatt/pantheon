@@ -337,13 +337,13 @@ size_t pn_math_sieve_size(uint64_t limit) {
     return count;
 }
 
-uint64_t* _Nullable pn_math_sieve(uint64_t limit, uint64_t* _Nonnull out, size_t cap,
-                                  size_t* _Nonnull count, pn_error* _Nullable* _Nullable error) {
+size_t pn_math_sieve(uint64_t limit, uint64_t* _Nonnull primes, size_t capacity,
+                     pn_error* _Nullable* _Nullable error) {
     uint8_t composite[PN_MATH_SHEET];
     size_t need, w;
     uint64_t n;
 
-    assert(out && count);
+    assert(primes);
     if (limit > PN_MATH_SIEVE_MAX_VALUE) {
         if (error) {
             *error = pn_error_init(PN_ERROR_RANGE,
@@ -352,50 +352,43 @@ uint64_t* _Nullable pn_math_sieve(uint64_t limit, uint64_t* _Nonnull out, size_t
                                    (unsigned long long) limit,
                                    (unsigned long long) PN_MATH_SIEVE_MAX_VALUE);
         }
-        return NULL;
+        return 0;
     }
     need = pn_math_sieve_size(limit);
-    if (cap < need) {
+    if (capacity < need) {
         if (error) {
             *error = pn_error_init(PN_ERROR_BUFFER,
                                    "the array holds room for %zu"
                                    " prime(s); the sieve would write"
                                    " %zu of them",
-                                   cap, need);
+                                   capacity, need);
         }
-        return NULL;
+        return 0;
     }
     if (need == 0u) {
-        *count = 0u; /* no primes up to limit: nothing to write */
-        return out;
+        return 0; /* no primes up to limit: nothing to write */
     }
     pn_sheet(composite);
     w = 0u;
     for (n = 2u; n <= limit; n++) {
         if (pn_prime_on(composite, n) != 0) {
-            out[w++] = n;
+            primes[w++] = n;
         }
     }
-    *count = w;
-    return out;
+
+    return w;
 }
 
-uint64_t* _Nullable pn_math_gcd(uint64_t a, uint64_t b, uint64_t* _Nonnull out,
-                                pn_error* _Nullable* _Nullable error) {
-    assert(out);
-    (void) error; /* -Wunused-parameter: nothing here can fail */
-    *out = pn_gcd(a, b);
-    return out;
+uint64_t pn_math_greatest_common_divisor(uint64_t a, uint64_t b) {
+    return pn_gcd(a, b);
 }
 
-uint64_t* _Nullable pn_math_lcm(uint64_t a, uint64_t b, uint64_t* _Nonnull out,
-                                pn_error* _Nullable* _Nullable error) {
+uint64_t pn_math_least_common_multiple(uint64_t a, uint64_t b,
+                                       pn_error* _Nullable* _Nullable error) {
     uint64_t g, q;
 
-    assert(out);
     if (a == 0u || b == 0u) {
-        *out = 0u; /* lcm(0, n) is 0 by convention */
-        return out;
+        return 0; /* lcm(0, n) is 0 by convention */
     }
     g = pn_gcd(a, b);
     q = a / g;
@@ -407,59 +400,49 @@ uint64_t* _Nullable pn_math_lcm(uint64_t a, uint64_t b, uint64_t* _Nonnull out,
                                    " no uint64_t holds the answer",
                                    (unsigned long long) a, (unsigned long long) b);
         }
-        return NULL;
+        return 0;
     }
-    *out = q * b;
-    return out;
+
+    return q * b;
 }
 
-bool* _Nullable pn_math_is_square(uint64_t n, bool* _Nonnull out,
-                                  pn_error* _Nullable* _Nullable error) {
+bool pn_math_is_square(uint64_t number) {
     uint64_t x;
 
-    assert(out);
-    (void) error; /* -Wunused-parameter: nothing here can fail */
-    x = pn_isqrt(n);
-    *out = (x * x == n); /* x < 2^32, so x * x can't overflow */
-    return out;
+    x = pn_isqrt(number);
+
+    return x * x == number; /* x < 2^32, so x * x can't overflow */
 }
 
-bool* _Nullable pn_math_is_prime(uint64_t n, bool* _Nonnull out,
-                                 pn_error* _Nullable* _Nullable error) {
+bool pn_math_is_prime(uint64_t number) {
     uint8_t composite[PN_MATH_SHEET];
 
-    assert(out);
-    (void) error; /* -Wunused-parameter: nothing here can fail */
     pn_sheet(composite);
-    *out = (pn_prime_on(composite, n) != 0);
-    return out;
+
+    return pn_prime_on(composite, number) != 0;
 }
 
-uint64_t* _Nullable pn_math_next_prime(uint64_t n, uint64_t* _Nonnull out,
-                                       pn_error* _Nullable* _Nullable error) {
+uint64_t pn_math_next_prime(uint64_t number, pn_error* _Nullable* _Nullable error) {
     uint8_t composite[PN_MATH_SHEET];
     uint64_t cand;
     unsigned k;
 
-    assert(out);
     for (k = 0u; k < N_SMALL; k++) {
-        if (n <= small_primes[k]) {
-            *out = small_primes[k];
-            return out;
+        if (number <= small_primes[k]) {
+            return small_primes[k];
         }
     }
     pn_sheet(composite);
-    if ((n & 1u) == 0u) {
-        /* n is even: start at n + 1, since every prime above 2 is odd */
-        cand = n + 1u;
+    if ((number & 1u) == 0u) {
+        /* number is even: start at number + 1, since every prime above 2 is odd */
+        cand = number + 1u;
     }
     else {
-        cand = n; /* n is odd: test n itself, so next_prime(7) is 7 */
+        cand = number; /* number is odd: test number itself, so next_prime(7) is 7 */
     }
     for (;;) {
         if (pn_prime_on(composite, cand) != 0) {
-            *out = cand;
-            return out;
+            return cand;
         }
         if (cand > UINT64_MAX - 2u) {
             if (error) {
@@ -467,9 +450,9 @@ uint64_t* _Nullable pn_math_next_prime(uint64_t n, uint64_t* _Nonnull out,
                                        "%llu and every odd number"
                                        " above it run off the end"
                                        " of the ledger",
-                                       (unsigned long long) n);
+                                       (unsigned long long) number);
             }
-            return NULL;
+            return 0;
         }
         cand += 2u;
     }
@@ -526,33 +509,31 @@ size_t pn_math_factorize_size(uint64_t n) {
     return pn_do_factorize(n, facs);
 }
 
-uint64_t* _Nullable pn_math_factorize(uint64_t n, uint64_t* _Nonnull out, size_t cap,
-                                      size_t* _Nonnull count,
-                                      pn_error* _Nullable* _Nullable error) {
+size_t pn_math_factorize(uint64_t number, uint64_t* _Nonnull factors, size_t capacity,
+                         pn_error* _Nullable* _Nullable error) {
     uint64_t facs[PN_MATH_MAX_FACTORS];
     size_t w;
 
-    assert(out && count);
-    if (n < 2u) {
-        *count = 0u; /* 0 and 1 have no prime factors */
-        return out;
+    assert(factors);
+    if (number < 2u) {
+        return 0; /* 0 and 1 have no prime factors */
     }
-    w = pn_do_factorize(n, facs);
-    if (w > cap) {
+    w = pn_do_factorize(number, facs);
+    if (w > capacity) {
         if (error) {
             *error = pn_error_init(PN_ERROR_BUFFER,
                                    "the array holds room for %zu"
                                    " factor(s); %llu has %zu of"
                                    " them",
-                                   cap, (unsigned long long) n, w);
+                                   capacity, (unsigned long long) number, w);
         }
-        return NULL;
+        return 0;
     }
     for (size_t i = 0u; i < w; i++) {
-        out[i] = facs[i];
+        factors[i] = facs[i];
     }
-    *count = w;
-    return out;
+
+    return w;
 }
 
 /*
@@ -590,20 +571,18 @@ static int pn_sigma_odd_below_gap(uint64_t n, uint64_t* out) {
     return 1;
 }
 
-bool* _Nullable pn_math_perfect_check(uint64_t n, bool* _Nonnull out,
-                                      pn_error* _Nullable* _Nullable error) {
-    assert(out);
-    if (n < 2u) {
+bool pn_math_is_perfect(uint64_t number, pn_error* _Nullable* _Nullable error) {
+    if (number < 2u) {
         if (error) {
             *error = pn_error_init(PN_ERROR_RANGE,
                                    "%llu is the blank or the unit:"
                                    " a perfect number is a sum of"
                                    " its own parts",
-                                   (unsigned long long) n);
+                                   (unsigned long long) number);
         }
-        return NULL;
+        return false;
     }
-    if ((n & 1u) == 0u) {
+    if ((number & 1u) == 0u) {
         /*
             The Euclid-Euler theorem: an even number is perfect exactly
             when it equals 2^(k-1) x (2^k - 1) and 2^k - 1 is prime (a
@@ -611,26 +590,23 @@ bool* _Nullable pn_math_perfect_check(uint64_t n, bool* _Nonnull out,
             what is left is 2^k - 1, then test it with Miller-Rabin.
             https://en.wikipedia.org/wiki/Euclid%E2%80%93Euler_theorem
         */
-        uint64_t twos = 0u, odd = n, mers;
+        uint64_t twos = 0u, odd = number, mers;
 
         while ((odd & 1u) == 0u) {
             odd >>= 1;
             twos++;
         }
         if (twos + 1u >= 64u) {
-            *out = false; /* 2^k - 1 would not fit in a uint64_t */
-            return out;
+            return false; /* 2^k - 1 would not fit in a uint64_t */
         }
         mers = (1ull << (twos + 1u)) - 1u;
         if (mers != odd) {
-            *out = false; /* not of the form 2^(k-1) x (2^k - 1) */
-            return out;
+            return false; /* not of the form 2^(k-1) x (2^k - 1) */
         }
-        *out = (pn_witness_prime(mers) != 0);
-        return out;
+        return (pn_witness_prime(mers) != 0);
     }
     /*
-        Odd n: nobody knows whether any odd perfect number exists,
+        Odd number: nobody knows whether any odd perfect number exists,
         but none exists below 10^1500 (Ochem and Rao, 2012), so every
         uint64_t answer here is false. The code still computes the
         divisor sum where it fits instead of relying on that result.
@@ -638,26 +614,21 @@ bool* _Nullable pn_math_perfect_check(uint64_t n, bool* _Nonnull out,
     */
     uint64_t sigma;
 
-    if (!pn_sigma_odd_below_gap(n, &sigma)) {
-        /* the divisor sum is too big for a uint64_t, and n is not perfect */
-        *out = false;
-        return out;
+    if (!pn_sigma_odd_below_gap(number, &sigma)) {
+        /* the divisor sum is too big for a uint64_t, and number is not perfect */
+        return false;
     }
     /*
-        if n >= 2^63, 2n wraps around to less than n, which is smaller than sigma, so the answer is
+        if number >= 2^63, 2n wraps around to less than number, which is smaller than sigma, so the answer is
         still correctly false
     */
-    *out = (sigma == 2u * n);
-    return out;
+    return (sigma == 2u * number);
 }
 
-uint64_t* _Nullable pn_math_pythagorean_triple(uint64_t m, uint64_t n, uint64_t* _Nonnull leg1,
-                                               uint64_t* _Nonnull leg2,
-                                               uint64_t* _Nonnull hypotenuse,
-                                               pn_error* _Nullable* _Nullable error) {
+pn_math_triple pn_math_pythagorean_triple(uint64_t m, uint64_t n,
+                                          pn_error* _Nullable* _Nullable error) {
     uint64_t mm, a, b, c;
 
-    assert(leg1 && leg2 && hypotenuse);
     if (n < 1u || m <= n || m > PN_MATH_M_MAX_VALUE) {
         if (error) {
             *error = pn_error_init(PN_ERROR_RANGE,
@@ -667,7 +638,7 @@ uint64_t* _Nullable pn_math_pythagorean_triple(uint64_t m, uint64_t n, uint64_t*
                                    (unsigned long long) PN_MATH_M_MAX_VALUE, (unsigned long long) m,
                                    (unsigned long long) n);
         }
-        return NULL;
+        return (pn_math_triple) {0};
     }
     mm = m * m; /* m < 2^16, so m * m fits easily */
     a = mm - n * n;
@@ -681,23 +652,20 @@ uint64_t* _Nullable pn_math_pythagorean_triple(uint64_t m, uint64_t n, uint64_t*
                                    " rule measures",
                                    PN_MATH_SIDE_MAX_VALUE);
         }
-        return NULL;
+        return (pn_math_triple) {0};
     }
     /*
         m^2 - n^2 first, then 2mn, as in Euclid's formula;
         https://en.wikipedia.org/wiki/Pythagorean_triple#Generating_a_triple
     */
-    *leg1 = a;
-    *leg2 = b;
-    *hypotenuse = c;
-    return leg1;
+
+    return (pn_math_triple) {.leg1 = a, .leg2 = b, .hypotenuse = c};
 }
 
-bool* _Nullable pn_math_pythagorean_check(uint64_t x, uint64_t y, uint64_t z, bool* _Nonnull out,
-                                          pn_error* _Nullable* _Nullable error) {
+bool pn_math_is_pythagorean_triple(pn_math_triple triple, pn_error* _Nullable* _Nullable error) {
+    uint64_t x = triple.leg1, y = triple.leg2, z = triple.hypotenuse;
     uint64_t xx, yy, zz, rem;
 
-    assert(out);
     if (x < 1u || y < 1u || z < 1u || x > PN_MATH_SIDE_MAX_VALUE || y > PN_MATH_SIDE_MAX_VALUE
         || z > PN_MATH_SIDE_MAX_VALUE) {
         if (error) {
@@ -708,7 +676,7 @@ bool* _Nullable pn_math_pythagorean_check(uint64_t x, uint64_t y, uint64_t z, bo
                                    PN_MATH_SIDE_MAX_VALUE, (unsigned long long) x,
                                    (unsigned long long) y, (unsigned long long) z);
         }
-        return NULL;
+        return false;
     }
     xx = x * x; /* each side is below 2^32, so each square fits */
     yy = y * y;
@@ -716,9 +684,7 @@ bool* _Nullable pn_math_pythagorean_check(uint64_t x, uint64_t y, uint64_t z, bo
     rem = UINT64_MAX - xx;
     if (yy > rem) {
         /* x^2 + y^2 is too big for a uint64_t, but z^2 fits, so they can't be equal */
-        *out = false;
-        return out;
+        return false;
     }
-    *out = ((xx + yy) == zz);
-    return out;
+    return ((xx + yy) == zz);
 }

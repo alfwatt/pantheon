@@ -110,14 +110,14 @@ rendered notations follow narrow-to-wide, longest furthest right.
 #### Greek
 - Pythagoras
      - [x] [pythagorean theorem](https://en.wikipedia.org/wiki/Pythagorean_theorem)
-- the Plimpton loom: `pn_math_pythagorean_triple` weaves legs m*m−n*n and 2*m*n and hypotenuse m*m+n*n from m > n ≥ 1; `pn_math_pythagorean_check` weighs the rod, sides to 4,294,967,295
+- `pn_math_pythagorean_triple` builds right triangles with Euclid's formula (legs m²−n² and 2mn, hypotenuse m²+n², from m > n ≥ 1); `pn_math_is_pythagorean_triple` checks one, sides up to 4,294,967,295
      - [x] gnomon figures
-- `pn_math_is_square` weighs any ledger number, squares to 18446744073709551615
+- `pn_math_is_square` checks any uint64_t for being a square number
 - Euclid
      - [x] [Elements](https://en.wikipedia.org/wiki/Euclid%27s_Elements)
-- the ladder of remainders VII.1-2: `pn_math_gcd` and `pn_math_lcm` over the whole uint64 ledger; the abacist's ledger of factors `pn_math_factorize` (90 = 2 x 3 x 3 x 5, ascending braid); the numbers equal to their own parts IX.36: `pn_math_perfect_check` (6, 28, 496, 8128)
+- Euclid's algorithm (Book VII): `pn_math_greatest_common_divisor` and `pn_math_least_common_multiple`; prime factors with `pn_math_factorize` (90 = 2 × 3 × 3 × 5); perfect numbers (Book IX): `pn_math_is_perfect` (6, 28, 496, 8128)
          - Arithmetic
-- `pn_math_is_prime` and `pn_math_next_prime`: proved on the whole ledger — Euclid's trial division below 2^32, Miller's seven certified witnesses above
+- `pn_math_is_prime` and `pn_math_next_prime`: exact for every uint64_t, by trial division below 2^32 and Miller-Rabin with Jim Sinclair's seven bases above
 - [x] [Sieve of Eratosthenes](https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes)
-- `pn_math_sieve` lays the papyrus in UTF-8-free uint64 rows to 1,000,000: pi(100) = 25, pi(1000000) = 78498
+- `pn_math_sieve` lists the primes up to 1,000,000: there are 25 below 100 and 78,498 below 1,000,000
 - Archimedes
