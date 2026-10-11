@@ -94,14 +94,18 @@ covers that script. All of these are free.
 |:--|:--|:--|
 | Babylonian cuneiform | 𒁹 𒌋 | [Noto Sans Cuneiform](https://notofonts.github.io/) |
 | Egyptian hieroglyphs | 𓏤 𓎆 𓍢 | [Noto Sans Egyptian Hieroglyphs](https://notofonts.github.io/) |
-| Brahmi | 𑁒 𑁛 𑁤 𑁿 | [Noto Sans Brahmi](https://notofonts.github.io/) |
-| Maya | 𝋠 𝋡 𝋩 | [BabelStone Mayan Numerals](https://babelstone.co.uk/Fonts/Mayan.html), or [Noto Sans Symbols 2](https://notofonts.github.io/) |
+| Brahmi | 𑁒 𑁛 𑁤 𑁤𑁿𑁕 (400) | [Noto Sans Brahmi](https://notofonts.github.io/) |
+| Maya | 𝋠 𝋡 𝋩 (0, 1, 9) | [BabelStone Mayan Numerals](https://babelstone.co.uk/Fonts/Mayan.html), or [Noto Sans Symbols 2](https://notofonts.github.io/) |
 | Counting rods | 𝍠 𝍩 | [Noto Sans Symbols 2](https://notofonts.github.io/) |
 
 Chinese, Greek, Roman and quipu signs (• ∞) are covered by the fonts
 that come with most systems. [GNU Unifont](https://unifoundry.com/unifont/)
 is a fallback that covers most of Unicode, in a simple pixel
 style.
+
+Safari, and apps that show web content such as Xcode's Markdown
+preview, ignore fonts you install yourself, so on a Mac the Maya signs
+show as placeholders there; the digits in parentheses give their values.
 
 ### Babylonian cuneiform: `pn_babylonian`
 Base 60 pressed into clay with two wedges, 𒁹 (1) and 𒌋 (10). Each
@@ -181,18 +185,18 @@ of the numeral.
 
 | n | Base 60 | Base 20 | Brahmi | Greek | Chinese | Roman | Maya | Rods | Egyptian | Quipu | Cuneiform |
 |--:|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|
-| 1 | 1 | 1 | 𑁒 | αʹ | 一 | I | 𝋡 | 𝍠 | 𓏤 | ∞ | 𒁹 |
-| 2 | 2 | 2 | 𑁓 | βʹ | 二 | II | 𝋢 | 𝍡 | 𓏤𓏤 | ∞∞ | 𒁹𒁹 |
-| 3 | 3 | 3 | 𑁔 | γʹ | 三 | III | 𝋣 | 𝍢 | 𓏤𓏤𓏤 | ∞∞∞ | 𒁹𒁹𒁹 |
-| 4 | 4 | 4 | 𑁕 | δʹ | 四 | IV | 𝋤 | 𝍣 | 𓏤𓏤𓏤𓏤 | ∞∞∞∞ | 𒁹𒁹𒁹𒁹 |
-| 5 | 5 | 5 | 𑁖 | εʹ | 五 | V | 𝋥 | 𝍤 | 𓏤𓏤𓏤𓏤𓏤 | ∞∞∞∞∞ | 𒁹𒁹𒁹𒁹𒁹 |
-| 6 | 6 | 6 | 𑁗 | ϛʹ | 六 | VI | 𝋦 | 𝍥 | 𓏤𓏤𓏤𓏤𓏤𓏤 | ∞∞∞∞∞∞ | 𒁹𒁹𒁹𒁹𒁹𒁹 |
-| 7 | 7 | 7 | 𑁘 | ζʹ | 七 | VII | 𝋧 | 𝍦 | 𓏤𓏤𓏤𓏤𓏤𓏤𓏤 | ∞∞∞∞∞∞∞ | 𒁹𒁹𒁹𒁹𒁹𒁹𒁹 |
-| 8 | 8 | 8 | 𑁙 | ηʹ | 八 | VIII | 𝋨 | 𝍧 | 𓏤𓏤𓏤𓏤𓏤𓏤𓏤𓏤 | ∞∞∞∞∞∞∞∞ | 𒁹𒁹𒁹𒁹𒁹𒁹𒁹𒁹 |
-| 9 | 9 | 9 | 𑁚 | θʹ | 九 | IX | 𝋩 | 𝍨 | 𓏤𓏤𓏤𓏤𓏤𓏤𓏤𓏤𓏤 | ∞∞∞∞∞∞∞∞∞ | 𒁹𒁹𒁹𒁹𒁹𒁹𒁹𒁹𒁹 |
-| 10 | 10 | 10 | 𑁛 | ιʹ | 一十 | X | 𝋪 | 𝍩␣ | 𓎆 | •␣ | 𒌋 |
-| 100 | 1,40 | 5,0 | 𑁤 | ρʹ | 一百 | C | 𝋥␣𝋠 | 𝍠␣␣ | 𓍢 | •␣␣ | 𒁹␣𒌋𒌋𒌋𒌋 |
-| 1000 | 16,40 | 2,10,0 | 𑁥 | ͵αʹ | 一千 | M | 𝋢␣𝋪␣𝋠 | 𝍩␣␣␣ | 𓆼 | •␣␣␣ | 𒌋𒁹𒁹𒁹𒁹𒁹𒁹␣𒌋𒌋𒌋𒌋 |
+| 1 | 1 | 1 | 𑁒 | αʹ | 一 | I | 𝋡 (1) | 𝍠 | 𓏤 | ∞ | 𒁹 |
+| 2 | 2 | 2 | 𑁓 | βʹ | 二 | II | 𝋢 (2) | 𝍡 | 𓏤𓏤 | ∞∞ | 𒁹𒁹 |
+| 3 | 3 | 3 | 𑁔 | γʹ | 三 | III | 𝋣 (3) | 𝍢 | 𓏤𓏤𓏤 | ∞∞∞ | 𒁹𒁹𒁹 |
+| 4 | 4 | 4 | 𑁕 | δʹ | 四 | IV | 𝋤 (4) | 𝍣 | 𓏤𓏤𓏤𓏤 | ∞∞∞∞ | 𒁹𒁹𒁹𒁹 |
+| 5 | 5 | 5 | 𑁖 | εʹ | 五 | V | 𝋥 (5) | 𝍤 | 𓏤𓏤𓏤𓏤𓏤 | ∞∞∞∞∞ | 𒁹𒁹𒁹𒁹𒁹 |
+| 6 | 6 | 6 | 𑁗 | ϛʹ | 六 | VI | 𝋦 (6) | 𝍥 | 𓏤𓏤𓏤𓏤𓏤𓏤 | ∞∞∞∞∞∞ | 𒁹𒁹𒁹𒁹𒁹𒁹 |
+| 7 | 7 | 7 | 𑁘 | ζʹ | 七 | VII | 𝋧 (7) | 𝍦 | 𓏤𓏤𓏤𓏤𓏤𓏤𓏤 | ∞∞∞∞∞∞∞ | 𒁹𒁹𒁹𒁹𒁹𒁹𒁹 |
+| 8 | 8 | 8 | 𑁙 | ηʹ | 八 | VIII | 𝋨 (8) | 𝍧 | 𓏤𓏤𓏤𓏤𓏤𓏤𓏤𓏤 | ∞∞∞∞∞∞∞∞ | 𒁹𒁹𒁹𒁹𒁹𒁹𒁹𒁹 |
+| 9 | 9 | 9 | 𑁚 | θʹ | 九 | IX | 𝋩 (9) | 𝍨 | 𓏤𓏤𓏤𓏤𓏤𓏤𓏤𓏤𓏤 | ∞∞∞∞∞∞∞∞∞ | 𒁹𒁹𒁹𒁹𒁹𒁹𒁹𒁹𒁹 |
+| 10 | 10 | 10 | 𑁛 | ιʹ | 一十 | X | 𝋪 (10) | 𝍩␣ | 𓎆 | •␣ | 𒌋 |
+| 100 | 1,40 | 5,0 | 𑁤 | ρʹ | 一百 | C | 𝋥␣𝋠 (5,0) | 𝍠␣␣ | 𓍢 | •␣␣ | 𒁹␣𒌋𒌋𒌋𒌋 |
+| 1000 | 16,40 | 2,10,0 | 𑁥 | ͵αʹ | 一千 | M | 𝋢␣𝋪␣𝋠 (2,10,0) | 𝍩␣␣␣ | 𓆼 | •␣␣␣ | 𒌋𒁹𒁹𒁹𒁹𒁹𒁹␣𒌋𒌋𒌋𒌋 |
 
 ## Mathematics
 
