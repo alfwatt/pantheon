@@ -303,48 +303,35 @@ char* _Nullable pn_base20_format(pn_base20 v, char sep, char* _Nonnull buf, size
 
 /// Convert a whole number to base-20 places: divide by 20 again and
 /// again, keeping the remainders. 0 becomes the single place {0}.
+/// This can't fail: UINT64_MAX needs only 15 of the 16 places.
 ///
 ///        8800 -> places {1,2,0,0}   (1 x 8000 + 2 x 400 + 0 + 0)
 ///
-/// @param n - the whole number to convert
-/// @param out - where the value is stored on success
-/// @param error - where to put the error report on failure:
-///     PN_ERROR_RANGE when more than PN_BASE20_MAX_PLACES places are
-///     needed (this can't actually happen: UINT64_MAX needs 15).
-/// @returns the caller's `out` on success, or NULL and the
-/// @param error encountered.
-pn_base20* _Nullable pn_base20_from_u64(uint64_t n, pn_base20* _Nonnull out,
-                                        pn_error* _Nullable* _Nullable error);
+/// @returns the base-20 value, a whole number (radix == n_places), of the
+/// @param number provided
+pn_base20 pn_base20_from_u64(uint64_t number);
 
 /// Convert base-20 places back to a whole number with Horner's
 /// method: start at 0, and for each place multiply by 20 and add the
 /// place. https://en.wikipedia.org/wiki/Horner%27s_method
 ///
-/// @param v - the value to convert; it must be a well-formed whole
-///     number
-/// @param out - where the number is stored on success
-/// @param error - where to put the error report on failure:
-///     PN_ERROR_DOMAIN when v is malformed or has a fraction part
+/// @returns the whole number held by the
+/// @param value provided, or 0 and the
+/// @param error encountered (check the error, since 0 is also a real
+///     result):
+///     PN_ERROR_DOMAIN when value is malformed or has a fraction part
 ///     (radix is not n_places),
 ///     PN_ERROR_RANGE when the value is too big for a uint64_t.
-/// @returns the caller's `out` on success, or NULL and the
-/// @param error encountered.
-uint64_t* _Nullable pn_base20_to_u64(pn_base20 v, uint64_t* _Nonnull out,
-                                     pn_error* _Nullable* _Nullable error);
+uint64_t pn_base20_to_u64(pn_base20 value, pn_error* _Nullable* _Nullable error);
 
 /// Convert a base-20 value to a double. The whole part and the
 /// fraction are each computed exactly as whole numbers where they
 /// fit, then combined with one division, so the result is exact
 /// whenever a double can hold the value at all.
 ///
-/// @param v - the value to convert; it must be well-formed
-/// @param out - where the double is stored on success
-/// @param error - where to put the error report on failure:
-///     PN_ERROR_DOMAIN when v is malformed.
-/// @returns the caller's `out` on success, or NULL and the
-/// @param error encountered.
-double* _Nullable pn_base20_to_double(pn_base20 v, double* _Nonnull out,
-                                      pn_error* _Nullable* _Nullable error);
+/// @returns the double nearest the
+/// @param value provided, which must be well-formed
+double pn_base20_to_double(pn_base20 value);
 
 /// Convert a double to base-20 places with exactly @param frac_places
 /// fraction places, rounding the last one half away from zero (0.5
@@ -352,17 +339,15 @@ double* _Nullable pn_base20_to_double(pn_base20 v, double* _Nonnull out,
 /// zero places are kept. Rounding can carry into the whole part:
 /// 0.98 with one fraction place becomes 1;0.
 ///
-/// @param x - the number to convert
-/// @param frac_places - how many fraction places to keep
-/// @param out - where the value is stored on success
-/// @param error - where to put the error report on failure:
+/// @returns the base-20 value of the
+/// @param x provided, with the
+/// @param frac_places provided, or a zeroed value and the
+/// @param error encountered:
 ///     PN_ERROR_DOMAIN for NaN, infinity, or frac_places above
 ///     PN_BASE20_MAX_PLACES,
 ///     PN_ERROR_RANGE when the result needs more than 16 places.
-/// @returns the caller's `out` on success, or NULL and the
-/// @param error encountered.
-pn_base20* _Nullable pn_base20_from_double(double x, uint8_t frac_places, pn_base20* _Nonnull out,
-                                           pn_error* _Nullable* _Nullable error);
+pn_base20 pn_base20_from_double(double x, uint8_t frac_places,
+                                pn_error* _Nullable* _Nullable error);
 
 // MARK: - Base 60
 
@@ -589,8 +574,8 @@ pn_base60* _Nullable pn_base60_from_double(double x, uint8_t frac_places, pn_bas
 /// pn_babylonian_render reports the error.
 size_t pn_babylonian_render_size(pn_base60 v);
 
-/// Write @param v in cuneiform into @param buf as UTF-8, ending with
-/// a null terminator. Each place is its corner wedges then its vertical
+/// Write @param v in cuneiform into @param buf as null terminated UTF-8.
+/// Each place is its corner wedges then its vertical
 /// wedges; places are one space apart; an empty place is the
 /// two-space gap the scribes left. A negative value starts with '-'
 /// (a modern addition). No radix point is drawn, since no tablet
@@ -688,8 +673,8 @@ pn_base60 pn_babylonian_parse(const char* _Nonnull text, pn_error* _Nullable* _N
 /// PN_ERROR_RANGE. 0 gives 0, the empty string.
 size_t pn_egyptian_render_size(uint64_t n);
 
-/// Write @param n in hieroglyphs into @param buf as UTF-8, ending
-/// with a null terminator. Each decimal digit d becomes d copies of its
+/// Write @param n in hieroglyphs into @param buf as null terminated UTF-8.
+/// Each decimal digit d becomes d copies of its
 /// power's sign, biggest power first, with no spaces:
 /// 4622 = 𓆼𓆼𓆼𓆼𓍢𓍢𓍢𓍢𓍢𓍢𓎆𓎆𓏤𓏤.  0 is the empty string. The buffer
 /// needs pn_egyptian_render_size(n) bytes plus the null terminator.
@@ -849,8 +834,8 @@ uint64_t pn_hanzi_parse(const char* _Nonnull text, pn_error* _Nullable* _Nullabl
 /// nothing, and pn_rods_render reports the error.
 size_t pn_rods_render_size(uint64_t n);
 
-/// Write @param n in counting rods into @param buf as UTF-8, ending
-/// with a null terminator: one rod sign per nonzero digit, biggest column
+/// Write @param n in counting rods into @param buf as null terminated UTF-8:
+/// one rod sign per nonzero digit, biggest column
 /// first, one space between neighbouring columns (so 101 = 𝍠␣␣𝍠).
 /// 0 is the empty string. The buffer needs
 /// pn_rods_render_size(@param n) bytes plus the null terminator.
@@ -1027,8 +1012,8 @@ uint64_t pn_brahmi_parse(const char* _Nonnull text, pn_error* _Nullable* _Nullab
 /// answer means nothing, and pn_mayan_render reports the error.
 size_t pn_mayan_render_size(pn_base20 v);
 
-/// Write @param v in Maya numerals into @param buf as UTF-8, ending
-/// with a null terminator: one sign per place, one space between places, so
+/// Write @param v in Maya numerals into @param buf as null terminated UTF-8:
+/// one sign per place, one space between places, so
 /// 429 = 𝋡␣𝋡␣𝋩.  An empty place writes the shell 𝋠, not a gap.
 ///
 /// @param v - the value to write

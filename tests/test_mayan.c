@@ -55,27 +55,27 @@ int main(void) {
 
     /* the codex page's worked examples */
 
-    CHECK_OK(pn_base20_from_u64(23u, &v, &err_), err_);
+    v = pn_base20_from_u64(23u);
     CHECK_OK(pn_mayan_render(v, buf, sizeof buf, &err_), err_);
     CHECK(strcmp(buf, DOT " " THREE) == 0);
 
-    CHECK_OK(pn_base20_from_u64(33u, &v, &err_), err_);
+    v = pn_base20_from_u64(33u);
     CHECK_OK(pn_mayan_render(v, buf, sizeof buf, &err_), err_);
     CHECK(strcmp(buf, DOT " " THIRTEEN) == 0);
 
-    CHECK_OK(pn_base20_from_u64(429u, &v, &err_), err_);
+    v = pn_base20_from_u64(429u);
     CHECK_OK(pn_mayan_render(v, buf, sizeof buf, &err_), err_);
     CHECK(strcmp(buf, DOT " " DOT " " NINE) == 0);
 
     /*  where the Babylonian scribe leaves two blank spaces, the shell
 	   sits: the era's answer to the missing-zero tragedy
 	*/
-    CHECK_OK(pn_base20_from_u64(8800u, &v, &err_), err_);
+    v = pn_base20_from_u64(8800u);
     CHECK_OK(pn_mayan_render(v, buf, sizeof buf, &err_), err_);
     CHECK(strcmp(buf, DOT " " TWO " " SHELL " " SHELL) == 0);
 
     /* zero is a sign, not a blank: the lone shell */
-    CHECK_OK(pn_base20_from_u64(0u, &v, &err_), err_);
+    v = pn_base20_from_u64(0u);
     CHECK(pn_mayan_render_size(v) == 4);
     CHECK_OK(pn_mayan_render(v, buf, sizeof buf, &err_), err_);
     CHECK(strcmp(buf, SHELL) == 0);
@@ -111,7 +111,7 @@ int main(void) {
     /* render_size exact against the hand speller, swept */
 
     for (uint64_t n = 0; n < 160000u; n++) {
-        CHECK_OK(pn_base20_from_u64(n, &v, &err_), err_);
+        v = pn_base20_from_u64(n);
         (void) expect_render(v, want);
         CHECK(pn_mayan_render_size(v) == strlen(want));
         if (pn_fails) {
@@ -121,7 +121,7 @@ int main(void) {
 
     /* errors: render — the well_formed rule book */
 
-    CHECK_OK(pn_base20_from_u64(1u, &v, &err_), err_);
+    v = pn_base20_from_u64(1u);
 
     memset(buf, 'x', 8);
     v.places[2] = 20; /* {1,0,20,0}: a place past nineteen */
@@ -141,7 +141,7 @@ int main(void) {
 
     /* buffer one byte short of need + NUL */
     memset(buf, 'x', 8);
-    CHECK_OK(pn_base20_from_u64(1u, &v, &err_), err_);
+    v = pn_base20_from_u64(1u);
     CHECK_ERROR(pn_mayan_render(v, buf, 4, &err_), err_, PN_ERROR_BUFFER); /* need is 4 */
     CHECK(memcmp(buf, "xxxx", 4) == 0);
 
@@ -152,7 +152,7 @@ int main(void) {
     for (uint64_t n = 0; n < 160000u; n++) {
         char rendered[5 * PN_BASE20_MAX_PLACES + 8];
         size_t need;
-        CHECK_OK(pn_base20_from_u64(n, &v, &err_), err_);
+        v = pn_base20_from_u64(n);
         need = pn_mayan_render_size(v);
         CHECK_OK(pn_mayan_render(v, rendered, need + 1, &err_), err_);
         pn_base20 back;

@@ -251,10 +251,7 @@ char* _Nullable pn_base20_format(pn_base20 v, char sep, char* _Nonnull buf, size
     ambiguous about empty places.
     https://en.wikipedia.org/wiki/Horner%27s_method
 */
-pn_base20* _Nullable pn_base20_from_u64(uint64_t n, pn_base20* _Nonnull out,
-                                        pn_error* _Nullable* _Nullable error) {
-    assert(out);
-
+pn_base20 pn_base20_from_u64(uint64_t number) {
     pn_base20 v;
 
     memset(&v, 0, sizeof v);
@@ -264,21 +261,10 @@ pn_base20* _Nullable pn_base20_from_u64(uint64_t n, pn_base20* _Nonnull out,
     size_t k = 0;
 
     do {
-        if (k == PN_BASE20_MAX_PLACES) {
-            if (error) {
-                *error = pn_error_init(PN_ERROR_RANGE,
-                                       "this many base-20 places will"
-                                       " not fit the value (the guard"
-                                       " reads as unreachable: 2^64"
-                                       " needs 15 places, the type"
-                                       " holds %u)",
-                                       PN_BASE20_MAX_PLACES);
-            }
-            return NULL;
-        }
-        p[k++] = (uint8_t) (n % 20u);
-        n /= 20u;
-    } while (n != 0);
+        assert(k < PN_BASE20_MAX_PLACES); /* UINT64_MAX needs only 15 places */
+        p[k++] = (uint8_t) (number % 20u);
+        number /= 20u;
+    } while (number != 0);
     /* ...then reversed, so the biggest place comes first */
     for (size_t i = 0; i < k / 2; i++) {
         uint8_t t = p[i];
@@ -288,37 +274,36 @@ pn_base20* _Nullable pn_base20_from_u64(uint64_t n, pn_base20* _Nonnull out,
     }
     v.n_places = (uint8_t) k;
     v.radix = (uint8_t) k;
-    *out = v;
-    return out;
+
+    return v;
 }
 
-uint64_t* _Nullable pn_base20_to_u64(pn_base20 v, uint64_t* _Nonnull out,
-                                     pn_error* _Nullable* _Nullable error) {
-    assert(out);
-    if (v.n_places == 0 || v.n_places > PN_BASE20_MAX_PLACES || v.radix > v.n_places) {
+uint64_t pn_base20_to_u64(pn_base20 value, pn_error* _Nullable* _Nullable error) {
+    if (value.n_places == 0 || value.n_places > PN_BASE20_MAX_PLACES
+        || value.radix > value.n_places) {
         if (error) {
             *error = pn_error_init(PN_ERROR_DOMAIN,
                                    "the value is not well-formed:"
                                    " %u places, radix %u",
-                                   v.n_places, v.radix);
+                                   value.n_places, value.radix);
         }
-        return NULL;
+        return 0;
     }
-    if (v.radix != v.n_places) {
+    if (value.radix != value.n_places) {
         if (error) {
             *error = pn_error_init(PN_ERROR_DOMAIN,
                                    "the value has %u fractional place(s)"
                                    " after the radix point, so it is no"
                                    " whole number",
-                                   (unsigned) v.n_places - v.radix);
+                                   (unsigned) value.n_places - value.radix);
         }
-        return NULL;
+        return 0;
     }
 
     uint64_t acc = 0;
 
-    for (unsigned i = 0; i < v.n_places; i++) {
-        uint64_t d = v.places[i];
+    for (unsigned i = 0; i < value.n_places; i++) {
+        uint64_t d = value.places[i];
 
         if (d > 19u) {
             if (error) {
@@ -327,7 +312,7 @@ uint64_t* _Nullable pn_base20_to_u64(pn_base20 v, uint64_t* _Nonnull out,
                                        " runs 0 to 19",
                                        i, (unsigned long long) d);
             }
-            return NULL;
+            return 0;
         }
         if (acc > (UINT64_MAX - d) / 20u) {
             if (error) {
@@ -335,15 +320,14 @@ uint64_t* _Nullable pn_base20_to_u64(pn_base20 v, uint64_t* _Nonnull out,
                                        "the value needs %u base-20"
                                        " places: more than a uint64_t"
                                        " can count",
-                                       v.n_places);
+                                       value.n_places);
             }
-            return NULL;
+            return 0;
         }
         acc = acc * 20u + d;
     }
     /* only the size: the sign is left to the caller, as in pn_base60_to_u64 */
-    *out = acc;
-    return out;
+    return acc;
 }
 
 /*
@@ -352,18 +336,8 @@ uint64_t* _Nullable pn_base20_to_u64(pn_base20 v, uint64_t* _Nonnull out,
     floating-point hardware rounds correctly. So the answer is exact
     whenever a double can hold the value at all.
 */
-double* _Nullable pn_base20_to_double(pn_base20 v, double* _Nonnull out,
-                                      pn_error* _Nullable* _Nullable error) {
-    assert(out);
-    if (!well_formed(v)) {
-        if (error) {
-            *error = pn_error_init(PN_ERROR_DOMAIN,
-                                   "the value is not well-formed:"
-                                   " %u places, radix %u",
-                                   v.n_places, v.radix);
-        }
-        return NULL;
-    }
+double pn_base20_to_double(pn_base20 value) {
+    assert(well_formed(value));
 
     double val = 0.0;
 
@@ -372,8 +346,8 @@ double* _Nullable pn_base20_to_double(pn_base20 v, double* _Nonnull out,
     uint64_t acc = 0;
     unsigned i = 0;
 
-    for (; i < v.radix; i++) {
-        uint64_t d = v.places[i];
+    for (; i < value.radix; i++) {
+        uint64_t d = value.places[i];
 
         if (acc > (UINT64_MAX - d) / 20u) {
             overflowed = 1;
@@ -383,8 +357,8 @@ double* _Nullable pn_base20_to_double(pn_base20 v, double* _Nonnull out,
     }
     val = (double) acc;
     if (overflowed) { /* too big for a uint64_t: finish in double */
-        for (; i < v.radix; i++) {
-            val = val * 20.0 + (double) v.places[i];
+        for (; i < value.radix; i++) {
+            val = val * 20.0 + (double) value.places[i];
         }
     }
 
@@ -394,40 +368,38 @@ double* _Nullable pn_base20_to_double(pn_base20 v, double* _Nonnull out,
         Both are exact while k <= 14, so one division gives a
         correctly rounded answer.
     */
-    unsigned k = (unsigned) v.n_places - v.radix;
+    unsigned k = (unsigned) value.n_places - value.radix;
 
     if (k > 0) {
         if (k < POW20_COUNT) {
             uint64_t f = 0;
 
-            for (i = v.radix; i < v.n_places; i++) {
-                f = f * 20u + v.places[i];
+            for (i = value.radix; i < value.n_places; i++) {
+                f = f * 20u + value.places[i];
             }
             val += (double) f / (double) pow20_exact[k];
         }
         else { /* too many places for exact whole numbers: divide by 20 place by place */
             double frac = 0.0;
 
-            for (i = v.n_places; i-- > v.radix;) {
-                frac = (frac + (double) v.places[i]) / 20.0;
+            for (i = value.n_places; i-- > value.radix;) {
+                frac = (frac + (double) value.places[i]) / 20.0;
             }
             val += frac;
         }
     }
 
-    *out = v.neg ? -val : val;
-    return out;
+    return value.neg ? -val : val;
 }
 
-pn_base20* _Nullable pn_base20_from_double(double x, uint8_t frac_places, pn_base20* _Nonnull out,
-                                           pn_error* _Nullable* _Nullable error) {
-    assert(out);
+pn_base20 pn_base20_from_double(double x, uint8_t frac_places,
+                                pn_error* _Nullable* _Nullable error) {
     if (isnan(x) || isinf(x)) {
         if (error) {
             *error = pn_error_init(PN_ERROR_DOMAIN, "NaN and infinity name no number a"
                                                     " codex page could hold");
         }
-        return NULL;
+        return (pn_base20) {0};
     }
     if ((int) frac_places > PN_BASE20_MAX_PLACES) {
         if (error) {
@@ -436,7 +408,7 @@ pn_base20* _Nullable pn_base20_from_double(double x, uint8_t frac_places, pn_bas
                                    " the value holds %u places total",
                                    (unsigned) frac_places, PN_BASE20_MAX_PLACES);
         }
-        return NULL;
+        return (pn_base20) {0};
     }
 
     double mag = fabs(x);
@@ -459,7 +431,7 @@ pn_base20* _Nullable pn_base20_from_double(double x, uint8_t frac_places, pn_bas
                                        " %u base-20 places",
                                        PN_BASE20_MAX_PLACES);
             }
-            return NULL;
+            return (pn_base20) {0};
         }
         double q = floor(ip / 20.0);
         double r = ip - q * 20.0;
@@ -496,7 +468,7 @@ pn_base20* _Nullable pn_base20_from_double(double x, uint8_t frac_places, pn_bas
                                        " slots",
                                        (unsigned) ki, PN_BASE20_MAX_PLACES);
             }
-            return NULL;
+            return (pn_base20) {0};
         }
         fp *= 20.0;
         uint8_t dgt = (uint8_t) fp; /* rounds down, since fp is never negative */
@@ -569,7 +541,7 @@ pn_base20* _Nullable pn_base20_from_double(double x, uint8_t frac_places, pn_bas
                                        " place",
                                        PN_BASE20_MAX_PLACES);
             }
-            return NULL;
+            return (pn_base20) {0};
         }
         v.places[0] = 1;
         total++; /* all the other places stay 0 */
@@ -591,6 +563,6 @@ pn_base20* _Nullable pn_base20_from_double(double x, uint8_t frac_places, pn_bas
     }
 
     v.n_places = (uint8_t) total;
-    *out = v;
-    return out;
+
+    return v;
 }
