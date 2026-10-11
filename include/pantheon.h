@@ -280,26 +280,35 @@ pn_base20 pn_base20_parse(const char* _Nonnull text, pn_error* _Nullable* _Nulla
 
 #define PN_BASE20_FORMAT_MAX_LEN (1 + 3 * PN_BASE20_MAX_PLACES + 1) /* '-', places, ',', null */
 
-/// Write a value in the modern notation, the reverse of
-/// pn_base20_parse. Places are separated by @param sep (',' or
-/// ':'), and ';' marks the radix point when the value has both a
-/// whole part and a fraction. The text is null terminated and needs
-/// at most PN_BASE20_FORMAT_MAX_LEN bytes.
-///
-/// @param v - the value to write
-/// @param sep - the separator between places
-/// @param buf - where the text is written, with room for the null terminator
-/// @param buflen - the size of buf in bytes
-/// @param error - where to put the error report on failure:
-///     PN_ERROR_SYNTAX when sep isn't ',' ':' or ';',
-///     PN_ERROR_DOMAIN when v is malformed (no places or too many,
-///     a place above 19, or radix past n_places),
-///     PN_ERROR_BUFFER when buflen is too small. On failure buf is
-///     not changed.
-/// @returns the caller's `buf` on success, or NULL and the
-/// @param error encountered.
-char* _Nullable pn_base20_format(pn_base20 v, char sep, char* _Nonnull buf, size_t buflen,
+/// @returns a new string formatted from the
+/// @param value provided, using the
+/// @param place_sep provided between places (see
+/// pn_base20_format_into), or NULL and the
+/// @param error encountered; the caller owns the `char*` and should `free` it
+[[nodiscard]]
+char* _Nullable pn_base20_format(pn_base20 value, char place_sep,
                                  pn_error* _Nullable* _Nullable error);
+
+/// Write a value in the modern notation, the reverse of
+/// pn_base20_parse. Places are separated by @param place_sep (','
+/// ':' or ';'), and ';' marks the radix point when the value has
+/// both a whole part and a fraction. Unlike pn_base60_format_into,
+/// places use only as many digits as they need ("1,2,0,0"). The text
+/// is null terminated and needs at most PN_BASE20_FORMAT_MAX_LEN
+/// bytes. On failure the buffer is not changed.
+///
+/// @returns the caller's `char*` with the
+/// @param value written in, using the
+/// @param place_sep between places, into the
+/// @param buffer provided, which holds the
+/// @param buflen bytes provided; or NULL and the
+/// @param error encountered:
+///     PN_ERROR_SYNTAX when place_sep isn't ',' ':' or ';',
+///     PN_ERROR_DOMAIN when value is malformed (no places or too many,
+///     a place above 19, or radix past n_places),
+///     PN_ERROR_BUFFER when buflen is too small.
+char* _Nullable pn_base20_format_into(pn_base20 value, char place_sep, char* _Nonnull buffer,
+                                      size_t buflen, pn_error* _Nullable* _Nullable error);
 
 /// Convert a whole number to base-20 places: divide by 20 again and
 /// again, keeping the remainders. 0 becomes the single place {0}.

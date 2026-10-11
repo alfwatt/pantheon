@@ -7,6 +7,8 @@
    a fractional example (an anachronism, kept for the type).
 */
 
+#include <stdlib.h>
+
 #include "check.h"
 
 int main(void) {
@@ -75,21 +77,30 @@ int main(void) {
     /* format */
 
     v = pn_base20_from_u64(8800);
-    CHECK_OK(pn_base20_format(v, ',', buf, sizeof buf, &err_), err_);
+    CHECK_OK(pn_base20_format_into(v, ',', buf, sizeof buf, &err_), err_);
     CHECK(strcmp(buf, "1,2,0,0") == 0);
-    CHECK_OK(pn_base20_format(v, ':', buf, sizeof buf, &err_), err_);
+    CHECK_OK(pn_base20_format_into(v, ':', buf, sizeof buf, &err_), err_);
     CHECK(strcmp(buf, "1:2:0:0") == 0);
-    CHECK_ERROR(pn_base20_format(v, ',', buf, strlen("1,2,0,0"), &err_), err_, PN_ERROR_BUFFER);
+    CHECK_ERROR(pn_base20_format_into(v, ',', buf, strlen("1,2,0,0"), &err_), err_,
+                PN_ERROR_BUFFER);
+
+    /* the allocating version hands back its own string */
+    char* text = NULL;
+
+    CHECK_OK(text = pn_base20_format(v, ',', &err_), err_);
+    CHECK(text && strcmp(text, "1,2,0,0") == 0);
+    free(text);
+    CHECK_ERROR(pn_base20_format(v, '.', &err_), err_, PN_ERROR_SYNTAX); /* NULL: nothing to free */
 
     CHECK_VALUE(v = pn_base20_parse("1;12,9", &err_), err_);
-    CHECK_OK(pn_base20_format(v, ',', buf, sizeof buf, &err_), err_);
+    CHECK_OK(pn_base20_format_into(v, ',', buf, sizeof buf, &err_), err_);
     CHECK(strcmp(buf, "1;12,9") == 0); /* interior radix writes ';' */
 
     /*  the first place drops its leading zero exactly as sex60's rule:
 	   {0,5} radix 1 neg prints "-0;5": the 0 keeps its units digit
 	*/
     pn_base20 hand = {{0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 2, 1, true};
-    CHECK_OK(pn_base20_format(hand, ',', buf, sizeof buf, &err_), err_);
+    CHECK_OK(pn_base20_format_into(hand, ',', buf, sizeof buf, &err_), err_);
     CHECK(strcmp(buf, "-0;5") == 0);
 
     /* conversions: negatives, fractions, rounding */
@@ -164,7 +175,7 @@ int main(void) {
     u = 256u;
     CHECK_VALUE_ERROR(u = pn_base20_to_u64(bad, &err_), err_, PN_ERROR_DOMAIN); /* place > 19 */
     CHECK(u == 0u); /* a failed conversion returns 0 */
-    CHECK_ERROR(pn_base20_format(bad, ',', buf, sizeof buf, &err_), err_, PN_ERROR_DOMAIN);
+    CHECK_ERROR(pn_base20_format_into(bad, ',', buf, sizeof buf, &err_), err_, PN_ERROR_DOMAIN);
 
     memset(&bad, 0, sizeof bad);
     bad.n_places = 2;
@@ -177,7 +188,7 @@ int main(void) {
 
     memset(&bad, 0, sizeof bad); /* n_places 0: the void */
     CHECK_VALUE_ERROR(u = pn_base20_to_u64(bad, &err_), err_, PN_ERROR_DOMAIN);
-    CHECK_ERROR(pn_base20_format(bad, ',', buf, sizeof buf, &err_), err_, PN_ERROR_DOMAIN);
+    CHECK_ERROR(pn_base20_format_into(bad, ',', buf, sizeof buf, &err_), err_, PN_ERROR_DOMAIN);
 
     /* 16 maxed places = 20^16 − 1: no uint64_t on the bench */
     pn_base20 maxed;

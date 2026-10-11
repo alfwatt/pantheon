@@ -25,6 +25,7 @@
 */
 #include <assert.h>
 #include <math.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "pantheon.h"
@@ -172,33 +173,53 @@ pn_base20 pn_base20_parse(const char* _Nonnull text, pn_error* _Nullable* _Nulla
     return v;
 }
 
-char* _Nullable pn_base20_format(pn_base20 v, char sep, char* _Nonnull buf, size_t buflen,
+char* _Nullable pn_base20_format(pn_base20 value, char place_sep,
                                  pn_error* _Nullable* _Nullable error) {
-    assert(buf);
-    if (sep != ',' && sep != ':' && sep != ';') {
+    char* buffer = malloc(PN_BASE20_FORMAT_MAX_LEN);
+
+    if (buffer == NULL) {
+        if (error) {
+            *error = pn_error_init(PN_ERROR_BUFFER, "no room for a %u byte buffer",
+                                   (unsigned) PN_BASE20_FORMAT_MAX_LEN);
+        }
+        return NULL;
+    }
+
+    if (pn_base20_format_into(value, place_sep, buffer, PN_BASE20_FORMAT_MAX_LEN, error) == NULL) {
+        free(buffer);
+        return NULL;
+    }
+
+    return buffer;
+}
+
+char* _Nullable pn_base20_format_into(pn_base20 value, char place_sep, char* _Nonnull buffer,
+                                      size_t buflen, pn_error* _Nullable* _Nullable error) {
+    assert(buffer);
+    if (place_sep != ',' && place_sep != ':' && place_sep != ';') {
         if (error) {
             *error = pn_error_init(PN_ERROR_SYNTAX,
                                    "places may be joined with ',' ':'"
                                    " or ';' only, not '%c'",
-                                   sep);
+                                   place_sep);
         }
         return NULL;
     }
-    if (!well_formed(v)) {
+    if (!well_formed(value)) {
         if (error) {
             *error = pn_error_init(PN_ERROR_DOMAIN,
                                    "the value is not well-formed:"
                                    " %u places, radix %u - places need"
                                    " 1 to %u slots, each 0 to 19, and"
                                    " the radix cannot pass n_places",
-                                   v.n_places, v.radix, PN_BASE20_MAX_PLACES);
+                                   value.n_places, value.radix, PN_BASE20_MAX_PLACES);
         }
         return NULL;
     }
 
     /*
         Write into a scratch buffer first, so a failure never leaves
-        buf holding half a number. The worst case is '-' + 16
+        buffer holding half a number. The worst case is '-' + 16
         places x 2 digits + 15 separators + the null terminator = 49 bytes,
         which fits in the declared maximum.
 
@@ -211,14 +232,14 @@ char* _Nullable pn_base20_format(pn_base20 v, char sep, char* _Nonnull buf, size
     char tmp[PN_BASE20_FORMAT_MAX_LEN];
     char* q = tmp;
 
-    if (v.neg) {
+    if (value.neg) {
         *q++ = '-';
     }
-    for (unsigned i = 0; i < v.n_places; i++) {
+    for (unsigned i = 0; i < value.n_places; i++) {
         if (i > 0) {
-            *q++ = (i == v.radix && v.radix < v.n_places) ? ';' : sep;
+            *q++ = (i == value.radix && value.radix < value.n_places) ? ';' : place_sep;
         }
-        unsigned d = v.places[i];
+        unsigned d = value.places[i];
 
         if (d >= 10u) { /* a second digit only for 10 to 19 */
             *q++ = (char) ('0' + (int) (d / 10u));
@@ -237,9 +258,9 @@ char* _Nullable pn_base20_format(pn_base20 v, char sep, char* _Nonnull buf, size
         }
         return NULL;
     }
-    memcpy(buf, tmp, len);
-    buf[len] = '\0';
-    return buf;
+    memcpy(buffer, tmp, len);
+    buffer[len] = '\0';
+    return buffer;
 }
 
 /*
